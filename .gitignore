@@ -1,0 +1,28 @@
+# Rust
+/target
+Cargo.lock
+**/*.rs.bk
+
+# Build files
+*.o
+*.elf
+*.hex
+*.eep
+*.lss
+*.map
+*.sym
+*.lst
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+
+.history/

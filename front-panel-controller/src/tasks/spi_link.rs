@@ -1,0 +1,106 @@
+use druzhba_common::error;
+use druzhba_common::protocol_types::{
+    DisplayCommand, DisplayEnableCommand, LedCommand, SMeterCommand, Wm8940Command,
+};
+use druzhba_common::spi_protocol::{Packet, PacketType};
+use embassy_executor::Spawner;
+use embassy_stm32::gpio::{AnyPin, Output};
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::channel::Channel;
+use embassy_sync::signal::Signal;
+
+use crate::constants::TX_QUEUE_SIZE;
+use crate::hardware::{spi_slave::SpiSlave, SpiLink};
+use crate::state::input::{DisplayBuffer, InputState};
+use crate::state::output::OUTPUT_EVENTS;
+
+static TX_QUEUE: Channel<ThreadModeRawMutex, Packet, TX_QUEUE_SIZE> = Channel::new();
+static QUEUE_EMPTY: Signal<ThreadModeRawMutex, ()> = Signal::new();
+
+pub fn spawn_tasks(spawner: &Spawner, spi_link: SpiLink, input_state: &'static InputState) {
+    let SpiLink { spi, link_alert } = spi_link;
+
+    spawner.must_spawn(prepare_tx_task(link_alert));
+    spawner.must_spawn(spi_link_task(spi, input_state));
+}
+
+#[embassy_executor::task]
+async fn prepare_tx_task(mut alert: Output<'static, AnyPin>) {
+    use embassy_futures::select::{select, Either};
+
+    loop {
+        match select(OUTPUT_EVENTS.receive(), QUEUE_EMPTY.wait()).await {
+            Either::First(event) => {
+                let mut packet = Packet::new();
+
+                match event {
+                    crate::state::output::OutputEvent::Button(btn) => btn.serialize(&mut packet),
+                    crate::state::output::OutputEvent::Encoder(enc) => enc.serialize(&mut packet),
+                    crate::state::output::OutputEvent::Potentiometer(pot) => {
+                        pot.serialize(&mut packet)
+                    }
+                    crate::state::output::OutputEvent::Headphones(hp) => hp.serialize(&mut packet),
+                }
+
+                TX_QUEUE.send(packet).await;
+                alert.set_high();
+            }
+            Either::Second(_) => {
+                alert.set_low();
+            }
+        }
+    }
+}
+
+#[embassy_executor::task]
+async fn spi_link_task(mut spi: SpiSlave, input_state: &'static InputState) {
+    let mut rx_packet = Packet::new();
+    let mut idle_packet = Packet::new();
+    idle_packet.set_type(PacketType::Idle);
+    idle_packet.set_crc();
+
+    loop {
+        let tx_data = match TX_QUEUE.try_receive() {
+            Ok(packet) => packet.data,
+            Err(_) => {
+                QUEUE_EMPTY.signal(());
+                idle_packet.data
+            }
+        };
+
+        if let Err(_e) = spi.transfer(&mut rx_packet.data, &tx_data).await {
+            error::error("SPI transfer failed").await;
+            continue;
+        }
+
+        if rx_packet.verify_crc() {
+            handle_rx_packet(&rx_packet, input_state).await;
+        }
+    }
+}
+
+async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
+    if let Some(led_cmd) = LedCommand::deserialize(packet) {
+        if led_cmd.led_id < 7 {
+            input_state.leds.signal(crate::state::input::LedUpdate {
+                led_id: led_cmd.led_id,
+                state: led_cmd.state,
+            });
+        }
+    } else if let Some(smeter_cmd) = SMeterCommand::deserialize(packet) {
+        input_state.s_meter.signal(smeter_cmd.value);
+    } else if let Some(wm8940_cmd) = Wm8940Command::deserialize(packet) {
+        input_state.wm8940.signal(wm8940_cmd);
+    } else if let Some(display_cmd) = DisplayCommand::deserialize(packet) {
+        let display_id = display_cmd.display_id as usize;
+        if display_id < 2 {
+            let buffer = DisplayBuffer {
+                buffer: display_cmd.buffer,
+                dirty: display_cmd.dirty,
+            };
+            input_state.displays[display_id].signal(buffer);
+        }
+    } else if let Some(enable_cmd) = DisplayEnableCommand::deserialize(packet) {
+        input_state.displays_enabled.signal(enable_cmd.enabled);
+    }
+}

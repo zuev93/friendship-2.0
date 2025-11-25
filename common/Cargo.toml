@@ -1,0 +1,23 @@
+[package]
+name = "druzhba-common"
+version = "0.1.0"
+authors = ["Zuev"]
+edition = "2021"
+
+[dependencies]
+# Embassy from workspace
+embassy-time = { workspace = true }
+embassy-sync = { workspace = true }
+
+# HAL traits
+embedded-hal = { workspace = true }
+embedded-hal-async = { workspace = true }
+embedded-hal-bus = { workspace = true }
+
+# Utilities
+ufmt = { workspace = true }
+heapless = { workspace = true }
+
+[lints.rust]
+warnings = "deny"
+

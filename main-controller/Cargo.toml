@@ -1,0 +1,46 @@
+[package]
+name = "druzhba-main-controller"
+version = "0.1.0"
+authors = ["Zuev"]
+edition = "2021"
+
+[dependencies]
+# Common crate with shared drivers
+druzhba-common = { path = "../common" }
+
+# Embassy async runtime
+embassy-executor = { workspace = true }
+embassy-time = { workspace = true }
+embassy-sync = { workspace = true }
+embassy-futures = { workspace = true }
+embassy-stm32 = { version = "0.4", features = [
+    "stm32h7b0rb",
+    "memory-x",
+    "time-driver-any",
+    "exti",
+] }
+
+# HAL traits
+embedded-hal = { workspace = true }
+embedded-hal-async = { workspace = true }
+embedded-hal-bus = { workspace = true }
+
+# Core
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+
+# Panic handler
+panic-halt = { workspace = true }
+
+# Utilities
+ufmt = { workspace = true }
+heapless = { workspace = true }
+static_cell = { workspace = true }
+
+[[bin]]
+name = "druzhba-main-controller"
+path = "src/main.rs"
+
+[lints.rust]
+warnings = "deny"
+

@@ -1,0 +1,10 @@
+pub mod ad9834;
+pub mod ad9851;
+pub mod ads1115;
+pub mod mcp4725;
+pub mod pca9534;
+pub mod pcm3060;
+pub mod sc18is602;
+pub mod ssd1315;
+pub mod tca9555;
+pub mod wm8940;

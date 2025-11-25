@@ -1,0 +1,44 @@
+[workspace]
+members = [
+    "common",
+    "main-controller",
+    # "front-panel-controller",  # Temporarily disabled for rust-analyzer
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Embassy async runtime
+embassy-executor = { version = "0.9.1", features = ["arch-cortex-m", "executor-thread"] }
+embassy-time = { version = "0.5", features = ["tick-hz-1_000"] }
+embassy-sync = { version = "0.7.2" }
+embassy-futures = { version = "0.1.2" }
+
+# HAL traits
+embedded-hal = "1.0"
+embedded-hal-async = "1.0"
+embedded-hal-bus = { version = "0.3", features = ["async"] }
+
+# Core
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7.5"
+
+# Panic handler
+panic-halt = "1.0"
+
+# Utilities
+ufmt = "0.2"
+heapless = "0.9.2"
+static_cell = "2.1"
+
+[profile.dev]
+panic = "abort"
+lto = true
+opt-level = "s"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+debug = true
+lto = true
+opt-level = "z"
+strip = false
