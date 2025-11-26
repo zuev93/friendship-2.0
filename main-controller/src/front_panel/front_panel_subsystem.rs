@@ -14,16 +14,12 @@ use crate::front_panel::tasks::{
     agc_mode_led_task, audio_task, mode_led_task, rf_gain_mode_led_task, rit_mode_led_task,
     s_meter_task, spi_receiver_task, tone_led_task, transmit_led_task, transmit_mode_led_task,
 };
-use crate::front_panel::types::SpiType;
 
-pub struct FrontPanelSubsystem {
-    spi_link: SpiType,
-    audio: Audio,
-    alert_pin: ExtiInput<'static>,
-}
+pub struct FrontPanelSubsystem {}
 
 impl FrontPanelSubsystem {
-    pub fn new<T: spi::Instance, T2: Pin>(
+    pub fn init_subsystem<T: spi::Instance, T2: Pin>(
+        spawner: Spawner,
         spi_periph: Peri<'static, T>,
         mosi: Peri<'static, impl MosiPin<T>>,
         miso: Peri<'static, impl MisoPin<T>>,
@@ -33,7 +29,7 @@ impl FrontPanelSubsystem {
         cs_pin: Peri<'static, impl Pin>,
         alert_pin: Peri<'static, T2>,
         alert_exti: Peri<'static, T2::ExtiChannel>,
-    ) -> Self {
+    ) {
         static SPI_LINK: StaticCell<Mutex<ThreadModeRawMutex, SpiLink>> = StaticCell::new();
 
         let mut spi_config = spi::Config::default();
@@ -50,29 +46,16 @@ impl FrontPanelSubsystem {
             // TODO check schematics
             Pull::Up,
         );
+        spawner.must_spawn(spi_receiver_task(spi_link, alert_pin));
 
-        Self {
-            spi_link,
-            audio: Audio::new(spi_link),
-            alert_pin,
-        }
-    }
-
-    pub fn create_tasks(self, spawner: Spawner) {
-        spawner
-            .spawn(spi_receiver_task(self.spi_link, self.alert_pin))
-            .unwrap();
-
-        spawner.spawn(mode_led_task(self.spi_link)).unwrap();
-        spawner.spawn(transmit_led_task(self.spi_link)).unwrap();
-        spawner.spawn(agc_mode_led_task(self.spi_link)).unwrap();
-        spawner.spawn(rf_gain_mode_led_task(self.spi_link)).unwrap();
-        spawner.spawn(rit_mode_led_task(self.spi_link)).unwrap();
-        spawner.spawn(tone_led_task(self.spi_link)).unwrap();
-        spawner
-            .spawn(transmit_mode_led_task(self.spi_link))
-            .unwrap();
-        spawner.spawn(s_meter_task(self.spi_link)).unwrap();
-        spawner.spawn(audio_task(self.audio)).unwrap();
+        spawner.must_spawn(mode_led_task(spi_link));
+        spawner.must_spawn(transmit_led_task(spi_link));
+        spawner.must_spawn(agc_mode_led_task(spi_link));
+        spawner.must_spawn(rf_gain_mode_led_task(spi_link));
+        spawner.must_spawn(rit_mode_led_task(spi_link));
+        spawner.must_spawn(tone_led_task(spi_link));
+        spawner.must_spawn(transmit_mode_led_task(spi_link));
+        spawner.must_spawn(s_meter_task(spi_link));
+        spawner.must_spawn(audio_task(Audio::new(spi_link)));
     }
 }

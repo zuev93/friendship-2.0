@@ -54,7 +54,6 @@ pub struct Settings {
     pub af_volume: u8, // AF amplifier volume (0-100%)
     #[allow(dead_code)]
     pub mic_gain: u8, // Microphone gain (0-100%)
-    pub tone_frequency: u32,         // Tone generator frequency (Hz)
 }
 
 impl Default for Settings {
@@ -65,7 +64,6 @@ impl Default for Settings {
             filter: FilterType::Single,
             af_volume: 50,       // 50% volume by default
             mic_gain: 50,        // 50% mic gain by default
-            tone_frequency: 700, // 700 Hz CW sidetone by default
         }
     }
 }

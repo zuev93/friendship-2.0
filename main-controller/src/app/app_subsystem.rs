@@ -9,11 +9,7 @@ use super::tasks::{
 pub struct AppSubsystem {}
 
 impl AppSubsystem {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub fn create_tasks(self, spawner: Spawner) {
+    pub fn init_subsystem(spawner: Spawner) {
         spawner.must_spawn(buttons_task());
         spawner.must_spawn(encoder_task());
         spawner.must_spawn(potentiometer_task());

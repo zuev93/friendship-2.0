@@ -25,7 +25,7 @@ use crate::main_board::{
 pub struct MainBoardSubsystem {}
 
 impl MainBoardSubsystem {
-    pub fn init_subsystem<T1: i2c::Instance, T2: spi::Instance>(
+    pub async fn init_subsystem<T1: i2c::Instance, T2: spi::Instance>(
         spawner: Spawner,
         irqs: impl interrupt::typelevel::Binding<T1::EventInterrupt, EventInterruptHandler<T1>>
             + interrupt::typelevel::Binding<T1::ErrorInterrupt, ErrorInterruptHandler<T1>>
@@ -60,14 +60,22 @@ impl MainBoardSubsystem {
         let hw = MainBoard::new(
             i2c_mutex, fq_ud, reset, spi_peri, txsd, rxsd, ws, ck, mck, spi_txdma, spi_rxdma,
         );
+        let MainBoard {
+            dds,
+            power_control,
+            if_gain_control,
+            if_reference,
+            filter_select,
+            audio_panel,
+            rssi_reader,
+        } = hw;
 
-        rssi::spawn_tasks(spawner, hw.rssi_reader);
-        spawner.must_spawn(dds_control_task(hw.dds));
-        spawner.must_spawn(filter_selection_task(hw.filter_select));
-        spawner.must_spawn(if_gain_control_task(hw.if_gain_control));
-        // spawner.spawn(audio_control_task(hw)).; // Old, deprecated
-        audio_panel_task::create_tasks(spawner, hw.audio_panel);
-        spawner.must_spawn(power_control_task(hw.power_control));
-        spawner.must_spawn(if_reference_task(hw.if_reference));
+        rssi::spawn_tasks(spawner, rssi_reader);
+        spawner.must_spawn(dds_control_task(dds));
+        spawner.must_spawn(filter_selection_task(filter_select));
+        spawner.must_spawn(if_gain_control_task(if_gain_control));
+        audio_panel_task::create_tasks(spawner, audio_panel).await;
+        spawner.must_spawn(power_control_task(power_control));
+        spawner.must_spawn(if_reference_task(if_reference));
     }
 }

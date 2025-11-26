@@ -18,10 +18,7 @@ use panic_halt as _;
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
-    let hw = hardware::Hardware::new(spawner);
-
-    hw.front_panel.create_tasks(spawner);
-    hw.app.create_tasks(spawner);
+    hardware::Hardware::init_subsystem(spawner).await;
 
     loop {
         Timer::after_secs(60).await;

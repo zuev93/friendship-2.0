@@ -1,25 +1,33 @@
 use common::error::error;
 use embassy_executor::Spawner;
-use embassy_stm32::i2s::{self, Reader, Writer};
+use embassy_stm32::i2s::{Reader, Writer};
+use static_cell::StaticCell;
 
 use crate::{
-    app::{
-        events::{AUDIO_BUFFER_TX, CURRENT_MODE},
-        types::Mode,
-    },
+    app::events::{AUDIO_BUFFER_TX, CURRENT_MODE},
     consts::AUDIO_BUFFER_SIZE,
     main_board::{events::AUDIO_RX_BUFFER, modules::audio_panel::AudioPanel},
 };
 
-pub fn create_tasks(spawner: Spawner, mut audio_panel: AudioPanel) {
-    let (reader, _) = audio_panel.split_i2s();
-    spawner.must_spawn(audio_panel_i2s_rx_task(Rdr::new(reader)));
-    // spawner.must_spawn(audio_panel_i2s_tx_task(writer));
-    // spawner.must_spawn(control_task(audio_panel));
+type AudioReader = Reader<'static, 'static, u16>;
+type AudioWriter = Writer<'static, 'static, u16>;
+
+static AUDIO_PANEL: StaticCell<AudioPanel> = StaticCell::new();
+static AUDIO_I2S_READER: StaticCell<AudioReader> = StaticCell::new();
+static AUDIO_I2S_WRITER: StaticCell<AudioWriter> = StaticCell::new();
+
+pub async fn create_tasks(spawner: Spawner, audio_panel: AudioPanel) {
+    let audio_panel = AUDIO_PANEL.init(audio_panel);
+    let (reader, writer) = audio_panel.split_i2s().await;
+    let reader = AUDIO_I2S_READER.init(reader);
+    let writer = AUDIO_I2S_WRITER.init(writer);
+    spawner.must_spawn(audio_panel_i2s_rx_task(reader));
+    spawner.must_spawn(audio_panel_i2s_tx_task(writer));
+    spawner.must_spawn(control_task(audio_panel));
 }
 
 #[embassy_executor::task]
-pub async fn audio_panel_i2s_rx_task(reader: Rdr) {
+pub async fn audio_panel_i2s_rx_task(reader: &'static mut AudioReader) {
     let mut buffer: [u16; AUDIO_BUFFER_SIZE] = [0u16; AUDIO_BUFFER_SIZE];
 
     loop {
@@ -35,7 +43,7 @@ pub async fn audio_panel_i2s_rx_task(reader: Rdr) {
 }
 
 #[embassy_executor::task]
-pub async fn audio_panel_i2s_tx_task(mut writer: Writer<'static, 'static, u16>) {
+pub async fn audio_panel_i2s_tx_task(writer: &'static mut AudioWriter) {
     loop {
         let buffer = AUDIO_BUFFER_TX.wait().await;
         let result = writer.write(&buffer).await;
@@ -52,13 +60,7 @@ pub async fn control_task(audio_panel: &'static mut AudioPanel) {
         // TODO process other settings such as volume
         let mode = CURRENT_MODE.wait().await;
 
-        let result = match mode {
-            Mode::Rx => audio_panel.set_signal_detector_to_adc().await,
-            Mode::Tx => audio_panel.set_signal_detector_to_dac().await,
-            Mode::StandBy | Mode::WarmUp => audio_panel.set_signal_detector_to_adc().await,
-        };
-
-        if let Err(e) = result {
+        if let Err(e) = audio_panel.set_mode(mode).await {
             error(e).await;
         }
     }
