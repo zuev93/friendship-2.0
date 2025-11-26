@@ -81,6 +81,7 @@ pub async fn buttons_task() {
                 if !state.should_process_press(function) {
                     continue;
                 }
+                crate::app::events::BUTTON_BEEP.signal(());
                 handle_button_press(function, &mut state);
             }
             ButtonEvent::Release(function) => {

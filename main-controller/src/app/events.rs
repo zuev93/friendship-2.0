@@ -29,6 +29,7 @@ pub static CURRENT_SQUELCH: Signal<ThreadModeRawMutex, Squelch> = Signal::new();
 pub static CURRENT_TRANSMIT_MODE: Signal<ThreadModeRawMutex, TransmitMode> = Signal::new();
 pub static CURRENT_RF_GAIN_MODE: Signal<ThreadModeRawMutex, RfGainMode> = Signal::new();
 pub static TONE_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
+pub static BUTTON_BEEP: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
 pub static AUDIO_GENERATOR_OUT: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> =
     Signal::new();

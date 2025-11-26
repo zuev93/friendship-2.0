@@ -19,7 +19,6 @@ pub fn spawn_tasks(spawner: Spawner) {
     spawner.must_spawn(audio_modes_task(mixer));
 }
 
-// TODO check whether ThreadModeRawMutex is a right choce
 #[embassy_executor::task]
 async fn audio_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     loop {
@@ -27,10 +26,12 @@ async fn audio_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
         let generator = AUDIO_GENERATOR_OUT.wait().await;
         let mic = AUDIO_MIC_BUFFER.wait().await;
 
-        let mixer = mutex.lock().await;
+        let mut mixer = mutex.lock().await;
         mixer.set_buffer_rx(audio_rx);
         mixer.set_buffer_generator(generator);
         mixer.set_buffer_mic(mic);
+
+        mixer.mix();
 
         AUDIO_BUFFER_TX.signal(mixer.get_buffer_tx());
         AUDIO_BUFFER_HEADPHONES.signal(mixer.get_buffer_headphones());

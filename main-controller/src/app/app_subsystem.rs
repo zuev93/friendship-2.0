@@ -4,6 +4,7 @@ use crate::app::tasks::audio_task;
 
 use super::tasks::{
     buttons_task::buttons_task, encoder_task::encoder_task, potentiometer_task::potentiometer_task,
+    tone_task,
 };
 
 pub struct AppSubsystem {}
@@ -13,6 +14,7 @@ impl AppSubsystem {
         spawner.must_spawn(buttons_task());
         spawner.must_spawn(encoder_task());
         spawner.must_spawn(potentiometer_task());
+        tone_task::spawn(spawner);
         audio_task::spawn_tasks(spawner);
     }
 }
