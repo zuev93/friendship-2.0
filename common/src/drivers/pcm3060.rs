@@ -1,3 +1,4 @@
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use embedded_hal_async::i2c::I2c;
 
 #[repr(u8)]
@@ -21,43 +22,48 @@ pub enum Register {
     DacDigital5 = 0x10,
 }
 
-pub struct Pcm3060 {
+pub struct Pcm3060<I2C>
+where
+    I2C: I2c + 'static,
+{
     i2c_addr: u8,
+    i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
 }
 
-impl Pcm3060 {
-    pub fn new(i2c_addr: u8) -> Self {
-        Self { i2c_addr }
+impl<I2C> Pcm3060<I2C>
+where
+    I2C: I2c + 'static,
+{
+    pub fn new(i2c_addr: u8, i2c: &'static Mutex<ThreadModeRawMutex, I2C>) -> Self {
+        Self { i2c_addr, i2c }
     }
 
-    pub async fn write_register<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        reg: Register,
-        value: u8,
-    ) -> Result<(), I2C::Error> {
+    pub async fn write_register(&mut self, reg: Register, value: u8) -> Result<(), I2C::Error> {
         let reg_addr = reg as u8;
-        i2c.write(self.i2c_addr, &[reg_addr, value]).await
+        self.i2c
+            .lock()
+            .await
+            .write(self.i2c_addr, &[reg_addr, value])
+            .await
     }
 
-    pub async fn read_register<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        reg: Register,
-    ) -> Result<u8, I2C::Error> {
+    pub async fn read_register(&mut self, reg: Register) -> Result<u8, I2C::Error> {
         let reg_addr = reg as u8;
         let mut buffer = [0u8; 1];
-        i2c.write_read(self.i2c_addr, &[reg_addr], &mut buffer)
+        self.i2c
+            .lock()
+            .await
+            .write_read(self.i2c_addr, &[reg_addr], &mut buffer)
             .await?;
         Ok(buffer[0])
     }
 
-    pub async fn reset<I2C: I2c>(&mut self, i2c: &mut I2C) -> Result<(), I2C::Error> {
-        self.write_register(i2c, Register::Reset, 0x00).await
+    pub async fn reset(&mut self) -> Result<(), I2C::Error> {
+        self.write_register(Register::Reset, 0x00).await
     }
 
-    pub async fn init<I2C: I2c>(&mut self, i2c: &mut I2C) -> Result<(), I2C::Error> {
-        self.reset(i2c).await?;
+    pub async fn init(&mut self) -> Result<(), I2C::Error> {
+        self.reset().await?;
         Ok(())
     }
 }

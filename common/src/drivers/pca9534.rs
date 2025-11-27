@@ -37,9 +37,8 @@
  * ```
  */
 
-#![allow(dead_code)]
-
 use core::result::Result;
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use embedded_hal_async::i2c::I2c;
 
 const REG_INPUT_PORT: u8 = 0x00;
@@ -65,60 +64,58 @@ impl Pin {
     }
 }
 
-pub struct PCA9534 {
+pub struct PCA9534<I2C>
+where
+    I2C: I2c + 'static,
+{
     address: u8,
+    i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
 }
 
-impl PCA9534 {
-    pub fn new(address: u8) -> Self {
-        Self { address }
+impl<I2C> PCA9534<I2C>
+where
+    I2C: I2c + 'static,
+{
+    pub fn new(address: u8, i2c: &'static Mutex<ThreadModeRawMutex, I2C>) -> Self {
+        Self { address, i2c }
     }
 
     /// Initialize the PCA9534 with default configuration
     /// - All pins as inputs
     /// - No polarity inversion
     /// - Output register cleared
-    pub async fn init<I2C: I2c>(&mut self, i2c: &mut I2C) -> Result<(), I2C::Error> {
+    pub async fn init(&mut self) -> Result<(), I2C::Error> {
         // Configure all pins as inputs (default)
-        self.write_register(i2c, REG_CONFIG, 0xFF).await?;
+        self.write_register(REG_CONFIG, 0xFF).await?;
 
         // No polarity inversion
-        self.write_register(i2c, REG_POLARITY_INV, 0x00).await?;
+        self.write_register(REG_POLARITY_INV, 0x00).await?;
 
         // Clear output register
-        self.write_register(i2c, REG_OUTPUT_PORT, 0x00).await?;
+        self.write_register(REG_OUTPUT_PORT, 0x00).await?;
 
         Ok(())
     }
 
     /// Read all 8 input pins
-    pub async fn read_port<I2C: I2c>(&self, i2c: &mut I2C) -> Result<u8, I2C::Error> {
-        self.read_register(i2c, REG_INPUT_PORT).await
+    pub async fn read_port(&self) -> Result<u8, I2C::Error> {
+        self.read_register(REG_INPUT_PORT).await
     }
 
     /// Read a single input pin
-    pub async fn read_pin<I2C: I2c>(&self, i2c: &mut I2C, pin: Pin) -> Result<bool, I2C::Error> {
-        let value = self.read_register(i2c, REG_INPUT_PORT).await?;
+    pub async fn read_pin(&self, pin: Pin) -> Result<bool, I2C::Error> {
+        let value = self.read_register(REG_INPUT_PORT).await?;
         Ok((value & pin.mask()) != 0)
     }
 
     /// Write all 8 output pins
-    pub async fn write_port<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        value: u8,
-    ) -> Result<(), I2C::Error> {
-        self.write_register(i2c, REG_OUTPUT_PORT, value).await
+    pub async fn write_port(&mut self, value: u8) -> Result<(), I2C::Error> {
+        self.write_register(REG_OUTPUT_PORT, value).await
     }
 
     /// Write a single output pin (read-modify-write)
-    pub async fn write_pin<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        pin: Pin,
-        state: bool,
-    ) -> Result<(), I2C::Error> {
-        let mut value = self.read_register(i2c, REG_OUTPUT_PORT).await?;
+    pub async fn write_pin(&mut self, pin: Pin, state: bool) -> Result<(), I2C::Error> {
+        let mut value = self.read_register(REG_OUTPUT_PORT).await?;
 
         if state {
             value |= pin.mask();
@@ -126,30 +123,21 @@ impl PCA9534 {
             value &= !pin.mask();
         }
 
-        self.write_register(i2c, REG_OUTPUT_PORT, value).await
+        self.write_register(REG_OUTPUT_PORT, value).await
     }
 
     /// Set pin direction configuration
     /// - Bit = 1: pin configured as input (high-Z)
     /// - Bit = 0: pin configured as output
-    pub async fn set_direction<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        config: u8,
-    ) -> Result<(), I2C::Error> {
-        self.write_register(i2c, REG_CONFIG, config).await
+    pub async fn set_direction(&mut self, config: u8) -> Result<(), I2C::Error> {
+        self.write_register(REG_CONFIG, config).await
     }
 
     /// Set individual pin direction
     /// - true: input (high-Z)
     /// - false: output
-    pub async fn set_pin_direction<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        pin: Pin,
-        is_input: bool,
-    ) -> Result<(), I2C::Error> {
-        let mut config = self.read_register(i2c, REG_CONFIG).await?;
+    pub async fn set_pin_direction(&mut self, pin: Pin, is_input: bool) -> Result<(), I2C::Error> {
+        let mut config = self.read_register(REG_CONFIG).await?;
 
         if is_input {
             config |= pin.mask();
@@ -157,28 +145,19 @@ impl PCA9534 {
             config &= !pin.mask();
         }
 
-        self.write_register(i2c, REG_CONFIG, config).await
+        self.write_register(REG_CONFIG, config).await
     }
 
     /// Set polarity inversion register
     /// - Bit = 1: corresponding input pin polarity is inverted
     /// - Bit = 0: corresponding input pin polarity is retained
-    pub async fn set_polarity<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        invert: u8,
-    ) -> Result<(), I2C::Error> {
-        self.write_register(i2c, REG_POLARITY_INV, invert).await
+    pub async fn set_polarity(&mut self, invert: u8) -> Result<(), I2C::Error> {
+        self.write_register(REG_POLARITY_INV, invert).await
     }
 
     /// Set individual pin polarity inversion
-    pub async fn set_pin_polarity<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        pin: Pin,
-        inverted: bool,
-    ) -> Result<(), I2C::Error> {
-        let mut polarity = self.read_register(i2c, REG_POLARITY_INV).await?;
+    pub async fn set_pin_polarity(&mut self, pin: Pin, inverted: bool) -> Result<(), I2C::Error> {
+        let mut polarity = self.read_register(REG_POLARITY_INV).await?;
 
         if inverted {
             polarity |= pin.mask();
@@ -186,47 +165,40 @@ impl PCA9534 {
             polarity &= !pin.mask();
         }
 
-        self.write_register(i2c, REG_POLARITY_INV, polarity).await
+        self.write_register(REG_POLARITY_INV, polarity).await
     }
 
     /// Read input port and clear interrupt
     /// Reading the input register clears the INT pin
-    pub async fn read_and_clear_int<I2C: I2c>(&self, i2c: &mut I2C) -> Result<u8, I2C::Error> {
-        self.read_register(i2c, REG_INPUT_PORT).await
+    pub async fn read_and_clear_int(&self) -> Result<u8, I2C::Error> {
+        self.read_register(REG_INPUT_PORT).await
     }
 
     /// Sync output register to current input values
     /// Useful for preventing glitches when changing pin directions
-    pub async fn sync_outputs_to_inputs<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-    ) -> Result<(), I2C::Error> {
-        let input = self.read_register(i2c, REG_INPUT_PORT).await?;
-        self.write_register(i2c, REG_OUTPUT_PORT, input).await
+    pub async fn sync_outputs_to_inputs(&mut self) -> Result<(), I2C::Error> {
+        let input = self.read_register(REG_INPUT_PORT).await?;
+        self.write_register(REG_OUTPUT_PORT, input).await
     }
 
-    async fn write_register<I2C: I2c>(
-        &self,
-        i2c: &mut I2C,
-        reg: u8,
-        value: u8,
-    ) -> Result<(), I2C::Error> {
+    async fn write_register(&self, reg: u8, value: u8) -> Result<(), I2C::Error> {
         let data = [reg, value];
-        i2c.write(self.address, &data).await
+        self.i2c.lock().await.write(self.address, &data).await
     }
 
-    async fn read_register<I2C: I2c>(&self, i2c: &mut I2C, reg: u8) -> Result<u8, I2C::Error> {
-        i2c.write(self.address, &[reg]).await?;
+    async fn read_register(&self, reg: u8) -> Result<u8, I2C::Error> {
+        let mut lock = self.i2c.lock().await;
+        lock.write(self.address, &[reg]).await?;
 
         let mut buffer = [0u8; 1];
-        i2c.read(self.address, &mut buffer).await?;
+        lock.read(self.address, &mut buffer).await?;
 
         Ok(buffer[0])
     }
 
     /// Helper method to set a specific pin value in the port byte
     /// Returns updated port value
-    pub fn set_pin_value(port: u8, pin: Pin, state: bool) -> u8 {
+    pub fn set_pin_value(&self, port: u8, pin: Pin, state: bool) -> u8 {
         let pin_mask = 1 << (pin as u8);
         if state {
             port | pin_mask

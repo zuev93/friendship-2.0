@@ -10,9 +10,9 @@
 use embassy_time::Instant;
 
 use crate::app::types::{IfGainMode, Mode};
-use common::drivers::mcp4725::MCP4725;
 use crate::i2c_map;
-use crate::main_board::types::{MainBoardI2CMutex, RssiDbm};
+use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex, RssiDbm};
+use common::drivers::mcp4725::MCP4725;
 
 const DAC_ADDRESS: u8 = i2c_map::MCP4725_IF_GAIN_ADDR;
 
@@ -30,8 +30,7 @@ const AGC_SLOW_TIME_CONSTANT_MS: u32 = 2000; // 2s to settle (for SSB, AM)
 const DB_TO_GAIN_FACTOR: i32 = 250;
 
 pub struct IfGainControl {
-    dac: MCP4725,
-    i2c: &'static MainBoardI2CMutex,
+    dac: MCP4725<MainBoardI2C>,
     rssi_dbm: RssiDbm,
     desired_manual_gain: i16,
     current_agc_gain: i16,    // Current AGC gain for smoothing
@@ -42,9 +41,8 @@ pub struct IfGainControl {
 
 impl IfGainControl {
     pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
-        let dac = MCP4725::new(DAC_ADDRESS);
+        let dac = MCP4725::new(DAC_ADDRESS, i2c);
         Self {
-            i2c,
             dac,
             if_gain_mode: IfGainMode::Manual,
             rssi_dbm: RssiDbm { dbm: 0 },
@@ -76,7 +74,6 @@ impl IfGainControl {
     }
 
     async fn update_state(&mut self) -> Result<(), &'static str> {
-        let mut i2c_guard = self.i2c.lock().await;
         match self.mode {
             Mode::Rx => {
                 let value = match self.if_gain_mode {
@@ -89,13 +86,13 @@ impl IfGainControl {
                 let dac_value = ((value as u32 * 4095) / 26500) as u16;
 
                 self.dac
-                    .set_raw(&mut *i2c_guard, dac_value)
+                    .set_raw(dac_value)
                     .await
                     .map_err(|_| "Failed to set IF gain")
             }
             Mode::Tx | Mode::StandBy | Mode::WarmUp => self
                 .dac
-                .write_eeprom_power_down(&mut *i2c_guard)
+                .write_eeprom_power_down()
                 .await
                 .map_err(|_| "Failed to write EEPROM power down"),
         }

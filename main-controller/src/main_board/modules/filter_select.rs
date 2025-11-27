@@ -13,14 +13,15 @@
 
 use crate::{
     app::types::{FilterType, Mode},
-    main_board::config::{FilterSelectPins, FILTER_SELECT_I2C_ADDR},
-    main_board::types::MainBoardI2CMutex,
+    main_board::{
+        config::{FilterSelectPins, FILTER_SELECT_I2C_ADDR},
+        types::{MainBoardI2C, MainBoardI2CMutex},
+    },
 };
 use common::drivers::pca9534::PCA9534;
 
 pub struct FilterSelect {
-    i2c: &'static MainBoardI2CMutex,
-    gpio: PCA9534,
+    gpio: PCA9534<MainBoardI2C>,
     pins: FilterSelectPins,
     filter: FilterType,
     mode: Mode,
@@ -29,8 +30,7 @@ pub struct FilterSelect {
 impl FilterSelect {
     pub fn new(i2c: &'static MainBoardI2CMutex, initial_filter: FilterType) -> Self {
         Self {
-            i2c,
-            gpio: PCA9534::new(FILTER_SELECT_I2C_ADDR),
+            gpio: PCA9534::new(FILTER_SELECT_I2C_ADDR, i2c),
             pins: FilterSelectPins::default(),
             filter: initial_filter,
             mode: Mode::StandBy,
@@ -49,8 +49,6 @@ impl FilterSelect {
 
     // TODO check this shit
     async fn apply_filter_setting(&mut self) -> Result<(), &'static str> {
-        let mut i2c_guard = self.i2c.lock().await;
-
         // Determine which pins should be active
         let (filter_pin, rx_enable) = match self.mode {
             Mode::Rx => {
@@ -79,7 +77,7 @@ impl FilterSelect {
 
         // Write to GPIO expander
         self.gpio
-            .write_port(&mut *i2c_guard, output)
+            .write_port(output)
             .await
             .map_err(|_| "Failed to set filter relays")?;
 

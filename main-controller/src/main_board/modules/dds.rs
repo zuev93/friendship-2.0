@@ -4,23 +4,19 @@
  * High-level abstraction for frequency generation.
  * Manages AD9851 and SC18IS602 bridge internally.
  */
-
 use crate::app::types::{ClarifierMode, ClarifierValue, FilterType, Mode};
 use crate::i2c_map;
-use crate::main_board::types::MainBoardI2CMutex;
-use common::drivers::ad9851::{AD9851Config, AD9851};
+use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
+use common::drivers::ad9834::{AD9834Config, AD9834};
 use common::drivers::sc18is602::{SC18IS602SpiDevice, SC18IS602};
-use embassy_stm32::gpio::{Level, Output, Pin, Speed};
-use embassy_stm32::Peri;
 
-const REFERENCE_CLOCK_HZ: u32 = 20_000_000; // 20 MHz TCXO
-const REFCLK_MULTIPLIER: u8 = 6; // 6x = 120 MHz system clock
+const REFERENCE_CLOCK_HZ: u32 = 75_000_000;
 const SIGN_CHANGE_FREQUENCY: u32 = 12_000_000; // 12 MHz
+const FSYNC_GPIO_PIN: u8 = 0;
 
 pub struct DDS {
-    sc18is602: SC18IS602,
-    ad9851: AD9851<Output<'static>, Output<'static>>,
-    i2c: &'static MainBoardI2CMutex,
+    bridge: SC18IS602SpiDevice<MainBoardI2C>,
+    synthesizer: AD9834,
     vfo_frequency: u32,
     filter: FilterType,
     mode: Mode,
@@ -29,25 +25,21 @@ pub struct DDS {
 }
 
 impl DDS {
-    pub fn new(
-        i2c: &'static MainBoardI2CMutex,
-        fq_ud: Peri<'static, impl Pin>,
-        reset: Peri<'static, impl Pin>,
-    ) -> Self {
-        let sc18is602 = SC18IS602::new(i2c_map::SC18IS602_DDS_ADDR);
-        let ad9851 = AD9851::new(
-            Output::new(fq_ud, Level::Low, Speed::Medium),
-            Output::new(reset, Level::Low, Speed::Medium),
-            AD9851Config {
-                reference_clock_hz: REFERENCE_CLOCK_HZ,
-                refclk_multiplier: REFCLK_MULTIPLIER,
-            },
+    pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
+        let bridge = SC18IS602SpiDevice::new(
+            SC18IS602::new(i2c_map::SC18IS602_DDS_ADDR, i2c),
+            FSYNC_GPIO_PIN,
         );
 
+        let synthesizer = AD9834::new(AD9834Config {
+            reference_clock_hz: REFERENCE_CLOCK_HZ,
+            // TODO check me
+            enable_doubler: true,
+        });
+
         Self {
-            i2c,
-            sc18is602,
-            ad9851,
+            bridge,
+            synthesizer,
             vfo_frequency: 0,
             filter: FilterType::Single,
             mode: Mode::StandBy,
@@ -87,6 +79,23 @@ impl DDS {
         self.update_state().await
     }
 
+    async fn update_state(&mut self) -> Result<(), &'static str> {
+        match self.mode {
+            Mode::Rx | Mode::Tx => {
+                let dds_frequency = self.calculate_dds_frequency();
+
+                self.synthesizer
+                    .set_frequency(&mut self.bridge, dds_frequency)
+                    .await
+                    .map_err(|_| "Failed to set DDS frequency")?;
+
+                Ok(())
+            }
+            Mode::WarmUp => self.init().await,
+            Mode::StandBy => Ok(()),
+        }
+    }
+
     fn calculate_dds_frequency(&self) -> u32 {
         let base_freq = if self.vfo_frequency > SIGN_CHANGE_FREQUENCY {
             self.vfo_frequency - self.filter.center_frequency_hz()
@@ -112,37 +121,14 @@ impl DDS {
         }
     }
 
-    async fn update_state(&mut self) -> Result<(), &'static str> {
-        match self.mode {
-            Mode::Rx | Mode::Tx => {
-                let dds_frequency = self.calculate_dds_frequency();
-
-                let mut i2c_guard = self.i2c.lock().await;
-                let mut bridge = SC18IS602SpiDevice::new(&mut self.sc18is602, &mut *i2c_guard, 0);
-
-                self.ad9851
-                    .set_frequency(&mut bridge, dds_frequency)
-                    .await
-                    .map_err(|_| "Failed to set DDS frequency")?;
-
-                Ok(())
-            }
-            // TODO do standby
-            Mode::StandBy | Mode::WarmUp => self.init().await,
-        }
-    }
-
     async fn init(&mut self) -> Result<(), &'static str> {
-        let mut i2c_guard = self.i2c.lock().await;
-        let mut bridge = SC18IS602SpiDevice::new(&mut self.sc18is602, &mut *i2c_guard, 0);
-
-        bridge
+        self.bridge
             .init()
             .await
             .map_err(|_| "Failed to initialize bridge of dds")?;
 
-        self.ad9851
-            .init(&mut bridge)
+        self.synthesizer
+            .init(&mut self.bridge)
             .await
             .map_err(|_| "Failed to initialize ad9851")?;
         Ok(())

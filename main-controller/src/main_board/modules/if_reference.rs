@@ -13,11 +13,11 @@
  */
 
 use crate::app::types::{FilterType, Mode, TransmitMode};
+use crate::i2c_map;
 use common::drivers::ad9834::{AD9834Config, Waveform, AD9834};
 use common::drivers::sc18is602::{SC18IS602SpiDevice, SC18IS602};
-use crate::i2c_map;
 
-use crate::main_board::types::MainBoardI2CMutex;
+use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 
 // TODO move to settings
 const AUDIO_LOW_HZ: u32 = 300;
@@ -27,9 +27,8 @@ const REFERENCE_CLOCK_HZ: u32 = 20_000_000; // 20 MHz TCXO (same as AD9851)
 const ENABLE_DOUBLER: bool = true; // Enable doubler for full 20 MHz range
 
 pub struct IfReference {
+    bridge: SC18IS602SpiDevice<MainBoardI2C>,
     dds: AD9834,
-    sc18is602: SC18IS602,
-    i2c: &'static MainBoardI2CMutex,
     mode: Mode,
     transmit_mode: TransmitMode,
     current_filter: FilterType,
@@ -46,12 +45,12 @@ impl IfReference {
             enable_doubler: ENABLE_DOUBLER,
         };
         let dds = AD9834::new(dds_config);
-        let sc18is602 = SC18IS602::new(i2c_map::SC18IS602_IF_REF_ADDR);
+        let bridge =
+            SC18IS602SpiDevice::new(SC18IS602::new(i2c_map::SC18IS602_IF_REF_ADDR, i2c), 0);
 
         Self {
-            i2c,
+            bridge,
             dds,
-            sc18is602,
             mode: Mode::StandBy,
             transmit_mode: transmit_mode,
             current_filter: filter,
@@ -78,30 +77,25 @@ impl IfReference {
 
     async fn update_state(&mut self) -> Result<(), &'static str> {
         let frequency_hz = self.calculate_bfo_frequency();
-        let mut i2c_guard = self.i2c.lock().await;
-        let mut bridge = SC18IS602SpiDevice::new(&mut self.sc18is602, &mut *i2c_guard, 0);
 
         match self.mode {
             Mode::Rx | Mode::Tx => self
                 .dds
-                .set_frequency(&mut bridge, frequency_hz)
+                .set_frequency(&mut self.bridge, frequency_hz)
                 .await
                 .map_err(|_| "Failed to set frequency of if reference"),
             Mode::WarmUp => {
                 self.dds
-                    .init(&mut bridge)
+                    .init(&mut self.bridge)
                     .await
                     .map_err(|_| "Failed to initialize IF reference generator")?;
 
                 self.dds
-                    .set_waveform(&mut bridge, Waveform::Sine)
+                    .set_waveform(&mut self.bridge, Waveform::Sine)
                     .await
                     .map_err(|_| "Failed to set waveform of if reference")
             }
-            Mode::StandBy => {
-                // TODO turn of
-                Ok(())
-            }
+            Mode::StandBy => Ok(()),
         }
     }
 

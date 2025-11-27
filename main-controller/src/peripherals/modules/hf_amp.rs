@@ -6,23 +6,21 @@
  */
 
 use crate::app::types::Mode;
-use crate::peripherals::types::PeripherialI2c;
+use crate::peripherals::types::{PeripherialI2c, PeripherialI2cMutex};
 use common::drivers::pca9534::PCA9534;
 
 const HF_AMP_GPIO_ADDR: u8 = 0x22; // TODO: Move to i2c_map
 
 pub struct HfAmp {
-    i2c: PeripherialI2c,
     #[allow(dead_code)]
-    gpio: PCA9534,
+    gpio: PCA9534<PeripherialI2c>,
     mode: Mode,
 }
 
 impl HfAmp {
-    pub fn new(i2c: PeripherialI2c) -> Self {
+    pub fn new(i2c: PeripherialI2cMutex) -> Self {
         Self {
-            i2c,
-            gpio: PCA9534::new(HF_AMP_GPIO_ADDR),
+            gpio: PCA9534::new(HF_AMP_GPIO_ADDR, i2c),
             mode: Mode::StandBy,
         }
     }
@@ -33,7 +31,6 @@ impl HfAmp {
     }
 
     pub async fn update_state(&mut self) -> Result<(), &'static str> {
-        let mut _i2c_guard = self.i2c.lock().await;
         // TODO implement
         Ok(())
     }

@@ -47,7 +47,6 @@ impl FilterSelectPins {
 
 #[derive(Clone, Copy)]
 pub struct Settings {
-    pub tx_power: u16,               // 12-bit DAC value (0-4095)
     pub transmit_mode: TransmitMode, // Operating mode (CW/USB/LSB/AM)
     pub filter: FilterType,          // IF filter selection (Narrow/Wide)
     #[allow(dead_code)]
@@ -59,11 +58,10 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            tx_power: 2048,                   // Mid-range (50%)
             transmit_mode: TransmitMode::Usb, // USB by default
             filter: FilterType::Single,
-            af_volume: 50,       // 50% volume by default
-            mic_gain: 50,        // 50% mic gain by default
+            af_volume: 50, // 50% volume by default
+            mic_gain: 50,  // 50% mic gain by default
         }
     }
 }

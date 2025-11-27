@@ -6,7 +6,7 @@ pub enum Mode {
     Tx,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum FilterType {
     Single,
     #[allow(dead_code)]
@@ -78,15 +78,17 @@ impl ClarifierMode {
 pub enum RfGainMode {
     Attenuator,
     Normal,
-    RfAmplifier,
+    RfSingle, // only amp before filter
+    RfDouble, // amp before filter + pre amp
 }
 
 impl RfGainMode {
     pub fn next(self) -> Self {
         match self {
             RfGainMode::Attenuator => RfGainMode::Normal,
-            RfGainMode::Normal => RfGainMode::RfAmplifier,
-            RfGainMode::RfAmplifier => RfGainMode::Attenuator,
+            RfGainMode::Normal => RfGainMode::RfSingle,
+            RfGainMode::RfSingle => RfGainMode::RfDouble,
+            RfGainMode::RfDouble => RfGainMode::Attenuator,
         }
     }
 }

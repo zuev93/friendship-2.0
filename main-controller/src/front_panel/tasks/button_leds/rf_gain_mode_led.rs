@@ -22,7 +22,7 @@ pub async fn rf_gain_mode_led_task(spi_link: SpiType) {
         let state = match rf_gain_mode {
             RfGainMode::Attenuator => LedState::Red,
             RfGainMode::Normal => LedState::Off,
-            RfGainMode::RfAmplifier => LedState::Green,
+            RfGainMode::RfSingle | RfGainMode::RfDouble => LedState::Green,
         };
 
         let led_cmd = LedCommand { led_id, state };

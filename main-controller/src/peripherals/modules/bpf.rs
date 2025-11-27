@@ -9,13 +9,13 @@
 
 use crate::app::types::{Frequency, Mode, RfGainMode};
 use crate::peripherals::config::BpfConfig;
-use crate::peripherals::types::PeripherialI2c;
+use crate::peripherals::types::PeripherialI2cMutex;
 use common::drivers::tca9555::{Port, TCA9555};
 
 const BPF_GPIO_ADDR: u8 = 0x21; // TODO: Move to i2c_map
 
 pub struct Bpf {
-    i2c: PeripherialI2c,
+    i2c: PeripherialI2cMutex,
     bpf_config: BpfConfig,
     gpio: TCA9555,
     mode: Mode,
@@ -24,7 +24,7 @@ pub struct Bpf {
 }
 
 impl Bpf {
-    pub fn new(i2c: PeripherialI2c, bpf_config: BpfConfig) -> Self {
+    pub fn new(i2c: PeripherialI2cMutex, bpf_config: BpfConfig) -> Self {
         Self {
             i2c,
             bpf_config,
@@ -128,10 +128,10 @@ impl Bpf {
                     true,
                 );
             }
-            RfGainMode::Normal => {
+            RfGainMode::Normal | RfGainMode::RfSingle => {
                 // Both ATT and RF amp are off (already 0)
             }
-            RfGainMode::RfAmplifier => {
+            RfGainMode::RfDouble => {
                 (port0_value, port1_value) = TCA9555::set_pin_value(
                     port0_value,
                     port1_value,

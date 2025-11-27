@@ -1,6 +1,5 @@
 use embassy_executor::Spawner;
 use embassy_stm32::{
-    gpio::Pin,
     i2c::{
         self, mode as i2c_mode, ErrorInterruptHandler, EventInterruptHandler, I2c,
         RxDma as I2cRxDma, SclPin, SdaPin, TxDma as I2cTxDma,
@@ -16,9 +15,9 @@ use static_cell::StaticCell;
 use crate::main_board::{
     main_board::MainBoard,
     tasks::{
-        audio::audio_panel_task, dds_control_task::dds_control_task,
-        filter_selection::filter_selection_task, if_gain_control_task::if_gain_control_task,
-        if_reference::if_reference_task, power_control::power_control_task, rssi,
+        audio::audio_panel_task, crystall_filter::crystall_filter_task,
+        dds_control_task::dds_control_task, filter_selection::filter_selection_task,
+        if_gain_control_task::if_gain_control_task, if_reference::if_reference_task, rssi,
     },
 };
 
@@ -35,8 +34,6 @@ impl MainBoardSubsystem {
         scl: Peri<'static, impl SclPin<T1>>,
         i2c_txdma: Peri<'static, impl I2cTxDma<T1>>,
         i2c_rxdma: Peri<'static, impl I2cRxDma<T1>>,
-        fq_ud: Peri<'static, impl Pin>,
-        reset: Peri<'static, impl Pin>,
         spi_peri: Peri<'static, T2>,
         txsd: Peri<'static, impl MosiPin<T2>>,
         rxsd: Peri<'static, impl MisoPin<T2>>,
@@ -57,25 +54,25 @@ impl MainBoardSubsystem {
         let i2c1 = I2c::new(i2c_periph, scl, sda, irqs, i2c_txdma, i2c_rxdma, i2c_config);
         let i2c_mutex = I2C1_BUS.init(Mutex::new(i2c1));
 
-        let hw = MainBoard::new(
-            i2c_mutex, fq_ud, reset, spi_peri, txsd, rxsd, ws, ck, mck, spi_txdma, spi_rxdma,
+        let main_board = MainBoard::new(
+            i2c_mutex, spi_peri, txsd, rxsd, ws, ck, mck, spi_txdma, spi_rxdma,
         );
         let MainBoard {
             dds,
-            power_control,
+            crystall_filter,
             if_gain_control,
             if_reference,
             filter_select,
             audio_panel,
             rssi_reader,
-        } = hw;
+        } = main_board;
 
         rssi::spawn_tasks(spawner, rssi_reader);
         spawner.must_spawn(dds_control_task(dds));
         spawner.must_spawn(filter_selection_task(filter_select));
         spawner.must_spawn(if_gain_control_task(if_gain_control));
         audio_panel_task::create_tasks(spawner, audio_panel).await;
-        spawner.must_spawn(power_control_task(power_control));
+        spawner.must_spawn(crystall_filter_task(crystall_filter));
         spawner.must_spawn(if_reference_task(if_reference));
     }
 }

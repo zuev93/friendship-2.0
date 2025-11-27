@@ -33,5 +33,5 @@ impl LpfCutoff {
     }
 }
 
-pub type PeripherialI2c =
-    &'static Mutex<ThreadModeRawMutex, I2c<'static, mode::Async, i2c_mode::Master>>;
+pub type PeripherialI2c = I2c<'static, mode::Async, i2c_mode::Master>;
+pub type PeripherialI2cMutex = &'static Mutex<ThreadModeRawMutex, PeripherialI2c>;

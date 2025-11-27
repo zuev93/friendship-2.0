@@ -4,12 +4,11 @@
  * High-level transceiver control combining all subsystems.
  */
 
-use embassy_stm32::gpio::Pin;
 use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin};
 use embassy_stm32::Peri;
 
-use crate::app::types::RfPowerPercent;
 use crate::main_board::config::Settings;
+use crate::main_board::modules::crystall_filter::CrystallFilter;
 use crate::main_board::types::MainBoardI2CMutex;
 
 use super::modules::audio_panel::AudioPanel;
@@ -17,12 +16,11 @@ use super::modules::dds::DDS;
 use super::modules::filter_select::FilterSelect;
 use super::modules::if_gain_control::IfGainControl;
 use super::modules::if_reference::IfReference;
-use super::modules::power_control::TxPowerControl;
 use super::modules::rssi::RssiReader;
 
 pub struct MainBoard {
     pub dds: DDS,
-    pub power_control: TxPowerControl,
+    pub crystall_filter: CrystallFilter,
     pub if_gain_control: IfGainControl,
     pub if_reference: IfReference,
     pub filter_select: FilterSelect,
@@ -33,8 +31,6 @@ pub struct MainBoard {
 impl MainBoard {
     pub fn new<T: spi::Instance>(
         i2c: &'static MainBoardI2CMutex,
-        fq_ud: Peri<'static, impl Pin>,
-        reset: Peri<'static, impl Pin>,
         spi_peri: Peri<'static, T>,
         txsd: Peri<'static, impl MosiPin<T>>,
         rxsd: Peri<'static, impl MisoPin<T>>,
@@ -47,8 +43,8 @@ impl MainBoard {
         let settings = Settings::load();
 
         Self {
-            dds: DDS::new(i2c, fq_ud, reset),
-            power_control: TxPowerControl::new(i2c, RfPowerPercent::new(settings.tx_power)),
+            dds: DDS::new(i2c),
+            crystall_filter: CrystallFilter::new(i2c),
             if_gain_control: IfGainControl::new(i2c),
             if_reference: IfReference::new(i2c, settings.transmit_mode, settings.filter),
             filter_select: FilterSelect::new(i2c, settings.filter),

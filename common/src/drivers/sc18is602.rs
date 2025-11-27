@@ -9,6 +9,8 @@
  */
 
 use core::fmt;
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::mutex::Mutex;
 use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
 use embedded_hal_async::spi::{ErrorKind, ErrorType, SpiBus};
@@ -77,68 +79,50 @@ impl Default for SC18IS602Config {
     }
 }
 
-pub struct SC18IS602 {
+pub struct SC18IS602<I2C>
+where
+    I2C: I2c + 'static,
+{
     address: u8,
+    i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
 }
 
-impl SC18IS602 {
-    pub fn new(address: u8) -> Self {
-        Self { address }
+impl<I2C> SC18IS602<I2C>
+where
+    I2C: I2c + 'static,
+{
+    pub fn new(address: u8, i2c: &'static Mutex<ThreadModeRawMutex, I2C>) -> Self {
+        Self { address, i2c }
     }
 
-    pub async fn init<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        config: &SC18IS602Config,
-    ) -> Result<(), I2C::Error> {
+    pub async fn init(&self, config: &SC18IS602Config) -> Result<(), I2C::Error> {
         let function_id: u8 = ((config.bit_order as u8) << 5)
             | ((config.spi_mode as u8) << 2)
             | (config.clock_speed as u8);
 
         let data = [REG_FUNCTION_ID, function_id];
-        i2c.write(self.address, &data).await?;
+        self.i2c.lock().await.write(self.address, &data).await?;
 
         Ok(())
     }
 
-    pub async fn spi_transfer_ss0<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        data: &[u8],
-    ) -> Result<(), I2C::Error> {
-        self.spi_transfer_ss(i2c, 0x01, data).await
+    pub async fn spi_transfer_ss0(&self, data: &[u8]) -> Result<(), I2C::Error> {
+        self.spi_transfer_ss(0x01, data).await
     }
 
-    pub async fn spi_transfer_ss1<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        data: &[u8],
-    ) -> Result<(), I2C::Error> {
-        self.spi_transfer_ss(i2c, 0x02, data).await
+    pub async fn spi_transfer_ss1(&self, data: &[u8]) -> Result<(), I2C::Error> {
+        self.spi_transfer_ss(0x02, data).await
     }
 
-    pub async fn spi_transfer_ss2<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        data: &[u8],
-    ) -> Result<(), I2C::Error> {
-        self.spi_transfer_ss(i2c, 0x04, data).await
+    pub async fn spi_transfer_ss2(&self, data: &[u8]) -> Result<(), I2C::Error> {
+        self.spi_transfer_ss(0x04, data).await
     }
 
-    pub async fn spi_transfer_ss3<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        data: &[u8],
-    ) -> Result<(), I2C::Error> {
-        self.spi_transfer_ss(i2c, 0x08, data).await
+    pub async fn spi_transfer_ss3(&self, data: &[u8]) -> Result<(), I2C::Error> {
+        self.spi_transfer_ss(0x08, data).await
     }
 
-    async fn spi_transfer_ss<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        ss_cmd: u8,
-        data: &[u8],
-    ) -> Result<(), I2C::Error> {
+    async fn spi_transfer_ss(&self, ss_cmd: u8, data: &[u8]) -> Result<(), I2C::Error> {
         if data.is_empty() || data.len() > 200 {
             return Ok(());
         }
@@ -147,73 +131,55 @@ impl SC18IS602 {
         buffer[0] = ss_cmd;
         buffer[1..1 + data.len()].copy_from_slice(data);
 
-        i2c.write(self.address, &buffer[..1 + data.len()]).await?;
+        self.i2c
+            .lock()
+            .await
+            .write(self.address, &buffer[..1 + data.len()])
+            .await?;
 
         Ok(())
     }
 
-    pub async fn spi_read<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        buffer: &mut [u8],
-    ) -> Result<(), I2C::Error> {
-        i2c.read(self.address, buffer).await?;
+    pub async fn spi_read(&self, buffer: &mut [u8]) -> Result<(), I2C::Error> {
+        self.i2c.lock().await.read(self.address, buffer).await?;
         Ok(())
     }
 }
 
-pub struct SC18IS602SpiDevice<'a, I2C: I2c> {
-    bridge: &'a mut SC18IS602,
-    i2c: &'a mut I2C,
+pub struct SC18IS602SpiDevice<I2C: I2c + 'static> {
+    bridge: SC18IS602<I2C>,
     ss_pin: u8, // Which SS pin to use (0-3)
 }
 
-impl<'a, I2C: I2c> SC18IS602SpiDevice<'a, I2C> {
-    pub fn new(bridge: &'a mut SC18IS602, i2c: &'a mut I2C, ss_pin: u8) -> Self {
-        Self {
-            bridge,
-            i2c,
-            ss_pin,
-        }
+impl<I2C: I2c + 'static> SC18IS602SpiDevice<I2C> {
+    pub fn new(bridge: SC18IS602<I2C>, ss_pin: u8) -> Self {
+        Self { bridge, ss_pin }
     }
 
     pub async fn init(&mut self) -> Result<(), I2C::Error> {
-        self.bridge
-            .init(self.i2c, &SC18IS602Config::default())
-            .await?;
-        Ok(())
-    }
-
-    pub async fn write(&mut self, data: &[u8]) -> Result<(), I2C::Error> {
-        match self.ss_pin {
-            0 => self.bridge.spi_transfer_ss0(self.i2c, data).await?,
-            1 => self.bridge.spi_transfer_ss1(self.i2c, data).await?,
-            2 => self.bridge.spi_transfer_ss2(self.i2c, data).await?,
-            3 => self.bridge.spi_transfer_ss3(self.i2c, data).await?,
-            _ => return Ok(()), // Invalid SS pin
-        }
+        self.bridge.init(&SC18IS602Config::default()).await?;
         Ok(())
     }
 }
 
-impl<I2C: I2c> ErrorType for SC18IS602SpiDevice<'_, I2C> {
+impl<I2C: I2c> ErrorType for SC18IS602SpiDevice<I2C> {
     type Error = SC18IS602Error<I2C::Error>;
 }
 
-impl<I2C: I2c> SpiBus for SC18IS602SpiDevice<'_, I2C> {
+impl<I2C: I2c> SpiBus for SC18IS602SpiDevice<I2C> {
     async fn read(&mut self, words: &mut [u8]) -> Result<(), Self::Error> {
         self.bridge
-            .spi_read(self.i2c, words)
+            .spi_read(words)
             .await
             .map_err(SC18IS602Error::I2c)
     }
 
     async fn write(&mut self, words: &[u8]) -> Result<(), Self::Error> {
         let result = match self.ss_pin {
-            0 => self.bridge.spi_transfer_ss0(self.i2c, words).await,
-            1 => self.bridge.spi_transfer_ss1(self.i2c, words).await,
-            2 => self.bridge.spi_transfer_ss2(self.i2c, words).await,
-            3 => self.bridge.spi_transfer_ss3(self.i2c, words).await,
+            0 => self.bridge.spi_transfer_ss0(words).await,
+            1 => self.bridge.spi_transfer_ss1(words).await,
+            2 => self.bridge.spi_transfer_ss2(words).await,
+            3 => self.bridge.spi_transfer_ss3(words).await,
             _ => Ok(()), // Invalid SS pin - no-op
         };
         result.map_err(SC18IS602Error::I2c)
