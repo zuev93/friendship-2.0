@@ -13,7 +13,6 @@ use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 use common::drivers::mcp4725::MCP4725;
 use common::drivers::pca9534::{Pin, PCA9534};
 
-const DAC_ADDRESS: u8 = i2c_map::MCP4725_TX_POWER_ADDR;
 const IO_RX_PIN: Pin = Pin::Pin0;
 const IO_TX_PIN: Pin = Pin::Pin1;
 const IO_F1_PIN: Pin = Pin::Pin2;
@@ -32,7 +31,7 @@ pub struct CrystallFilter {
 
 impl CrystallFilter {
     pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
-        let dac = MCP4725::new(DAC_ADDRESS, i2c);
+        let dac = MCP4725::new(i2c_map::MCP4725_TX_POWER_ADDR, i2c);
         let io = PCA9534::new(FILTER_PCA9534_ADDR, i2c);
         Self {
             io,
@@ -78,7 +77,7 @@ impl CrystallFilter {
         if self.mode == Mode::Tx {
             port |= IO_TX_PIN.mask();
         }
-        if self.filter_type == FilterType::Single {
+        if self.filter_type == FilterType::None {
             port |= IO_F2_PIN.mask();
         } else {
             port |= IO_F1_PIN.mask();

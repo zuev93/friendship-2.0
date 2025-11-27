@@ -13,19 +13,15 @@ use crate::main_board::types::MainBoardI2CMutex;
 
 use super::modules::audio_panel::AudioPanel;
 use super::modules::dds::DDS;
-use super::modules::filter_select::FilterSelect;
 use super::modules::if_gain_control::IfGainControl;
 use super::modules::if_reference::IfReference;
-use super::modules::rssi::RssiReader;
 
 pub struct MainBoard {
     pub dds: DDS,
     pub crystall_filter: CrystallFilter,
     pub if_gain_control: IfGainControl,
     pub if_reference: IfReference,
-    pub filter_select: FilterSelect,
     pub audio_panel: AudioPanel,
-    pub rssi_reader: RssiReader,
 }
 
 impl MainBoard {
@@ -47,10 +43,8 @@ impl MainBoard {
             crystall_filter: CrystallFilter::new(i2c),
             if_gain_control: IfGainControl::new(i2c),
             if_reference: IfReference::new(i2c, settings.transmit_mode, settings.filter),
-            filter_select: FilterSelect::new(i2c, settings.filter),
             // audio_control: AudioControl::new(i2c, settings.af_volume, settings.mic_gain), // Old, removed from modules
             audio_panel: AudioPanel::new(i2c, spi_peri, txsd, rxsd, ws, ck, mck, txdma, rxdma),
-            rssi_reader: RssiReader::new(i2c),
         }
     }
 }

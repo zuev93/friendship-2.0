@@ -7,11 +7,13 @@ pub enum Mode {
 }
 
 #[derive(Clone, Copy, PartialEq)]
+#[allow(dead_code)]
+// TODO check actual values and consider splitting the type.
+// Hardware wise we have 2 filters + 3 filters -> 6 combinations in total.
 pub enum FilterType {
+    None,
     Single,
-    #[allow(dead_code)]
     DoubleNarrow,
-    #[allow(dead_code)]
     DoubleWide,
 }
 
@@ -32,6 +34,7 @@ impl FilterType {
             Self::DoubleNarrow => Self::WIDE_FILTER_BANDWIDTH_HZ,
             Self::DoubleWide => Self::NARROW_FILTER_BANDWIDTH_HZ,
             Self::Single => Self::SINGLE_FILTER_BANDWIDTH_HZ,
+            Self::None => Self::SINGLE_FILTER_BANDWIDTH_HZ,
         }
     }
 }

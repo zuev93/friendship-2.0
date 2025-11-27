@@ -1,4 +1,7 @@
+use embassy_executor::Spawner;
 use embassy_futures::select::{select4, Either4};
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use static_cell::StaticCell;
 
 use crate::{
     app::events::{CURRENT_IF_GAIN, CURRENT_IF_GAIN_MODE, CURRENT_MODE},
@@ -6,8 +9,15 @@ use crate::{
 };
 use common::error::error;
 
+pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfGainControl) {
+    static STATIC_CELL: StaticCell<Mutex<ThreadModeRawMutex, IfGainControl>> = StaticCell::new();
+    let mutex = STATIC_CELL.init(Mutex::new(if_gain_control));
+    spawner.must_spawn(if_gain_control_task(mutex));
+    spawner.must_spawn(rssi_task_read(mutex));
+}
+
 #[embassy_executor::task]
-pub async fn if_gain_control_task(mut if_gain_control: IfGainControl) {
+async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfGainControl>) {
     loop {
         match select4(
             CURRENT_IF_GAIN.wait(),
@@ -18,25 +28,48 @@ pub async fn if_gain_control_task(mut if_gain_control: IfGainControl) {
         .await
         {
             Either4::First(if_gain) => {
-                if let Err(e) = if_gain_control.set_manual_gain_raw(if_gain).await {
+                if let Err(e) = mutex.lock().await.set_manual_gain_raw(if_gain).await {
                     error(e).await;
                 }
             }
             Either4::Second(if_gain_mode) => {
-                if let Err(e) = if_gain_control.set_if_gain_mode(if_gain_mode).await {
+                if let Err(e) = mutex.lock().await.set_if_gain_mode(if_gain_mode).await {
                     error(e).await;
                 }
             }
             Either4::Third(rssi) => {
-                if let Err(e) = if_gain_control.update_agc(rssi).await {
+                if let Err(e) = mutex.lock().await.update_agc(rssi).await {
                     error(e).await;
                 }
             }
             Either4::Fourth(mode) => {
-                if let Err(e) = if_gain_control.set_mode(mode).await {
+                if let Err(e) = mutex.lock().await.set_mode(mode).await {
                     error(e).await;
                 }
             }
         }
     }
+}
+
+#[embassy_executor::task]
+async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfGainControl>) {
+    loop {
+        let rssi = mutex.lock().await.read_rssi().await;
+        if rssi.is_err() {
+            error(rssi.err().unwrap()).await;
+            continue;
+        }
+        let rssi_data = rssi.unwrap();
+        let selected_rssi = select_rssi(rssi_data.rssi1, rssi_data.rssi2);
+        CURRENT_RSSI.signal(selected_rssi);
+
+        embassy_time::Timer::after_millis(10).await;
+    }
+}
+
+fn select_rssi(
+    rssi1: crate::main_board::types::RssiDbm,
+    _rssi2: crate::main_board::types::RssiDbm,
+) -> crate::main_board::types::RssiDbm {
+    rssi1
 }

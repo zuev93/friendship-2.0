@@ -16,8 +16,7 @@ use crate::main_board::{
     main_board::MainBoard,
     tasks::{
         audio::audio_panel_task, crystall_filter::crystall_filter_task,
-        dds_control_task::dds_control_task, filter_selection::filter_selection_task,
-        if_gain_control_task::if_gain_control_task, if_reference::if_reference_task, rssi,
+        dds_control_task::dds_control_task, if_gain_control_task, if_reference::if_reference_task,
     },
 };
 
@@ -62,15 +61,11 @@ impl MainBoardSubsystem {
             crystall_filter,
             if_gain_control,
             if_reference,
-            filter_select,
             audio_panel,
-            rssi_reader,
         } = main_board;
 
-        rssi::spawn_tasks(spawner, rssi_reader);
         spawner.must_spawn(dds_control_task(dds));
-        spawner.must_spawn(filter_selection_task(filter_select));
-        spawner.must_spawn(if_gain_control_task(if_gain_control));
+        if_gain_control_task::spawn_tasks(spawner, if_gain_control);
         audio_panel_task::create_tasks(spawner, audio_panel).await;
         spawner.must_spawn(crystall_filter_task(crystall_filter));
         spawner.must_spawn(if_reference_task(if_reference));
