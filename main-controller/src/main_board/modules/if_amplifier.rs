@@ -1,12 +1,3 @@
-/*
- * IF Gain Control Module
- *
- * Manages IF stage gain through AD8367 VGA (Variable Gain Amplifier)
- * controlled by MCP4725 DAC.
- *
- * Controls AGC (Automatic Gain Control) for the receiver path.
- */
-
 use common::drivers::ads1115::{ADS1115Config, ADS1115};
 use common::drivers::pca9534::{Pin, PCA9534};
 use embassy_time::Instant;
@@ -40,7 +31,7 @@ pub struct RssiData {
     pub rssi2: RssiDbm, // AIN1 - Secondary RSSI
 }
 
-pub struct IfGainControl {
+pub struct IfAmplifier {
     dac_gain: MCP4725<MainBoardI2C>,
     adc_rssi: ADS1115<MainBoardI2C>,
     io: PCA9534<MainBoardI2C>,
@@ -53,7 +44,7 @@ pub struct IfGainControl {
     filter_type: FilterType,
 }
 
-impl IfGainControl {
+impl IfAmplifier {
     pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
         Self {
             dac_gain: MCP4725::new(i2c_map::IF_AMP_MCP4725_ADDR, i2c),

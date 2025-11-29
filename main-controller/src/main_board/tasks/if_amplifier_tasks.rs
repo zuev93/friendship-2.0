@@ -5,19 +5,19 @@ use static_cell::StaticCell;
 
 use crate::{
     app::events::{CURRENT_IF_GAIN, CURRENT_IF_GAIN_MODE, CURRENT_MODE},
-    main_board::{events::CURRENT_RSSI, modules::if_gain_control::IfGainControl},
+    main_board::{events::CURRENT_RSSI, modules::if_amplifier::IfAmplifier},
 };
 use common::error::error;
 
-pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfGainControl) {
-    static STATIC_CELL: StaticCell<Mutex<ThreadModeRawMutex, IfGainControl>> = StaticCell::new();
+pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfAmplifier) {
+    static STATIC_CELL: StaticCell<Mutex<ThreadModeRawMutex, IfAmplifier>> = StaticCell::new();
     let mutex = STATIC_CELL.init(Mutex::new(if_gain_control));
     spawner.must_spawn(if_gain_control_task(mutex));
     spawner.must_spawn(rssi_task_read(mutex));
 }
 
 #[embassy_executor::task]
-async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfGainControl>) {
+async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
     loop {
         match select4(
             CURRENT_IF_GAIN.wait(),
@@ -52,7 +52,7 @@ async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfGainCo
 }
 
 #[embassy_executor::task]
-async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfGainControl>) {
+async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
     loop {
         let rssi = mutex.lock().await.read_rssi().await;
         if rssi.is_err() {

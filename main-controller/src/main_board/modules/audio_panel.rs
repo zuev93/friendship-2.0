@@ -22,8 +22,8 @@ static RX_BUFFER: StaticCell<[u16; AUDIO_BUFFER_SIZE]> = StaticCell::new();
 static AUDIO_I2S: StaticCell<Mutex<ThreadModeRawMutex, I2S<'static, u16>>> = StaticCell::new();
 
 pub struct AudioPanel {
-    pcm3060: Pcm3060<MainBoardI2C>,
-    pca9534: PCA9534<MainBoardI2C>,
+    audio_code: Pcm3060<MainBoardI2C>,
+    io: PCA9534<MainBoardI2C>,
     i2s: &'static Mutex<ThreadModeRawMutex, I2S<'static, u16>>,
 }
 
@@ -60,8 +60,8 @@ impl AudioPanel {
         let i2s = AUDIO_I2S.init(Mutex::new(i2s));
 
         Self {
-            pcm3060,
-            pca9534,
+            audio_code: pcm3060,
+            io: pca9534,
             i2s,
         }
     }
@@ -90,24 +90,24 @@ impl AudioPanel {
     }
 
     pub async fn init(&mut self) -> Result<(), &'static str> {
-        self.pca9534
+        self.io
             .init()
             .await
             .map_err(|_| "Failed to initialize PCA9534")?;
 
-        self.pca9534
+        self.io
             .set_pin_direction(Pin::Pin0, false)
             .await
             .map_err(|_| "Failed to configure P0 as output")?;
 
-        self.pca9534
+        self.io
             .set_pin_direction(Pin::Pin1, false)
             .await
             .map_err(|_| "Failed to configure P1 as output")?;
 
         self.reset_pcm3060().await?;
 
-        self.pcm3060
+        self.audio_code
             .init()
             .await
             .map_err(|_| "Failed to initialize PCM3060")?;
@@ -119,14 +119,14 @@ impl AudioPanel {
     }
 
     async fn reset_pcm3060(&mut self) -> Result<(), &'static str> {
-        self.pca9534
+        self.io
             .write_pin(Pin::Pin0, false)
             .await
             .map_err(|_| "Failed to set PCM3060 reset low")?;
 
         embassy_time::Timer::after_millis(10).await;
 
-        self.pca9534
+        self.io
             .write_pin(Pin::Pin0, true)
             .await
             .map_err(|_| "Failed to set PCM3060 reset high")?;
@@ -135,7 +135,7 @@ impl AudioPanel {
     }
 
     async fn set_signal_detector_to_adc(&mut self) -> Result<(), &'static str> {
-        self.pca9534
+        self.io
             .write_pin(Pin::Pin1, false)
             .await
             .map_err(|_| "Failed to set signal detector to ADC")?;
@@ -143,7 +143,7 @@ impl AudioPanel {
     }
 
     async fn set_signal_detector_to_dac(&mut self) -> Result<(), &'static str> {
-        self.pca9534
+        self.io
             .write_pin(Pin::Pin1, true)
             .await
             .map_err(|_| "Failed to set signal detector to DAC")?;

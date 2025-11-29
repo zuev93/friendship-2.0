@@ -15,6 +15,10 @@ use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
 use embedded_hal_async::spi::{ErrorKind, ErrorType, SpiBus};
 
+const CMD_GPIO_DIR: u8 = 0x10;
+const CMD_GPIO_WRITE: u8 = 0x11;
+const CMD_GPIO_READ: u8 = 0x12;
+
 #[derive(Debug)]
 pub enum SC18IS602Error<E> {
     I2c(E),
@@ -87,6 +91,20 @@ where
     i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum GpioPin {
+    P0 = 0,
+    P1 = 1,
+    P2 = 2,
+    P3 = 3,
+}
+
+impl GpioPin {
+    const fn mask(self) -> u8 {
+        1 << (self as u8)
+    }
+}
+
 impl<I2C> SC18IS602<I2C>
 where
     I2C: I2c + 'static,
@@ -144,10 +162,48 @@ where
         self.i2c.lock().await.read(self.address, buffer).await?;
         Ok(())
     }
+
+    /// Configures GPIO direction bits. `1` sets the pin as output, `0` as input.
+    pub async fn set_gpio_direction(&self, outputs_mask: u8) -> Result<(), I2C::Error> {
+        let payload = [CMD_GPIO_DIR, outputs_mask & 0x0F];
+        self.i2c.lock().await.write(self.address, &payload).await?;
+        Ok(())
+    }
+
+    /// Writes the GPIO output levels. Only pins configured as outputs are affected.
+    pub async fn write_gpio(&self, states: u8) -> Result<(), I2C::Error> {
+        let payload = [CMD_GPIO_WRITE, states & 0x0F];
+        self.i2c.lock().await.write(self.address, &payload).await?;
+        Ok(())
+    }
+
+    /// Reads current GPIO levels (returns lower 4 bits).
+    pub async fn read_gpio(&self) -> Result<u8, I2C::Error> {
+        let mut guard = self.i2c.lock().await;
+        guard
+            .write(self.address, &[CMD_GPIO_READ])
+            .await?;
+
+        let mut buffer = [0u8; 1];
+        guard.read(self.address, &mut buffer).await?;
+        Ok(buffer[0] & 0x0F)
+    }
+
+    /// Convenience helper to set a single pin high/low without disturbing others.
+    /// The pin must already be configured as an output.
+    pub async fn write_gpio_pin(&self, pin: GpioPin, high: bool) -> Result<(), I2C::Error> {
+        let mut states = self.read_gpio().await?;
+        if high {
+            states |= pin.mask();
+        } else {
+            states &= !pin.mask();
+        }
+        self.write_gpio(states).await
+    }
 }
 
 pub struct SC18IS602SpiDevice<I2C: I2c + 'static> {
-    bridge: SC18IS602<I2C>,
+    pub bridge: SC18IS602<I2C>,
     ss_pin: u8, // Which SS pin to use (0-3)
 }
 

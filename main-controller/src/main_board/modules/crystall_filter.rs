@@ -1,14 +1,5 @@
-/*
- * TX Power Control Module
- *
- * Controls transmit power through MCP4725 DAC → power amplifier.
- *
- * Note: TX power control is only active during transmit (TX) mode.
- * During RX, this module is disabled to prevent accidental TX.
- */
-
 use crate::app::types::{FilterType, Mode, RfGainMode, RfPowerPercent};
-use crate::i2c_map::{self, FILTER_PCA9534_ADDR};
+use crate::i2c_map::{self};
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 use common::drivers::mcp4725::MCP4725;
 use common::drivers::pca9534::{Pin, PCA9534};
@@ -31,8 +22,8 @@ pub struct CrystallFilter {
 
 impl CrystallFilter {
     pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
-        let dac = MCP4725::new(i2c_map::MCP4725_TX_POWER_ADDR, i2c);
-        let io = PCA9534::new(FILTER_PCA9534_ADDR, i2c);
+        let dac = MCP4725::new(i2c_map::FILTER_MCP4725_ADDR, i2c);
+        let io = PCA9534::new(i2c_map::FILTER_PCA9534_ADDR, i2c);
         Self {
             io,
             dac,

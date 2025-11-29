@@ -1,9 +1,3 @@
-/*
- * DDS (Direct Digital Synthesizer) Module
- *
- * High-level abstraction for frequency generation.
- * Manages AD9851 and SC18IS602 bridge internally.
- */
 use crate::app::types::{ClarifierMode, ClarifierValue, FilterType, Mode};
 use crate::i2c_map;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
@@ -14,7 +8,7 @@ const REFERENCE_CLOCK_HZ: u32 = 75_000_000;
 const SIGN_CHANGE_FREQUENCY: u32 = 12_000_000; // 12 MHz
 const FSYNC_GPIO_PIN: u8 = 0;
 
-pub struct DDS {
+pub struct Mixer {
     bridge: SC18IS602SpiDevice<MainBoardI2C>,
     synthesizer: AD9834,
     vfo_frequency: u32,
@@ -24,10 +18,10 @@ pub struct DDS {
     clarifier_value: ClarifierValue,
 }
 
-impl DDS {
+impl Mixer {
     pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
         let bridge = SC18IS602SpiDevice::new(
-            SC18IS602::new(i2c_map::SC18IS602_DDS_ADDR, i2c),
+            SC18IS602::new(i2c_map::MIXER_SC18IS602_ADDR, i2c),
             FSYNC_GPIO_PIN,
         );
 
@@ -124,6 +118,11 @@ impl DDS {
     async fn init(&mut self) -> Result<(), &'static str> {
         self.bridge
             .init()
+            .await
+            .map_err(|_| "Failed to initialize bridge of dds")?;
+        self.bridge
+            .bridge
+            .set_gpio_direction(0xFF)
             .await
             .map_err(|_| "Failed to initialize bridge of dds")?;
 

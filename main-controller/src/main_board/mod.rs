@@ -1,6 +1,4 @@
-pub mod config;
 pub mod events;
-mod main_board;
 mod main_board_subsystem;
 pub mod modules;
 pub mod tasks;

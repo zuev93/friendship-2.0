@@ -13,10 +13,13 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::main_board::{
-    main_board::MainBoard,
+    modules::{
+        audio_panel::AudioPanel, crystall_filter::CrystallFilter, detector::Detector,
+        if_amplifier::IfAmplifier, mixer::Mixer,
+    },
     tasks::{
         audio::audio_panel_task, crystall_filter::crystall_filter_task,
-        dds_control_task::dds_control_task, if_gain_control_task, if_reference::if_reference_task,
+        detector_tasks::detector_tasks, if_amplifier_tasks, mixer_tasks::mixer_tasks,
     },
 };
 
@@ -53,21 +56,18 @@ impl MainBoardSubsystem {
         let i2c1 = I2c::new(i2c_periph, scl, sda, irqs, i2c_txdma, i2c_rxdma, i2c_config);
         let i2c_mutex = I2C1_BUS.init(Mutex::new(i2c1));
 
-        let main_board = MainBoard::new(
-            i2c_mutex, spi_peri, txsd, rxsd, ws, ck, mck, spi_txdma, spi_rxdma,
-        );
-        let MainBoard {
-            dds,
-            crystall_filter,
-            if_gain_control,
-            if_reference,
-            audio_panel,
-        } = main_board;
+        spawner.must_spawn(mixer_tasks(Mixer::new(i2c_mutex)));
+        if_amplifier_tasks::spawn_tasks(spawner, IfAmplifier::new(i2c_mutex));
+        audio_panel_task::create_tasks(
+            spawner,
+            AudioPanel::new(
+                i2c_mutex, spi_peri, txsd, rxsd, ws, ck, mck, spi_txdma, spi_rxdma,
+            ),
+        )
+        .await;
+        spawner.must_spawn(crystall_filter_task(CrystallFilter::new(i2c_mutex)));
+        spawner.must_spawn(detector_tasks(Detector::new(i2c_mutex)));
 
-        spawner.must_spawn(dds_control_task(dds));
-        if_gain_control_task::spawn_tasks(spawner, if_gain_control);
-        audio_panel_task::create_tasks(spawner, audio_panel).await;
-        spawner.must_spawn(crystall_filter_task(crystall_filter));
-        spawner.must_spawn(if_reference_task(if_reference));
+        // TODO load settings and apply them
     }
 }
