@@ -6,4 +6,3 @@ use crate::main_board::types::RssiDbm;
 
 pub static CURRENT_RSSI: Signal<ThreadModeRawMutex, RssiDbm> = Signal::new();
 pub static AUDIO_RX_BUFFER: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> = Signal::new();
-pub static AUDIO_MIC_BUFFER: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> = Signal::new();

@@ -4,8 +4,6 @@ use crate::app::types::Mode;
 use crate::consts::AUDIO_BUFFER_SIZE;
 
 const SAMPLE_RATE_HZ: u32 = 48_000;
-const BUFFER_PERIOD: Duration =
-    Duration::from_micros((AUDIO_BUFFER_SIZE as u64 * 1_000_000) / SAMPLE_RATE_HZ as u64);
 const TONE_FREQ_HZ: u32 = 1000;
 const BEEP_FREQ_HZ: u32 = 1500;
 const BUTTON_BEEP_MS: u64 = 120;
@@ -38,10 +36,6 @@ impl ToneGenerator {
             beep_until: None,
             warmup: WarmupState::new(),
         }
-    }
-
-    pub fn buffer_period() -> Duration {
-        BUFFER_PERIOD
     }
 
     pub fn set_mode(&mut self, mode: Mode) {

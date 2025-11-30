@@ -5,26 +5,32 @@ use static_cell::StaticCell;
 use crate::{
     app::{
         audio_mixer::AudioMixer,
-        events::{
-            AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, AUDIO_GENERATOR_OUT,
-        },
+        events::{AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX},
+        tone_generator::ToneGenerator,
     },
-    main_board::events::{AUDIO_MIC_BUFFER, AUDIO_RX_BUFFER},
+    front_panel::events::AUDIO_MIC_BUFFER,
+    main_board::events::AUDIO_RX_BUFFER,
 };
 
-pub fn spawn_tasks(spawner: Spawner) {
+pub fn spawn_tasks(
+    spawner: Spawner,
+    tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>,
+) {
     static MIXER: StaticCell<Mutex<ThreadModeRawMutex, AudioMixer>> = StaticCell::new();
     let mixer = MIXER.init(Mutex::new(AudioMixer::new()));
-    spawner.must_spawn(audio_task(mixer));
+    spawner.must_spawn(audio_task(mixer, tone_generator));
     spawner.must_spawn(audio_modes_task(mixer));
 }
 
 #[embassy_executor::task]
-async fn audio_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
+async fn audio_task(
+    mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>,
+    tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>,
+) {
     loop {
         let audio_rx = AUDIO_RX_BUFFER.wait().await;
-        let generator = AUDIO_GENERATOR_OUT.wait().await;
         let mic = AUDIO_MIC_BUFFER.wait().await;
+        let generator = tone_generator.lock().await.next_buffer();
 
         let mut mixer = mutex.lock().await;
         mixer.set_buffer_rx(audio_rx);

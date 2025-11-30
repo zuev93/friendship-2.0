@@ -1,12 +1,12 @@
 use crate::{
-    front_panel::{tasks::spi_receiver::handle_response_packet, types::SpiType},
+    front_panel::{tasks::spi_receiver::handle_response_packet, types::ControlBusType},
     main_board::events::CURRENT_RSSI,
 };
 use common::protocol_types::SMeterCommand;
 use common::spi_protocol::Packet;
 
 #[embassy_executor::task]
-pub async fn s_meter_task(spi_link: SpiType) {
+pub async fn s_meter_task(control_bus: ControlBusType) {
     loop {
         let rssi = CURRENT_RSSI.wait().await;
         let value = dbm_to_s_meter_value(rssi.dbm);
@@ -16,7 +16,7 @@ pub async fn s_meter_task(spi_link: SpiType) {
         smeter_cmd.serialize(&mut packet);
 
         let response = {
-            let mut spi = spi_link.lock().await;
+            let mut spi = control_bus.lock().await;
             spi.send_packet(&packet).await
         };
 

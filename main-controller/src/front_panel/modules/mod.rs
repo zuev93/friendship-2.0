@@ -1,2 +1,2 @@
 pub mod audio;
-pub mod spi_link;
+pub mod control_bus;

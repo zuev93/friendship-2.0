@@ -6,7 +6,7 @@ use crate::front_panel::{
         BandEncoderRotateEvent, ButtonEvent, PotentiometerEvent, VfoEncoderRotateEvent,
         BAND_ENCODER_EVENTS, BUTTON_EVENTS, POTENTIOMETER_EVENTS, VFO_ENCODER_EVENTS,
     },
-    types::SpiType,
+    types::ControlBusType,
 };
 
 use common::protocol_types::{
@@ -36,12 +36,14 @@ pub async fn handle_response_packet(packet: &common::spi_protocol::Packet) {
     }
 }
 
+// TODO check me
+// seems to be flaky since Spi has start method and can listen by itself
 #[embassy_executor::task]
-pub async fn spi_receiver_task(spi_link: SpiType, mut alert_pin: ExtiInput<'static>) {
+pub async fn spi_receiver_task(control_bus: ControlBusType, mut alert_pin: ExtiInput<'static>) {
     loop {
         alert_pin.wait_for_low().await;
 
-        let mut spi = spi_link.lock().await;
+        let mut spi = control_bus.lock().await;
 
         if !alert_pin.is_low() {
             continue;

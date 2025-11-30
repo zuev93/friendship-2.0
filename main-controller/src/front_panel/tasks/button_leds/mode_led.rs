@@ -1,11 +1,11 @@
 use crate::app::{events::CURRENT_MODE, types::Mode};
 use crate::front_panel::tasks::spi_receiver::handle_response_packet;
-use crate::front_panel::types::SpiType;
+use crate::front_panel::types::ControlBusType;
 use common::protocol_types::{LedCommand, LedState};
 use common::spi_protocol::Packet;
 
 #[embassy_executor::task]
-pub async fn mode_led_task(spi_link: SpiType) {
+pub async fn mode_led_task(control_bus: ControlBusType) {
     const LED_ID: u8 = 0; // Power/Mode button
 
     loop {
@@ -24,7 +24,7 @@ pub async fn mode_led_task(spi_link: SpiType) {
         led_cmd.serialize(&mut packet);
 
         let response = {
-            let mut spi = spi_link.lock().await;
+            let mut spi = control_bus.lock().await;
             spi.send_packet(&packet).await
         };
 

@@ -31,9 +31,6 @@ pub static CURRENT_RF_GAIN_MODE: Signal<ThreadModeRawMutex, RfGainMode> = Signal
 pub static TONE_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
 pub static BUTTON_BEEP: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
-pub static AUDIO_GENERATOR_OUT: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> =
-    Signal::new();
-
 pub static AUDIO_BUFFER_HEADPHONES: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> =
     Signal::new();
 pub static AUDIO_BUFFER_SPEAKERS: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> =

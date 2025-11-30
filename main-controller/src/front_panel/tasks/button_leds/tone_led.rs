@@ -2,7 +2,7 @@ use crate::{
     app::events::TONE_ACTIVE,
     front_panel::{
         tasks::spi_receiver::handle_response_packet,
-        types::{ButtonFunction, SpiType},
+        types::{ButtonFunction, ControlBusType},
     },
 };
 use common::protocol_types::{LedCommand, LedState};
@@ -11,7 +11,7 @@ use common::spi_protocol::Packet;
 use super::find_button_id;
 
 #[embassy_executor::task]
-pub async fn tone_led_task(spi_link: SpiType) {
+pub async fn tone_led_task(control_bus: ControlBusType) {
     let Some(led_id) = find_button_id(ButtonFunction::Tone) else {
         return;
     };
@@ -30,7 +30,7 @@ pub async fn tone_led_task(spi_link: SpiType) {
         led_cmd.serialize(&mut packet);
 
         let response = {
-            let mut spi = spi_link.lock().await;
+            let mut spi = control_bus.lock().await;
             spi.send_packet(&packet).await
         };
 

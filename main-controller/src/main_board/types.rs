@@ -1,9 +1,3 @@
-/*
- * Transceiver Types
- *
- * Common types used across transceiver modules.
- */
-
 use embassy_stm32::{
     i2c::{mode as i2c_mode, I2c},
     mode::{self},

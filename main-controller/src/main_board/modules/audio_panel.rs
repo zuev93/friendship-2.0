@@ -22,7 +22,7 @@ static RX_BUFFER: StaticCell<[u16; AUDIO_BUFFER_SIZE]> = StaticCell::new();
 static AUDIO_I2S: StaticCell<Mutex<ThreadModeRawMutex, I2S<'static, u16>>> = StaticCell::new();
 
 pub struct AudioPanel {
-    audio_code: Pcm3060<MainBoardI2C>,
+    audio_codec: Pcm3060<MainBoardI2C>,
     io: PCA9534<MainBoardI2C>,
     i2s: &'static Mutex<ThreadModeRawMutex, I2S<'static, u16>>,
 }
@@ -60,7 +60,7 @@ impl AudioPanel {
         let i2s = AUDIO_I2S.init(Mutex::new(i2s));
 
         Self {
-            audio_code: pcm3060,
+            audio_codec: pcm3060,
             io: pca9534,
             i2s,
         }
@@ -107,7 +107,7 @@ impl AudioPanel {
 
         self.reset_pcm3060().await?;
 
-        self.audio_code
+        self.audio_codec
             .init()
             .await
             .map_err(|_| "Failed to initialize PCM3060")?;

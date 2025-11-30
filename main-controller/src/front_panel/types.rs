@@ -1,6 +1,6 @@
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 
-use crate::front_panel::modules::spi_link::SpiLink;
+use crate::front_panel::modules::control_bus::ControlBus;
 
 // Physical button mapping to logical functions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -30,4 +30,4 @@ pub enum PotentiometerFunction {
     Squelch,    // Squelch level
 }
 
-pub type SpiType = &'static Mutex<ThreadModeRawMutex, SpiLink>;
+pub type ControlBusType = &'static Mutex<ThreadModeRawMutex, ControlBus>;

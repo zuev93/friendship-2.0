@@ -1,7 +1,10 @@
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 
-use crate::front_panel::types::{ButtonFunction, PotentiometerFunction};
+use crate::{
+    consts::AUDIO_BUFFER_SIZE,
+    front_panel::types::{ButtonFunction, PotentiometerFunction},
+};
 
 // Button events
 #[derive(Debug, Clone, Copy)]
@@ -37,3 +40,5 @@ pub static BAND_ENCODER_EVENTS: Channel<ThreadModeRawMutex, BandEncoderRotateEve
 
 pub static VFO_ENCODER_EVENTS: Channel<ThreadModeRawMutex, VfoEncoderRotateEvent, 16> =
     Channel::new();
+
+pub static AUDIO_MIC_BUFFER: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> = Signal::new();
