@@ -11,12 +11,12 @@ struct Gains {
 }
 
 const GAINS: Gains = Gains {
-    rx_to_hp: 255,   
-    gen_to_hp: 255, 
-    rx_to_spk: 255,  
-    gen_to_spk: 255, 
-    mic_to_tx: 255, 
-    gen_to_tx: 255, 
+    rx_to_hp: 255,
+    gen_to_hp: 255,
+    rx_to_spk: 255,
+    gen_to_spk: 255,
+    mic_to_tx: 255,
+    gen_to_tx: 255,
 };
 
 pub struct AudioMixer {

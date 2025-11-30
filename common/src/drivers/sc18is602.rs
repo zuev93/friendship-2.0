@@ -180,9 +180,7 @@ where
     /// Reads current GPIO levels (returns lower 4 bits).
     pub async fn read_gpio(&self) -> Result<u8, I2C::Error> {
         let mut guard = self.i2c.lock().await;
-        guard
-            .write(self.address, &[CMD_GPIO_READ])
-            .await?;
+        guard.write(self.address, &[CMD_GPIO_READ]).await?;
 
         let mut buffer = [0u8; 1];
         guard.read(self.address, &mut buffer).await?;

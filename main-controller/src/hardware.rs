@@ -6,7 +6,8 @@ use embassy_stm32::{
 };
 
 use crate::{
-    app::AppSubsystem, front_panel::FrontPanelSubsystem, main_board::MainBoardSubsystem,
+    app::AppSubsystem, control_board::control_board_subsystem::ControlBoardSybstem,
+    front_panel::FrontPanelSubsystem, main_board::MainBoardSubsystem,
     peripherals::peripherals_subsystem::PeripheralsSubsystem,
 };
 
@@ -34,12 +35,19 @@ impl Hardware {
         .await;
         FrontPanelSubsystem::init_subsystem(
             spawner, p.SPI1, p.PA7, p.PA6, p.PA5, p.DMA2_CH3, p.DMA2_CH2, p.PA4, p.PB5, p.EXTI5,
-            p.SPI3, p.PB2, p.PC11, p.PA15, p.PC10, p.PC7, p.DMA1_CH2, p.DMA1_CH3,
+            p.SPI3, p.PB2, p.PC11, p.PA15, p.PC10, p.PC7, p.DMA2_CH0, p.DMA2_CH1,
         )
         .await;
-        AppSubsystem::init_subsystem(spawner);
+        ControlBoardSybstem::init_subsystem(spawner, p.PB0, p.PB1, p.I2C3, p.PC9, p.PA8);
         PeripheralsSubsystem::init_subsystem(
-            spawner, p.I2C3, p.PC9, p.PA8, p.DMA1_CH4, p.DMA1_CH5, irqs,
+            spawner,
+            p.I2C4,
+            p.PB7,
+            p.PB6,
+            p.BDMA2_CH0,
+            p.BDMA2_CH1,
+            irqs,
         );
+        AppSubsystem::init_subsystem(spawner);
     }
 }

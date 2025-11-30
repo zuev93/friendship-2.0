@@ -45,15 +45,14 @@ impl MainBoardSubsystem {
         spi_txdma: Peri<'static, impl TxDma<T2>>,
         spi_rxdma: Peri<'static, impl RxDma<T2>>,
     ) {
-        static I2C1_BUS: StaticCell<
-            Mutex<ThreadModeRawMutex, I2c<'static, mode::Async, i2c_mode::Master>>,
-        > = StaticCell::new();
-
         let mut i2c_config = i2c::Config::default();
         i2c_config.sda_pullup = true;
         i2c_config.scl_pullup = true;
 
         let i2c1 = I2c::new(i2c_periph, scl, sda, irqs, i2c_txdma, i2c_rxdma, i2c_config);
+        static I2C1_BUS: StaticCell<
+            Mutex<ThreadModeRawMutex, I2c<'static, mode::Async, i2c_mode::Master>>,
+        > = StaticCell::new();
         let i2c_mutex = I2C1_BUS.init(Mutex::new(i2c1));
 
         spawner.must_spawn(mixer_tasks(Mixer::new(i2c_mutex)));
