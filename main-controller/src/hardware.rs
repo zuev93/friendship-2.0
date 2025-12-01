@@ -34,11 +34,27 @@ impl Hardware {
         )
         .await;
         FrontPanelSubsystem::init_subsystem(
-            spawner, p.SPI1, p.PA7, p.PA6, p.PA5, p.DMA2_CH3, p.DMA2_CH2, p.PA4, p.PB5, p.EXTI5,
+            spawner, p.SPI1, p.PB5, p.PB4, p.PA5, p.DMA2_CH3, p.DMA2_CH2, p.PA4, p.PC13, p.EXTI13,
             p.SPI3, p.PB2, p.PC11, p.PA15, p.PC10, p.PC7, p.DMA2_CH0, p.DMA2_CH1,
         )
         .await;
-        ControlBoardSybstem::init_subsystem(spawner, p.PB0, p.PB1, p.I2C3, p.PC9, p.PA8);
+        ControlBoardSybstem::init_subsystem(
+            spawner,
+            p.PB0,
+            p.PB1,
+            p.I2C3,
+            p.PC9,
+            p.PA8,
+            p.SPI6,
+            p.PA7,
+            p.PA6,
+            p.PA0,
+            p.PC12,
+            p.PA3,
+            p.BDMA2_CH2,
+            p.BDMA2_CH3,
+        )
+        .await;
         PeripheralsSubsystem::init_subsystem(
             spawner,
             p.I2C4,
