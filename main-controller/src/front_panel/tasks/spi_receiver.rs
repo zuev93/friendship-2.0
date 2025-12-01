@@ -4,14 +4,16 @@ use crate::front_panel::{
     config::{default_button_mapping, default_potentiometer_mapping},
     events::{
         BandEncoderRotateEvent, ButtonEvent, PotentiometerEvent, VfoEncoderRotateEvent,
-        BAND_ENCODER_EVENTS, BUTTON_EVENTS, POTENTIOMETER_EVENTS, VFO_ENCODER_EVENTS,
+        BAND_ENCODER_EVENTS, BUTTON_EVENTS, HEADPHONES_CONNECTED, POTENTIOMETER_EVENTS,
+        VFO_ENCODER_EVENTS,
     },
     types::ControlBusType,
 };
 
 use common::protocol_types::{
     ButtonEvent as ProtocolButtonEvent, ButtonState, EncoderDirection,
-    EncoderEvent as ProtocolEncoderEvent, PotentiometerValue,
+    EncoderEvent as ProtocolEncoderEvent, HeadphonesEvent as ProtocolHeadphonesEvent,
+    PotentiometerValue,
 };
 use common::spi_protocol::PacketType;
 
@@ -30,6 +32,11 @@ pub async fn handle_response_packet(packet: &common::spi_protocol::Packet) {
         Some(PacketType::PotentiometerValue) => {
             if let Some(value) = PotentiometerValue::deserialize(packet) {
                 handle_potentiometer_value(value).await;
+            }
+        }
+        Some(PacketType::HeadphonesEvent) => {
+            if let Some(event) = ProtocolHeadphonesEvent::deserialize(packet) {
+                handle_headphones_event(event).await;
             }
         }
         _ => {}
@@ -109,4 +116,8 @@ async fn handle_potentiometer_value(value: PotentiometerValue) {
     };
 
     let _ = POTENTIOMETER_EVENTS.send(event).await;
+}
+
+async fn handle_headphones_event(event: ProtocolHeadphonesEvent) {
+    HEADPHONES_CONNECTED.signal(event.connected);
 }

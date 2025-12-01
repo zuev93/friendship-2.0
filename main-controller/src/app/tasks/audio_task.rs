@@ -1,14 +1,15 @@
 use embassy_executor::Spawner;
+use embassy_futures::select::{select, Either};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::{
     app::{
         audio_mixer::AudioMixer,
-        events::{AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX},
+        events::{AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, CURRENT_VOLUME},
         tone_generator::ToneGenerator,
     },
-    front_panel::events::AUDIO_MIC_BUFFER,
+    front_panel::events::{AUDIO_MIC_BUFFER, HEADPHONES_CONNECTED},
     main_board::events::AUDIO_RX_BUFFER,
 };
 
@@ -19,7 +20,7 @@ pub fn spawn_tasks(
     static MIXER: StaticCell<Mutex<ThreadModeRawMutex, AudioMixer>> = StaticCell::new();
     let mixer = MIXER.init(Mutex::new(AudioMixer::new()));
     spawner.must_spawn(audio_task(mixer, tone_generator));
-    spawner.must_spawn(audio_modes_task(mixer));
+    spawner.must_spawn(controls_task(mixer));
 }
 
 #[embassy_executor::task]
@@ -46,9 +47,15 @@ async fn audio_task(
 }
 
 #[embassy_executor::task]
-async fn audio_modes_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
+async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     loop {
-        let _mixer = mutex.lock().await;
-        // mixer.setMode(mode);
+        match select(CURRENT_VOLUME.wait(), HEADPHONES_CONNECTED.wait()).await {
+            Either::First(volume) => {
+                mutex.lock().await.set_volume(volume);
+            }
+            Either::Second(connected) => {
+                mutex.lock().await.set_headphones_connected(connected);
+            }
+        }
     }
 }

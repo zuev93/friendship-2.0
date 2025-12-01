@@ -6,6 +6,8 @@ use crate::{
     front_panel::types::{ButtonFunction, PotentiometerFunction},
 };
 
+pub static HEADPHONES_CONNECTED: Signal<ThreadModeRawMutex, bool> = Signal::new();
+
 // Button events
 #[derive(Debug, Clone, Copy)]
 pub enum ButtonEvent {

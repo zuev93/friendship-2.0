@@ -1,4 +1,4 @@
-use crate::consts::AUDIO_BUFFER_SIZE;
+use crate::{app::types::Volume, consts::AUDIO_BUFFER_SIZE};
 
 #[derive(Copy, Clone)]
 struct Gains {
@@ -26,10 +26,14 @@ pub struct AudioMixer {
     out_headphones: [u16; AUDIO_BUFFER_SIZE],
     out_tx: [u16; AUDIO_BUFFER_SIZE],
     out_speakers: [u16; AUDIO_BUFFER_SIZE],
+    volume_gain: u8,
+    headphones_connected: bool,
     gains: Gains,
 }
 
 impl AudioMixer {
+    pub const MAX_VOLUME_RAW: Volume = 26_500;
+
     pub const fn new() -> Self {
         Self {
             rx: [0; AUDIO_BUFFER_SIZE],
@@ -38,6 +42,8 @@ impl AudioMixer {
             out_headphones: [0; AUDIO_BUFFER_SIZE],
             out_tx: [0; AUDIO_BUFFER_SIZE],
             out_speakers: [0; AUDIO_BUFFER_SIZE],
+            volume_gain: 255,
+            headphones_connected: true,
             gains: GAINS,
         }
     }
@@ -66,6 +72,16 @@ impl AudioMixer {
         self.mic = buffer;
     }
 
+    pub fn set_volume(&mut self, volume: Volume) {
+        let clamped = volume.max(0) as u32;
+        let normalized = clamped.min(AudioMixer::MAX_VOLUME_RAW as u32);
+        self.volume_gain = ((normalized * 255) / AudioMixer::MAX_VOLUME_RAW as u32) as u8;
+    }
+
+    pub fn set_headphones_connected(&mut self, connected: bool) {
+        self.headphones_connected = connected;
+    }
+
     pub fn mix(&mut self) {
         let g = self.gains;
         for i in 0..AUDIO_BUFFER_SIZE {
@@ -74,11 +90,14 @@ impl AudioMixer {
             let mic = self.mic[i];
 
             let hp = sat_add(scale_u8(rx, g.rx_to_hp), scale_u8(gen, g.gen_to_hp));
-            let spk = sat_add(scale_u8(rx, g.rx_to_spk), scale_u8(gen, g.gen_to_spk));
+            let spk = scale_u8(
+                sat_add(scale_u8(rx, g.rx_to_spk), scale_u8(gen, g.gen_to_spk)),
+                self.volume_gain,
+            );
             let tx = sat_add(scale_u8(mic, g.mic_to_tx), scale_u8(gen, g.gen_to_tx));
 
-            self.out_headphones[i] = hp;
-            self.out_speakers[i] = spk;
+            self.out_headphones[i] = if self.headphones_connected { hp } else { 0 };
+            self.out_speakers[i] = if !self.headphones_connected { spk } else { 0 };
             self.out_tx[i] = tx;
         }
     }
