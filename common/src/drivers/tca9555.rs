@@ -15,6 +15,7 @@
  */
 
 use core::result::Result;
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use embedded_hal_async::i2c::I2c;
 
 const REG_INPUT_PORT0: u8 = 0x00;
@@ -44,18 +45,35 @@ pub enum Pin {
     Pin7,
 }
 
-pub struct TCA9555 {
+pub struct TCA9555<I2C>
+where
+    I2C: I2c + 'static,
+{
     address: u8,
+    i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
 }
 
-impl TCA9555 {
-    pub fn new(address: u8) -> Self {
-        Self { address }
+impl<I2C> TCA9555<I2C>
+where
+    I2C: I2c + 'static,
+{
+    pub fn new(i2c_addr: u8, i2c: &'static Mutex<ThreadModeRawMutex, I2C>) -> Self {
+        Self {
+            address: i2c_addr,
+            i2c,
+        }
     }
 
     /// Set a specific pin value in port values
     /// Returns updated (port0, port1) values
-    pub fn set_pin_value(port0: u8, port1: u8, port: Port, pin: Pin, state: bool) -> (u8, u8) {
+    pub fn set_pin_value(
+        &self,
+        port0: u8,
+        port1: u8,
+        port: Port,
+        pin: Pin,
+        state: bool,
+    ) -> (u8, u8) {
         let pin_mask = 1 << (pin as u8);
 
         match port {
@@ -78,58 +96,42 @@ impl TCA9555 {
         }
     }
 
-    pub async fn init<I2C: I2c>(&mut self, i2c: &mut I2C) -> Result<(), I2C::Error> {
-        self.configure_port(i2c, Port::Port0, 0xFF).await?;
-        self.configure_port(i2c, Port::Port1, 0xFF).await?;
+    pub async fn init(&mut self) -> Result<(), I2C::Error> {
+        self.configure_port(Port::Port0, 0xFF).await?;
+        self.configure_port(Port::Port1, 0xFF).await?;
 
-        self.set_polarity(i2c, Port::Port0, 0x00).await?;
-        self.set_polarity(i2c, Port::Port1, 0x00).await?;
+        self.set_polarity(Port::Port0, 0x00).await?;
+        self.set_polarity(Port::Port1, 0x00).await?;
 
-        self.write_port(i2c, Port::Port0, 0x00).await?;
-        self.write_port(i2c, Port::Port1, 0x00).await?;
+        self.write_port(Port::Port0, 0x00).await?;
+        self.write_port(Port::Port1, 0x00).await?;
 
         Ok(())
     }
 
-    pub async fn configure_port<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        port: Port,
-        config: u8,
-    ) -> Result<(), I2C::Error> {
+    pub async fn configure_port(&mut self, port: Port, config: u8) -> Result<(), I2C::Error> {
         let reg = match port {
             Port::Port0 => REG_CONFIG_PORT0,
             Port::Port1 => REG_CONFIG_PORT1,
         };
-        self.write_register(i2c, reg, config).await
+        self.write_register(reg, config).await
     }
 
-    pub async fn write_port<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        port: Port,
-        value: u8,
-    ) -> Result<(), I2C::Error> {
+    pub async fn write_port(&mut self, port: Port, value: u8) -> Result<(), I2C::Error> {
         let reg = match port {
             Port::Port0 => REG_OUTPUT_PORT0,
             Port::Port1 => REG_OUTPUT_PORT1,
         };
-        self.write_register(i2c, reg, value).await
+        self.write_register(reg, value).await
     }
 
-    pub async fn write_pin<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        port: Port,
-        pin: Pin,
-        state: bool,
-    ) -> Result<(), I2C::Error> {
+    pub async fn write_pin(&mut self, port: Port, pin: Pin, state: bool) -> Result<(), I2C::Error> {
         let reg = match port {
             Port::Port0 => REG_OUTPUT_PORT0,
             Port::Port1 => REG_OUTPUT_PORT1,
         };
 
-        let mut value = self.read_register(i2c, reg).await?;
+        let mut value = self.read_register(reg).await?;
 
         if state {
             value |= 1 << pin as u8;
@@ -137,77 +139,57 @@ impl TCA9555 {
             value &= !(1 << pin as u8);
         }
 
-        self.write_register(i2c, reg, value).await
+        self.write_register(reg, value).await
     }
 
-    pub async fn set_polarity<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        port: Port,
-        invert: u8,
-    ) -> Result<(), I2C::Error> {
+    pub async fn set_polarity(&mut self, port: Port, invert: u8) -> Result<(), I2C::Error> {
         let reg = match port {
             Port::Port0 => REG_POLARITY_INV_PORT0,
             Port::Port1 => REG_POLARITY_INV_PORT1,
         };
-        self.write_register(i2c, reg, invert).await
+        self.write_register(reg, invert).await
     }
 
-    pub async fn set_port_direction<I2C: I2c>(
+    pub async fn set_port_direction(
         &mut self,
-        i2c: &mut I2C,
         port: Port,
         direction: u8,
     ) -> Result<(), I2C::Error> {
-        self.configure_port(i2c, port, direction).await
+        self.configure_port(port, direction).await
     }
 
-    pub async fn set_port_polarity<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-        port: Port,
-        invert: u8,
-    ) -> Result<(), I2C::Error> {
-        self.set_polarity(i2c, port, invert).await
+    pub async fn set_port_polarity(&mut self, port: Port, invert: u8) -> Result<(), I2C::Error> {
+        self.set_polarity(port, invert).await
     }
 
-    pub async fn read_and_clear_int<I2C: I2c>(
-        &self,
-        i2c: &mut I2C,
-    ) -> Result<(u8, u8), I2C::Error> {
-        let port0 = self.read_register(i2c, REG_INPUT_PORT0).await?;
-        let port1 = self.read_register(i2c, REG_INPUT_PORT1).await?;
+    pub async fn read_and_clear_int(&self) -> Result<(u8, u8), I2C::Error> {
+        let port0 = self.read_register(REG_INPUT_PORT0).await?;
+        let port1 = self.read_register(REG_INPUT_PORT1).await?;
         Ok((port0, port1))
     }
 
-    pub async fn sync_outputs_to_inputs<I2C: I2c>(
-        &mut self,
-        i2c: &mut I2C,
-    ) -> Result<(), I2C::Error> {
-        let port0 = self.read_register(i2c, REG_INPUT_PORT0).await?;
-        let port1 = self.read_register(i2c, REG_INPUT_PORT1).await?;
+    pub async fn sync_outputs_to_inputs(&mut self) -> Result<(), I2C::Error> {
+        let port0 = self.read_register(REG_INPUT_PORT0).await?;
+        let port1 = self.read_register(REG_INPUT_PORT1).await?;
 
-        self.write_register(i2c, REG_OUTPUT_PORT0, port0).await?;
-        self.write_register(i2c, REG_OUTPUT_PORT1, port1).await?;
+        self.write_register(REG_OUTPUT_PORT0, port0).await?;
+        self.write_register(REG_OUTPUT_PORT1, port1).await?;
 
         Ok(())
     }
 
-    async fn write_register<I2C: I2c>(
-        &self,
-        i2c: &mut I2C,
-        reg: u8,
-        value: u8,
-    ) -> Result<(), I2C::Error> {
+    async fn write_register(&self, reg: u8, value: u8) -> Result<(), I2C::Error> {
         let data = [reg, value];
-        i2c.write(self.address, &data).await
+        let mut lock = self.i2c.lock().await;
+        lock.write(self.address, &data).await
     }
 
-    async fn read_register<I2C: I2c>(&self, i2c: &mut I2C, reg: u8) -> Result<u8, I2C::Error> {
-        i2c.write(self.address, &[reg]).await?;
+    async fn read_register(&self, reg: u8) -> Result<u8, I2C::Error> {
+        let mut lock = self.i2c.lock().await;
+        lock.write(self.address, &[reg]).await?;
 
         let mut buffer = [0u8; 1];
-        i2c.read(self.address, &mut buffer).await?;
+        lock.read(self.address, &mut buffer).await?;
 
         Ok(buffer[0])
     }

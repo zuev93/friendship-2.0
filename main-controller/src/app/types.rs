@@ -217,3 +217,10 @@ impl RfPowerPercent {
 }
 
 pub type RfPower = RfPowerPercent;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CouplerMetrics {
+    pub forward_w: f32,
+    pub reflected_w: f32,
+    pub vswr: f32,
+}

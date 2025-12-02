@@ -10,7 +10,6 @@ use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
 use crate::peripherals::{
-    config::Settings,
     modules::{bpf::Bpf, hf_amp::HfAmp, lpf::Lpf},
     tasks::{bpf_task, hf_amp_task, lpf_task},
 };
@@ -33,8 +32,6 @@ impl PeripheralsSubsystem {
             Mutex<ThreadModeRawMutex, I2c<'static, mode::Async, i2c_mode::Master>>,
         > = StaticCell::new();
 
-        let config = Settings::default();
-
         let mut i2c_config = i2c::Config::default();
         i2c_config.sda_pullup = true;
         i2c_config.scl_pullup = true;
@@ -42,11 +39,9 @@ impl PeripheralsSubsystem {
         let i2c3 = I2c::new(i2c_periph, scl, sda, irqs, dma_tx, dma_rx, i2c_config);
         let i2c_mutex = I2C3_BUS.init(Mutex::new(i2c3));
 
+        spawner.spawn(lpf_task(Lpf::new(i2c_mutex))).unwrap();
         spawner
-            .spawn(lpf_task(Lpf::new(i2c_mutex, config.lpf_config.clone())))
-            .unwrap();
-        spawner
-            .spawn(bpf_task(Bpf::new(i2c_mutex, config.bpf_config)))
+            .spawn(bpf_task(Bpf::new(i2c_mutex)))
             .unwrap();
         spawner.spawn(hf_amp_task(HfAmp::new(i2c_mutex))).unwrap();
     }

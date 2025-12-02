@@ -1,29 +1,132 @@
 /*
  * LPF (Low Pass Filter) Module
- *
- * Controls output low-pass filters for different frequency bands
- * Uses PCA9534 GPIO expander for relay control
+ * Controls low-pass filters (TCA9555) and reads coupler power/VSWR (ADS1115) on the same board.
+ * TCA9555: Port0 = LPF1..LPF8 (Pin0..Pin7); Port1 Pin0 = LPF9; Pin1 = TX bypass
+ * ADS1115: AIN0 = forward voltage, AIN1 = reflected voltage
  */
 
-use crate::app::types::{Frequency, Mode};
-use crate::peripherals::config::LpfConfig;
+use crate::app::types::{CouplerMetrics, Frequency, Mode};
+use crate::i2c_map::{LPF_ADS1115_ADDR, LPF_GPIO_ADDR};
 use crate::peripherals::types::{PeripherialI2c, PeripherialI2cMutex};
-use common::drivers::pca9534::PCA9534;
+use common::drivers::ads1115::{ADS1115Config, ADS1115};
+use common::drivers::tca9555::{Pin as TcaPin, Port as TcaPort, TCA9555};
 
-const LPF_GPIO_ADDR: u8 = 0x20; // TODO: Move to i2c_map
+const COUPLER_V_PER_COUNT: f32 = 4.096 / 32768.0; // ADS1115 gain 4.096V, single-ended counts
+const COUPLER_W_PER_V_SQUARED: f32 = 1.0; // TODO: calibrate coupler factor
+
+#[derive(Clone, Copy)]
+struct LpfFilter {
+    freq_min: Frequency,
+    freq_max: Frequency,
+    port: TcaPort,
+    pin: TcaPin,
+}
+
+#[derive(Clone, Copy)]
+struct LpfConfig {
+    filters: [LpfFilter; 9],
+    tx_pin: LpfFilter,
+}
+
+impl LpfConfig {
+    fn default() -> Self {
+        Self {
+            filters: [
+                LpfFilter {
+                    freq_min: 1_800_000,
+                    freq_max: 2_000_000,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin0,
+                },
+                LpfFilter {
+                    freq_min: 3_500_000,
+                    freq_max: 4_000_000,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin1,
+                },
+                LpfFilter {
+                    freq_min: 5_000_000,
+                    freq_max: 7_500_000,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin2,
+                },
+                LpfFilter {
+                    freq_min: 10_000_000,
+                    freq_max: 10_150_000,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin3,
+                },
+                LpfFilter {
+                    freq_min: 14_000_000,
+                    freq_max: 14_350_000,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin4,
+                },
+                LpfFilter {
+                    freq_min: 18_000_000,
+                    freq_max: 18_168_000,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin5,
+                },
+                LpfFilter {
+                    freq_min: 21_000_000,
+                    freq_max: 21_450_000,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin6,
+                },
+                LpfFilter {
+                    freq_min: 24_000_000,
+                    freq_max: 30_000_000,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin7,
+                },
+                LpfFilter {
+                    freq_min: 50_000_000,
+                    freq_max: 54_000_000,
+                    port: TcaPort::Port1,
+                    pin: TcaPin::Pin0,
+                },
+            ],
+            tx_pin: LpfFilter {
+                freq_min: 0,
+                freq_max: 0,
+                port: TcaPort::Port1,
+                pin: TcaPin::Pin1,
+            },
+        }
+    }
+
+    fn find_filter(&self, frequency: Frequency) -> (TcaPort, TcaPin) {
+        self.filters
+            .iter()
+            .find(|f| frequency >= f.freq_min && frequency <= f.freq_max)
+            .unwrap_or_else(|| self.filters.last().expect("filters non-empty"))
+            .as_port_pin()
+    }
+}
+
+impl LpfFilter {
+    fn as_port_pin(&self) -> (TcaPort, TcaPin) {
+        (self.port, self.pin)
+    }
+}
 
 pub struct Lpf {
-    gpio: PCA9534<PeripherialI2c>,
-    lpf_config: LpfConfig,
+    config: LpfConfig,
+    gpio: TCA9555<PeripherialI2c>,
+    adc: ADS1115<PeripherialI2c>,
+    coupler_initialized: bool,
     mode: Mode,
     frequency: Frequency,
 }
 
 impl Lpf {
-    pub fn new(i2c: PeripherialI2cMutex, lpf_config: LpfConfig) -> Self {
+    pub fn new(i2c: PeripherialI2cMutex) -> Self {
         Self {
-            gpio: PCA9534::new(LPF_GPIO_ADDR, i2c),
-            lpf_config,
+            config: LpfConfig::default(),
+            gpio: TCA9555::new(LPF_GPIO_ADDR, i2c),
+            adc: ADS1115::new(LPF_ADS1115_ADDR, ADS1115Config::default(), i2c),
+            coupler_initialized: false,
             mode: Mode::StandBy,
             frequency: 0,
         }
@@ -39,37 +142,113 @@ impl Lpf {
         self.update_state().await
     }
 
-    pub async fn update_state(&mut self) -> Result<(), &'static str> {
-        let mut port_value = 0x00;
-
-        if self.mode == Mode::StandBy {
-            self.gpio
+    pub async fn read_coupler_metrics(&mut self) -> Result<CouplerMetrics, &'static str> {
+        if !self.coupler_initialized {
+            self.adc
                 .init()
                 .await
-                .map_err(|_| "Failed to initialize LPF GPIO")?;
-
-            self.gpio
-                .set_direction(0x00)
-                .await
-                .map_err(|_| "Failed to set LPF GPIO direction")?;
+                .map_err(|_| "Failed to init ADS1115 on LPF")?;
+            self.coupler_initialized = true;
         }
 
-        port_value = self.gpio.set_pin_value(
-            port_value,
-            self.lpf_config.control.tx_pin,
-            self.mode == Mode::Tx,
-        );
-        port_value = self.gpio.set_pin_value(
-            port_value,
-            self.lpf_config.find_filter(self.frequency),
-            self.mode == Mode::Rx || self.mode == Mode::Tx,
-        );
+        let forward_raw = self
+            .adc
+            .read_ain0()
+            .await
+            .map_err(|_| "Failed to read forward voltage")?;
+        let reflected_raw = self
+            .adc
+            .read_ain1()
+            .await
+            .map_err(|_| "Failed to read reflected voltage")?;
+
+        let forward_v = forward_raw as f32 * COUPLER_V_PER_COUNT;
+        let reflected_v = reflected_raw as f32 * COUPLER_V_PER_COUNT;
+
+        let forward_w = (forward_v * forward_v) * COUPLER_W_PER_V_SQUARED;
+        let reflected_w = (reflected_v * reflected_v) * COUPLER_W_PER_V_SQUARED;
+
+        let gamma = if forward_v.abs() > f32::EPSILON {
+            (reflected_v.abs() / forward_v.abs()).min(0.999)
+        } else {
+            0.0
+        };
+        let vswr = if gamma >= 0.999 {
+            f32::INFINITY
+        } else {
+            (1.0 + gamma) / (1.0 - gamma)
+        };
+
+        Ok(CouplerMetrics {
+            forward_w,
+            reflected_w,
+            vswr,
+        })
+    }
+
+    async fn initialize(&mut self) -> Result<(), &'static str> {
+        self.gpio
+            .init()
+            .await
+            .map_err(|_| "Failed to initialize TCA9555 for LPF")?;
 
         self.gpio
-            .write_port(port_value)
+            .set_port_direction(TcaPort::Port0, 0x00)
             .await
-            .map_err(|_| "Failed to write LPF port")?;
+            .map_err(|_| "Failed to set LPF Port0 direction")?;
+        self.gpio
+            .set_port_direction(TcaPort::Port1, 0x00)
+            .await
+            .map_err(|_| "Failed to set LPF Port1 direction")?;
 
+        self.gpio
+            .write_port(TcaPort::Port0, 0x00)
+            .await
+            .map_err(|_| "Failed to clear LPF Port0")?;
+        self.gpio
+            .write_port(TcaPort::Port1, 0x00)
+            .await
+            .map_err(|_| "Failed to clear LPF Port1")?;
         Ok(())
+    }
+
+    pub async fn update_state(&mut self) -> Result<(), &'static str> {
+        if self.mode == Mode::StandBy {
+            return Ok(());
+        }
+        if self.mode == Mode::WarmUp {
+            self.initialize().await?;
+        }
+
+        let mut port0 = 0u8;
+        let mut port1 = 0u8;
+
+        let (filter_port, filter_pin) = self.config.find_filter(self.frequency);
+        (port0, port1) = self
+            .gpio
+            .set_pin_value(port0, port1, filter_port, filter_pin, true);
+
+        if self.mode == Mode::Tx {
+            (port0, port1) = self.gpio.set_pin_value(
+                port0,
+                port1,
+                self.config.tx_pin.port,
+                self.config.tx_pin.pin,
+                true,
+            );
+        }
+
+        self.write_ports(port0, port1).await
+    }
+
+    async fn write_ports(&mut self, port0: u8, port1: u8) -> Result<(), &'static str> {
+        self.gpio
+            .write_port(TcaPort::Port0, port0)
+            .await
+            .map_err(|_| "Failed to write LPF Port0")?;
+        self.gpio
+            .write_port(TcaPort::Port1, port1)
+            .await
+            .map_err(|_| "Failed to write LPF Port1")
     }
 }

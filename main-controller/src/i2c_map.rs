@@ -7,3 +7,9 @@ pub const IF_AMP_MCP4725_ADDR: u8 = 0x61;
 pub const DETECTOR_SC18IS602_ADDR: u8 = 0b0101001;
 
 pub const PCM3060_AUDIO_PANEL_ADDR: u8 = 0b1000110;
+
+pub const BPF_TCA_GPIO_ADDR: u8 = 0x21;
+pub const BPF_PCA_GPIO_ADDR: u8 = 0x23;
+
+pub const LPF_GPIO_ADDR: u8 = 0x20;
+pub const LPF_ADS1115_ADDR: u8 = 0x48; // ADS1115 on LPF board (Vfwd/Vref from directional coupler)

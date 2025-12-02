@@ -7,7 +7,8 @@ use crate::{
 };
 
 use super::types::{
-    Band, Frequency, IfGain, Microphone, Mode, RfGainMode, RfPower, Squelch, TransmitMode, Volume,
+    Band, CouplerMetrics, Frequency, IfGain, Microphone, Mode, RfGainMode, RfPower, Squelch,
+    TransmitMode, Volume,
 };
 
 pub static CURRENT_MODE: Signal<ThreadModeRawMutex, Mode> = Signal::new();
@@ -30,6 +31,8 @@ pub static CURRENT_TRANSMIT_MODE: Signal<ThreadModeRawMutex, TransmitMode> = Sig
 pub static CURRENT_RF_GAIN_MODE: Signal<ThreadModeRawMutex, RfGainMode> = Signal::new();
 pub static TONE_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
 pub static BUTTON_BEEP: Signal<ThreadModeRawMutex, ()> = Signal::new();
+
+pub static COUPLER_METRICS: Signal<ThreadModeRawMutex, CouplerMetrics> = Signal::new();
 
 pub static AUDIO_BUFFER_HEADPHONES: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> =
     Signal::new();
