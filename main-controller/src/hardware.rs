@@ -7,7 +7,7 @@ use embassy_stm32::{
 
 use crate::{
     app::AppSubsystem, control_board::control_board_subsystem::ControlBoardSybstem,
-    front_panel::FrontPanelSubsystem, main_board::MainBoardSubsystem,
+    front_panel::FrontPanelSubsystem, i2c_map::I2cMap, main_board::MainBoardSubsystem,
     peripherals::peripherals_subsystem::PeripheralsSubsystem,
 };
 
@@ -27,10 +27,25 @@ impl Hardware {
         let config = StmConfig::default();
         let p = embassy_stm32::init(config);
         let irqs = Irqs;
+        let i2c_map = I2cMap::new();
 
         MainBoardSubsystem::init_subsystem(
-            spawner, irqs, p.I2C1, p.PB9, p.PB8, p.DMA1_CH6, p.DMA1_CH7, p.SPI2, p.PB15, p.PB14,
-            p.PB12, p.PB13, p.PC6, p.DMA1_CH0, p.DMA1_CH1,
+            spawner,
+            i2c_map.main,
+            irqs,
+            p.I2C1,
+            p.PB9,
+            p.PB8,
+            p.DMA1_CH6,
+            p.DMA1_CH7,
+            p.SPI2,
+            p.PB15,
+            p.PB14,
+            p.PB12,
+            p.PB13,
+            p.PC6,
+            p.DMA1_CH0,
+            p.DMA1_CH1,
         )
         .await;
         FrontPanelSubsystem::init_subsystem(
@@ -40,6 +55,7 @@ impl Hardware {
         .await;
         ControlBoardSybstem::init_subsystem(
             spawner,
+            i2c_map.control_board,
             p.PB0,
             p.PB1,
             p.I2C3,
@@ -57,6 +73,7 @@ impl Hardware {
         .await;
         PeripheralsSubsystem::init_subsystem(
             spawner,
+            i2c_map.peripherals,
             p.I2C4,
             p.PB7,
             p.PB6,

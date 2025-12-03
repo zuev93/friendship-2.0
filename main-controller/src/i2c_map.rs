@@ -1,15 +1,94 @@
-pub const MIXER_SC18IS602_ADDR: u8 = 0b0101000;
-pub const FILTER_PCA9534_ADDR: u8 = 0b0100000;
-pub const FILTER_MCP4725_ADDR: u8 = 0x60;
-pub const IF_AMP_PCA9534_ADDR: u8 = 0b0100001;
-pub const IF_AMP_ADS1115_RSSI_ADDR: u8 = 0b1001000;
-pub const IF_AMP_MCP4725_ADDR: u8 = 0x61;
-pub const DETECTOR_SC18IS602_ADDR: u8 = 0b0101001;
+#[derive(Debug)]
+pub struct I2cAddress(u8);
 
-pub const PCM3060_AUDIO_PANEL_ADDR: u8 = 0b1000110;
+impl I2cAddress {
+    pub const fn new(addr: u8) -> Self {
+        Self(addr)
+    }
 
-pub const BPF_TCA_GPIO_ADDR: u8 = 0x21;
-pub const BPF_PCA_GPIO_ADDR: u8 = 0x23;
+    pub fn into_raw(self) -> u8 {
+        self.0
+    }
+}
 
-pub const LPF_GPIO_ADDR: u8 = 0x20;
-pub const LPF_ADS1115_ADDR: u8 = 0x48; // ADS1115 on LPF board (Vfwd/Vref from directional coupler)
+impl From<I2cAddress> for u8 {
+    fn from(addr: I2cAddress) -> Self {
+        addr.into_raw()
+    }
+}
+
+pub struct MainI2cMap {
+    pub mixer_sc18is602: I2cAddress,
+    pub filter_pca9534: I2cAddress,
+    pub filter_mcp4725: I2cAddress,
+    pub if_amp_pca9534: I2cAddress,
+    pub if_amp_ads1115_rssi: I2cAddress,
+    pub if_amp_mcp4725: I2cAddress,
+    pub detector_sc18is602: I2cAddress,
+    pub audio_pcm3060: I2cAddress,
+    pub audio_panel_pca9534: I2cAddress,
+}
+
+impl MainI2cMap {
+    pub const fn new() -> Self {
+        Self {
+            mixer_sc18is602: I2cAddress::new(0b0101000),
+            filter_pca9534: I2cAddress::new(0b0100000),
+            filter_mcp4725: I2cAddress::new(0x60),
+            if_amp_pca9534: I2cAddress::new(0b0100001),
+            if_amp_ads1115_rssi: I2cAddress::new(0b1001000),
+            if_amp_mcp4725: I2cAddress::new(0x61),
+            detector_sc18is602: I2cAddress::new(0b0101001),
+            audio_pcm3060: I2cAddress::new(0b1000110),
+            audio_panel_pca9534: I2cAddress::new(0x20),
+        }
+    }
+}
+
+pub struct PeripheralI2cMap {
+    pub bpf_tca_gpio: I2cAddress,
+    pub bpf_pca_gpio: I2cAddress,
+    pub lpf_gpio: I2cAddress,
+    pub lpf_ads1115: I2cAddress,
+    pub hf_amp_gpio: I2cAddress,
+}
+
+impl PeripheralI2cMap {
+    pub const fn new() -> Self {
+        Self {
+            bpf_tca_gpio: I2cAddress::new(0x21),
+            bpf_pca_gpio: I2cAddress::new(0x23),
+            lpf_gpio: I2cAddress::new(0x20),
+            lpf_ads1115: I2cAddress::new(0x48),
+            hf_amp_gpio: I2cAddress::new(0x22),
+        }
+    }
+}
+
+pub struct ControlBoardI2cMap {
+    pub ina3221: I2cAddress,
+}
+
+impl ControlBoardI2cMap {
+    pub const fn new() -> Self {
+        Self {
+            ina3221: I2cAddress::new(0x40),
+        }
+    }
+}
+
+pub struct I2cMap {
+    pub main: MainI2cMap,
+    pub peripherals: PeripheralI2cMap,
+    pub control_board: ControlBoardI2cMap,
+}
+
+impl I2cMap {
+    pub const fn new() -> Self {
+        Self {
+            main: MainI2cMap::new(),
+            peripherals: PeripheralI2cMap::new(),
+            control_board: ControlBoardI2cMap::new(),
+        }
+    }
+}

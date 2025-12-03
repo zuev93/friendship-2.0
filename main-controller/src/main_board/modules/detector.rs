@@ -1,5 +1,5 @@
 use crate::app::types::{FilterType, Mode, TransmitMode};
-use crate::i2c_map;
+use crate::i2c_map::I2cAddress;
 use common::drivers::ad9834::{AD9834Config, Waveform, AD9834};
 use common::drivers::sc18is602::{GpioPin, SC18IS602SpiDevice, SC18IS602};
 
@@ -24,13 +24,13 @@ pub struct Detector {
 }
 
 impl Detector {
-    pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
+    pub fn new(i2c: &'static MainBoardI2CMutex, bridge_addr: I2cAddress) -> Self {
         let dds_config = AD9834Config {
             reference_clock_hz: REFERENCE_CLOCK_HZ,
             enable_doubler: ENABLE_DOUBLER,
         };
         let dds = AD9834::new(dds_config);
-        let sc18is602 = SC18IS602::new(i2c_map::DETECTOR_SC18IS602_ADDR, i2c);
+        let sc18is602 = SC18IS602::new(bridge_addr.into(), i2c);
         let bridge: SC18IS602SpiDevice<
             embassy_stm32::i2c::I2c<
                 'static,

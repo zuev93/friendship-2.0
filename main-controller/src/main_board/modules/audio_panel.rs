@@ -1,6 +1,6 @@
 use crate::app::types::Mode;
 use crate::consts::AUDIO_BUFFER_SIZE;
-use crate::i2c_map;
+use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 use common::drivers::pca9534::{Pin, PCA9534};
 use common::drivers::pcm3060::Pcm3060;
@@ -16,7 +16,6 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
-const PCA9534_AUDIO_PANEL_ADDR: u8 = 0x20;
 static TX_BUFFER: StaticCell<[u16; AUDIO_BUFFER_SIZE]> = StaticCell::new();
 static RX_BUFFER: StaticCell<[u16; AUDIO_BUFFER_SIZE]> = StaticCell::new();
 static AUDIO_I2S: StaticCell<Mutex<ThreadModeRawMutex, I2S<'static, u16>>> = StaticCell::new();
@@ -30,6 +29,8 @@ pub struct AudioPanel {
 impl AudioPanel {
     pub fn new<T: spi::Instance>(
         i2c: &'static MainBoardI2CMutex,
+        pcm3060_addr: I2cAddress,
+        pca9534_addr: I2cAddress,
         spi_peri: Peri<'static, T>,
         txsd: Peri<'static, impl MosiPin<T>>,
         rxsd: Peri<'static, impl MisoPin<T>>,
@@ -39,8 +40,8 @@ impl AudioPanel {
         txdma: Peri<'static, impl TxDma<T>>,
         rxdma: Peri<'static, impl RxDma<T>>,
     ) -> Self {
-        let pcm3060 = Pcm3060::new(i2c_map::PCM3060_AUDIO_PANEL_ADDR, i2c);
-        let pca9534 = PCA9534::new(PCA9534_AUDIO_PANEL_ADDR, i2c);
+        let pcm3060 = Pcm3060::new(pcm3060_addr.into(), i2c);
+        let pca9534 = PCA9534::new(pca9534_addr.into(), i2c);
 
         let mut config = Config::default();
         config.frequency = Hertz(48_000);

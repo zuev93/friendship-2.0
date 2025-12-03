@@ -8,9 +8,10 @@ use static_cell::StaticCell;
 
 use crate::{
     app::types::Mode,
+    i2c_map::I2cAddress,
     control_board::{
         events::PowerTelemetry,
-        types::{ControlBoardI2C, INA3221_ADDR},
+        types::ControlBoardI2C,
     },
 };
 use common::drivers::ina3221::{Ina3221, Ina3221Measurements};
@@ -32,6 +33,7 @@ impl PowerControl {
         i2c_periph: Peri<'static, T1>,
         sda: Peri<'static, impl SdaPin<T1>>,
         scl: Peri<'static, impl SclPin<T1>>,
+        ina3221_addr: I2cAddress,
     ) -> Self {
         let mut i2c_config = i2c::Config::default();
         i2c_config.sda_pullup = true;
@@ -47,7 +49,7 @@ impl PowerControl {
             pin_13v8_enabled: Output::new(pin_13v8_enabled, Level::Low, Speed::Medium),
             pin_3v3_enabled: Output::new(pin_3v3_enabled, Level::Low, Speed::Medium),
             mode: Mode::StandBy,
-            ina3221: Ina3221::new(INA3221_ADDR, SHUNTS, i2c_mutex),
+            ina3221: Ina3221::new(ina3221_addr.into(), SHUNTS, i2c_mutex),
         }
     }
 

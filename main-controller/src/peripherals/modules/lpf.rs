@@ -6,7 +6,7 @@
  */
 
 use crate::app::types::{CouplerMetrics, Frequency, Mode};
-use crate::i2c_map::{LPF_ADS1115_ADDR, LPF_GPIO_ADDR};
+use crate::i2c_map::I2cAddress;
 use crate::peripherals::types::{PeripherialI2c, PeripherialI2cMutex};
 use common::drivers::ads1115::{ADS1115Config, ADS1115};
 use common::drivers::tca9555::{Pin as TcaPin, Port as TcaPort, TCA9555};
@@ -121,11 +121,15 @@ pub struct Lpf {
 }
 
 impl Lpf {
-    pub fn new(i2c: PeripherialI2cMutex) -> Self {
+    pub fn new(
+        i2c: PeripherialI2cMutex,
+        gpio_addr: I2cAddress,
+        ads1115_addr: I2cAddress,
+    ) -> Self {
         Self {
             config: LpfConfig::default(),
-            gpio: TCA9555::new(LPF_GPIO_ADDR, i2c),
-            adc: ADS1115::new(LPF_ADS1115_ADDR, ADS1115Config::default(), i2c),
+            gpio: TCA9555::new(gpio_addr.into(), i2c),
+            adc: ADS1115::new(ads1115_addr.into(), ADS1115Config::default(), i2c),
             coupler_initialized: false,
             mode: Mode::StandBy,
             frequency: 0,

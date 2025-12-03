@@ -1,5 +1,5 @@
 use crate::app::types::{Frequency, Mode, RfGainMode};
-use crate::i2c_map::{BPF_PCA_GPIO_ADDR, BPF_TCA_GPIO_ADDR};
+use crate::i2c_map::I2cAddress;
 use crate::peripherals::types::{PeripherialI2c, PeripherialI2cMutex};
 use common::drivers::pca9534::{Pin as PcaPin, PCA9534};
 use common::drivers::tca9555::{Pin as TcaPin, Port as TcaPort, TCA9555};
@@ -217,11 +217,15 @@ pub struct Bpf {
 }
 
 impl Bpf {
-    pub fn new(i2c: PeripherialI2cMutex) -> Self {
+    pub fn new(
+        i2c: PeripherialI2cMutex,
+        tca_addr: I2cAddress,
+        pca_addr: I2cAddress,
+    ) -> Self {
         Self {
             config: BpfConfig::default(),
-            tca: TCA9555::new(BPF_TCA_GPIO_ADDR, i2c),
-            pca: PCA9534::new(BPF_PCA_GPIO_ADDR, i2c),
+            tca: TCA9555::new(tca_addr.into(), i2c),
+            pca: PCA9534::new(pca_addr.into(), i2c),
             mode: Mode::StandBy,
             rf_gain_mode: RfGainMode::Normal,
             frequency: 0,

@@ -3,7 +3,7 @@ use common::drivers::pca9534::{Pin, PCA9534};
 use embassy_time::Instant;
 
 use crate::app::types::{FilterType, IfGainMode, Mode};
-use crate::i2c_map;
+use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex, RssiDbm};
 use common::drivers::mcp4725::MCP4725;
 
@@ -45,15 +45,16 @@ pub struct IfAmplifier {
 }
 
 impl IfAmplifier {
-    pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
+    pub fn new(
+        i2c: &'static MainBoardI2CMutex,
+        dac_addr: I2cAddress,
+        adc_addr: I2cAddress,
+        io_addr: I2cAddress,
+    ) -> Self {
         Self {
-            dac_gain: MCP4725::new(i2c_map::IF_AMP_MCP4725_ADDR, i2c),
-            adc_rssi: ADS1115::new(
-                i2c_map::IF_AMP_ADS1115_RSSI_ADDR,
-                ADS1115Config::default(),
-                i2c,
-            ),
-            io: PCA9534::new(i2c_map::IF_AMP_PCA9534_ADDR, i2c),
+            dac_gain: MCP4725::new(dac_addr.into(), i2c),
+            adc_rssi: ADS1115::new(adc_addr.into(), ADS1115Config::default(), i2c),
+            io: PCA9534::new(io_addr.into(), i2c),
             if_gain_mode: IfGainMode::Manual,
             rssi_dbm: RssiDbm { dbm: 0 },
             desired_manual_gain: 0,

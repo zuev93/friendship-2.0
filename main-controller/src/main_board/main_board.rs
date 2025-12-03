@@ -1,6 +1,7 @@
 use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin};
 use embassy_stm32::Peri;
 
+use crate::i2c_map::MainI2cMap;
 use crate::main_board::modules::crystall_filter::CrystallFilter;
 use crate::main_board::modules::detector::Detector;
 use crate::main_board::types::MainBoardI2CMutex;
@@ -20,6 +21,7 @@ pub struct MainBoard {
 impl MainBoard {
     pub fn new<T: spi::Instance>(
         i2c: &'static MainBoardI2CMutex,
+        i2c_map: MainI2cMap,
         spi_peri: Peri<'static, T>,
         txsd: Peri<'static, impl MosiPin<T>>,
         rxsd: Peri<'static, impl MisoPin<T>>,
@@ -29,12 +31,41 @@ impl MainBoard {
         txdma: Peri<'static, impl TxDma<T>>,
         rxdma: Peri<'static, impl RxDma<T>>,
     ) -> Self {
+        let MainI2cMap {
+            mixer_sc18is602,
+            filter_pca9534,
+            filter_mcp4725,
+            if_amp_pca9534,
+            if_amp_ads1115_rssi,
+            if_amp_mcp4725,
+            detector_sc18is602,
+            audio_pcm3060,
+            audio_panel_pca9534,
+        } = i2c_map;
+
         Self {
-            mixer: Mixer::new(i2c),
-            crystall_filter: CrystallFilter::new(i2c),
-            if_amplifier: IfAmplifier::new(i2c),
-            detector: Detector::new(i2c),
-            audio_panel: AudioPanel::new(i2c, spi_peri, txsd, rxsd, ws, ck, mck, txdma, rxdma),
+            mixer: Mixer::new(i2c, mixer_sc18is602),
+            crystall_filter: CrystallFilter::new(i2c, filter_mcp4725, filter_pca9534),
+            if_amplifier: IfAmplifier::new(
+                i2c,
+                if_amp_mcp4725,
+                if_amp_ads1115_rssi,
+                if_amp_pca9534,
+            ),
+            detector: Detector::new(i2c, detector_sc18is602),
+            audio_panel: AudioPanel::new(
+                i2c,
+                audio_pcm3060,
+                audio_panel_pca9534,
+                spi_peri,
+                txsd,
+                rxsd,
+                ws,
+                ck,
+                mck,
+                txdma,
+                rxdma,
+            ),
         }
     }
 }

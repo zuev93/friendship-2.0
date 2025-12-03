@@ -6,10 +6,9 @@
  */
 
 use crate::app::types::Mode;
+use crate::i2c_map::I2cAddress;
 use crate::peripherals::types::{PeripherialI2c, PeripherialI2cMutex};
 use common::drivers::pca9534::PCA9534;
-
-const HF_AMP_GPIO_ADDR: u8 = 0x22; // TODO: Move to i2c_map
 
 pub struct HfAmp {
     #[allow(dead_code)]
@@ -18,9 +17,9 @@ pub struct HfAmp {
 }
 
 impl HfAmp {
-    pub fn new(i2c: PeripherialI2cMutex) -> Self {
+    pub fn new(i2c: PeripherialI2cMutex, gpio_addr: I2cAddress) -> Self {
         Self {
-            gpio: PCA9534::new(HF_AMP_GPIO_ADDR, i2c),
+            gpio: PCA9534::new(gpio_addr.into(), i2c),
             mode: Mode::StandBy,
         }
     }

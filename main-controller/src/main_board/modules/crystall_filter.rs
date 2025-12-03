@@ -1,5 +1,5 @@
 use crate::app::types::{FilterType, Mode, RfGainMode, RfPowerPercent};
-use crate::i2c_map::{self};
+use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 use common::drivers::mcp4725::MCP4725;
 use common::drivers::pca9534::{Pin, PCA9534};
@@ -21,9 +21,13 @@ pub struct CrystallFilter {
 }
 
 impl CrystallFilter {
-    pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
-        let dac = MCP4725::new(i2c_map::FILTER_MCP4725_ADDR, i2c);
-        let io = PCA9534::new(i2c_map::FILTER_PCA9534_ADDR, i2c);
+    pub fn new(
+        i2c: &'static MainBoardI2CMutex,
+        mcp4725_addr: I2cAddress,
+        pca9534_addr: I2cAddress,
+    ) -> Self {
+        let dac = MCP4725::new(mcp4725_addr.into(), i2c);
+        let io = PCA9534::new(pca9534_addr.into(), i2c);
         Self {
             io,
             dac,

@@ -12,6 +12,7 @@ use embassy_stm32::{
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
+use crate::i2c_map::MainI2cMap;
 use crate::main_board::{
     modules::{
         audio_panel::AudioPanel, crystall_filter::CrystallFilter, detector::Detector,
@@ -28,6 +29,7 @@ pub struct MainBoardSubsystem {}
 impl MainBoardSubsystem {
     pub async fn init_subsystem<T1: i2c::Instance, T2: spi::Instance>(
         spawner: Spawner,
+        main_i2c_map: MainI2cMap,
         irqs: impl interrupt::typelevel::Binding<T1::EventInterrupt, EventInterruptHandler<T1>>
             + interrupt::typelevel::Binding<T1::ErrorInterrupt, ErrorInterruptHandler<T1>>
             + 'static,
@@ -55,17 +57,45 @@ impl MainBoardSubsystem {
         > = StaticCell::new();
         let i2c_mutex = I2C1_BUS.init(Mutex::new(i2c1));
 
-        spawner.must_spawn(mixer_tasks(Mixer::new(i2c_mutex)));
-        if_amplifier_tasks::spawn_tasks(spawner, IfAmplifier::new(i2c_mutex));
+        spawner.must_spawn(mixer_tasks(Mixer::new(
+            i2c_mutex,
+            main_i2c_map.mixer_sc18is602,
+        )));
+        if_amplifier_tasks::spawn_tasks(
+            spawner,
+            IfAmplifier::new(
+                i2c_mutex,
+                main_i2c_map.if_amp_mcp4725,
+                main_i2c_map.if_amp_ads1115_rssi,
+                main_i2c_map.if_amp_pca9534,
+            ),
+        );
         audio_panel_task::create_tasks(
             spawner,
             AudioPanel::new(
-                i2c_mutex, spi_peri, txsd, rxsd, ws, ck, mck, spi_txdma, spi_rxdma,
+                i2c_mutex,
+                main_i2c_map.audio_pcm3060,
+                main_i2c_map.audio_panel_pca9534,
+                spi_peri,
+                txsd,
+                rxsd,
+                ws,
+                ck,
+                mck,
+                spi_txdma,
+                spi_rxdma,
             ),
         )
         .await;
-        spawner.must_spawn(crystall_filter_task(CrystallFilter::new(i2c_mutex)));
-        spawner.must_spawn(detector_tasks(Detector::new(i2c_mutex)));
+        spawner.must_spawn(crystall_filter_task(CrystallFilter::new(
+            i2c_mutex,
+            main_i2c_map.filter_mcp4725,
+            main_i2c_map.filter_pca9534,
+        )));
+        spawner.must_spawn(detector_tasks(Detector::new(
+            i2c_mutex,
+            main_i2c_map.detector_sc18is602,
+        )));
 
         // TODO load settings and apply them
     }

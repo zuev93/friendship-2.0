@@ -1,5 +1,5 @@
 use crate::app::types::{ClarifierMode, ClarifierValue, FilterType, Mode};
-use crate::i2c_map;
+use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 use common::drivers::ad9834::{AD9834Config, AD9834};
 use common::drivers::sc18is602::{SC18IS602SpiDevice, SC18IS602};
@@ -19,9 +19,9 @@ pub struct Mixer {
 }
 
 impl Mixer {
-    pub fn new(i2c: &'static MainBoardI2CMutex) -> Self {
+    pub fn new(i2c: &'static MainBoardI2CMutex, bridge_addr: I2cAddress) -> Self {
         let bridge = SC18IS602SpiDevice::new(
-            SC18IS602::new(i2c_map::MIXER_SC18IS602_ADDR, i2c),
+            SC18IS602::new(bridge_addr.into(), i2c),
             FSYNC_GPIO_PIN,
         );
 
