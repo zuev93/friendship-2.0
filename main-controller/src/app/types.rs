@@ -186,12 +186,11 @@ impl Band {
 
 pub type Frequency = u32; // Frequency in Hz (0 to 4,294,967,295)
 
-// Audio and RF control values from 16-bit ADC
-pub type Volume = i16; // Audio volume (0 = mute, max ≈ +26500)
-pub type Microphone = i16; // Microphone gain (0 to max ≈ +26500)
-pub type IfGain = i16; // IF gain control (0 to max ≈ +26500)
-pub type ClarifierValue = i16; // RIT/XIT clarifier (0 to max ≈ +26500)
-pub type Squelch = i16; // Squelch level (0 to max ≈ +26500)
+pub type Volume = i16;
+pub type Microphone = i16;
+pub type IfGain = i16;
+pub type ClarifierValue = i16;
+pub type Squelch = i16;
 
 /// RF Power level in hundredths of percent (0.00% - 100.00%)
 /// Provides intuitive control over transmitter power output with high precision
@@ -208,10 +207,8 @@ impl RfPowerPercent {
         }
     }
 
-    /// Convert raw ADC value to centipercent
-    /// ADC range: 0-26500 maps to 0-10000 (0.00% - 100.00%)
-    pub fn from_adc_raw(raw: i16) -> Self {
-        let centipercent = ((raw.max(0) as u32 * 10000) / 26500) as u16;
+    pub fn from_accumulated(raw: i16) -> Self {
+        let centipercent = ((raw.max(0) as u32 * 10000) / 1000) as u16;
         Self::new(centipercent)
     }
 }

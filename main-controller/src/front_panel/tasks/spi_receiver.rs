@@ -1,19 +1,18 @@
 use embassy_stm32::exti::ExtiInput;
 
 use crate::front_panel::{
-    config::{default_button_mapping, default_potentiometer_mapping},
+    config::{default_button_mapping, default_encoder_mapping},
     events::{
-        BandEncoderRotateEvent, ButtonEvent, PotentiometerEvent, VfoEncoderRotateEvent,
-        BAND_ENCODER_EVENTS, BUTTON_EVENTS, HEADPHONES_CONNECTED, POTENTIOMETER_EVENTS,
-        VFO_ENCODER_EVENTS,
+        BandEncoderRotateEvent, ButtonEvent, ControlEncoderEvent, VfoEncoderRotateEvent,
+        BAND_ENCODER_EVENTS, BUTTON_EVENTS, CONTROL_ENCODER_EVENTS, HEADPHONES_CONNECTED,
+        MENU_ENCODER_EVENTS, VFO_ENCODER_EVENTS,
     },
-    types::ControlBusType,
+    types::{ControlBusType, EncoderFunction},
 };
 
 use common::protocol_types::{
     ButtonEvent as ProtocolButtonEvent, ButtonState, EncoderDirection,
     EncoderEvent as ProtocolEncoderEvent, HeadphonesEvent as ProtocolHeadphonesEvent,
-    PotentiometerValue,
 };
 use common::spi_protocol::PacketType;
 
@@ -29,11 +28,6 @@ pub async fn handle_response_packet(packet: &common::spi_protocol::Packet) {
                 handle_encoder_event(event).await;
             }
         }
-        Some(PacketType::PotentiometerValue) => {
-            if let Some(value) = PotentiometerValue::deserialize(packet) {
-                handle_potentiometer_value(value).await;
-            }
-        }
         Some(PacketType::HeadphonesEvent) => {
             if let Some(event) = ProtocolHeadphonesEvent::deserialize(packet) {
                 handle_headphones_event(event).await;
@@ -43,8 +37,6 @@ pub async fn handle_response_packet(packet: &common::spi_protocol::Packet) {
     }
 }
 
-// TODO check me
-// seems to be flaky since Spi has start method and can listen by itself
 #[embassy_executor::task]
 pub async fn spi_receiver_task(control_bus: ControlBusType, mut alert_pin: ExtiInput<'static>) {
     loop {
@@ -82,40 +74,41 @@ async fn handle_button_event(event: ProtocolButtonEvent) {
 }
 
 async fn handle_encoder_event(event: ProtocolEncoderEvent) {
+    let mapping = default_encoder_mapping();
+
+    let function = match mapping.get(event.id) {
+        Some(func) => func,
+        None => return,
+    };
+
     let delta = match event.direction {
         EncoderDirection::Clockwise => event.steps,
         EncoderDirection::CounterClockwise => -event.steps,
     };
 
-    match event.id {
-        0 => {
-            let _ = BAND_ENCODER_EVENTS
+    match function {
+        EncoderFunction::Band => {
+            BAND_ENCODER_EVENTS
                 .send(BandEncoderRotateEvent { delta })
                 .await;
         }
-        1 => {
-            let _ = VFO_ENCODER_EVENTS
+        EncoderFunction::Vfo => {
+            VFO_ENCODER_EVENTS
                 .send(VfoEncoderRotateEvent { delta })
                 .await;
         }
-        _ => {}
+        EncoderFunction::Menu => {
+            MENU_ENCODER_EVENTS.send(delta).await;
+        }
+        func => {
+            CONTROL_ENCODER_EVENTS
+                .send(ControlEncoderEvent {
+                    function: func,
+                    delta,
+                })
+                .await;
+        }
     }
-}
-
-async fn handle_potentiometer_value(value: PotentiometerValue) {
-    let mapping = default_potentiometer_mapping();
-
-    let pot_func = match mapping.get(value.id) {
-        Some(func) => func,
-        None => return,
-    };
-
-    let event = PotentiometerEvent {
-        function: pot_func,
-        value: value.value as i16,
-    };
-
-    let _ = POTENTIOMETER_EVENTS.send(event).await;
 }
 
 async fn handle_headphones_event(event: ProtocolHeadphonesEvent) {

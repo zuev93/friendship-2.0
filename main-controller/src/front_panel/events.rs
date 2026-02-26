@@ -3,44 +3,44 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 
 use crate::{
     consts::AUDIO_BUFFER_SIZE,
-    front_panel::types::{ButtonFunction, PotentiometerFunction},
+    front_panel::types::{ButtonFunction, EncoderFunction},
 };
 
 pub static HEADPHONES_CONNECTED: Signal<ThreadModeRawMutex, bool> = Signal::new();
 
-// Button events
 #[derive(Debug, Clone, Copy)]
 pub enum ButtonEvent {
     Press(ButtonFunction),
     Release(ButtonFunction),
 }
 
-// Potentiometer event
-#[derive(Debug, Clone, Copy)]
-pub struct PotentiometerEvent {
-    pub function: PotentiometerFunction,
-    pub value: i16,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct BandEncoderRotateEvent {
-    pub delta: i8, // Positive for clockwise, negative for counter-clockwise
+    pub delta: i8,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct VfoEncoderRotateEvent {
-    pub delta: i8, // Positive for clockwise, negative for counter-clockwise
+    pub delta: i8,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ControlEncoderEvent {
+    pub function: EncoderFunction,
+    pub delta: i8,
 }
 
 pub static BUTTON_EVENTS: Channel<ThreadModeRawMutex, ButtonEvent, 16> = Channel::new();
-
-pub static POTENTIOMETER_EVENTS: Channel<ThreadModeRawMutex, PotentiometerEvent, 16> =
-    Channel::new();
 
 pub static BAND_ENCODER_EVENTS: Channel<ThreadModeRawMutex, BandEncoderRotateEvent, 16> =
     Channel::new();
 
 pub static VFO_ENCODER_EVENTS: Channel<ThreadModeRawMutex, VfoEncoderRotateEvent, 16> =
     Channel::new();
+
+pub static CONTROL_ENCODER_EVENTS: Channel<ThreadModeRawMutex, ControlEncoderEvent, 16> =
+    Channel::new();
+
+pub static MENU_ENCODER_EVENTS: Channel<ThreadModeRawMutex, i8, 16> = Channel::new();
 
 pub static AUDIO_MIC_BUFFER: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> = Signal::new();

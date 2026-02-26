@@ -1,6 +1,6 @@
 use heapless::index_map::FnvIndexMap;
 
-use crate::front_panel::types::{ButtonFunction, PotentiometerFunction};
+use crate::front_panel::types::{ButtonFunction, EncoderFunction};
 
 /// Button ID to Function mapping
 /// Maps physical button indices (0-11) to their logical functions
@@ -42,31 +42,32 @@ pub fn default_button_mapping() -> ButtonMapping {
     ButtonMapping::new()
 }
 
-/// Potentiometer ID to Function mapping
-/// Maps physical potentiometer indices (0-5) to their logical functions
-pub struct PotentiometerMapping {
-    map: FnvIndexMap<u8, PotentiometerFunction, 8>,
+pub struct EncoderMapping {
+    map: FnvIndexMap<u8, EncoderFunction, 16>,
 }
 
-impl PotentiometerMapping {
+impl EncoderMapping {
     pub fn new() -> Self {
         let mut map = FnvIndexMap::new();
 
-        map.insert(0, PotentiometerFunction::Volume).ok();
-        map.insert(1, PotentiometerFunction::Microphone).ok();
-        map.insert(2, PotentiometerFunction::RfPower).ok();
-        map.insert(3, PotentiometerFunction::IfGain).ok();
-        map.insert(4, PotentiometerFunction::Clarifier).ok();
-        map.insert(5, PotentiometerFunction::Squelch).ok();
+        map.insert(0, EncoderFunction::Band).ok();
+        map.insert(1, EncoderFunction::Vfo).ok();
+        map.insert(2, EncoderFunction::Volume).ok();
+        map.insert(3, EncoderFunction::RfPower).ok();
+        map.insert(4, EncoderFunction::Microphone).ok();
+        map.insert(5, EncoderFunction::IfGain).ok();
+        map.insert(6, EncoderFunction::Clarifier).ok();
+        map.insert(7, EncoderFunction::Squelch).ok();
+        map.insert(8, EncoderFunction::Menu).ok();
 
         Self { map }
     }
 
-    pub fn get(&self, pot_id: u8) -> Option<PotentiometerFunction> {
-        self.map.get(&pot_id).copied()
+    pub fn get(&self, encoder_id: u8) -> Option<EncoderFunction> {
+        self.map.get(&encoder_id).copied()
     }
 }
 
-pub fn default_potentiometer_mapping() -> PotentiometerMapping {
-    PotentiometerMapping::new()
+pub fn default_encoder_mapping() -> EncoderMapping {
+    EncoderMapping::new()
 }

@@ -84,34 +84,6 @@ impl EncoderEvent {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct PotentiometerValue {
-    pub id: u8,
-    pub value: u16,
-}
-
-impl PotentiometerValue {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::PotentiometerValue);
-        let payload = packet.payload_mut();
-        payload[0] = self.id;
-        payload[1] = (self.value >> 8) as u8;
-        payload[2] = self.value as u8;
-        packet.set_crc();
-    }
-
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::PotentiometerValue) {
-            return None;
-        }
-        let payload = packet.payload();
-        Some(Self {
-            id: payload[0],
-            value: ((payload[1] as u16) << 8) | (payload[2] as u16),
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
 pub struct HeadphonesEvent {
     pub connected: bool,
 }

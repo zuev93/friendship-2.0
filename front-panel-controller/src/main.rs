@@ -21,8 +21,7 @@ async fn main(spawner: Spawner) {
     let hw = hardware::init();
 
     tasks::buttons::spawn_tasks(&spawner, hw.buttons);
-    tasks::encoders::spawn_tasks(&spawner, hw.encoders);
-    tasks::potentiometers::spawn_tasks(&spawner, hw.potentiometers);
+    tasks::encoders::spawn_tasks(&spawner, hw.qei_encoders, hw.exti_encoders);
     tasks::leds::spawn_tasks(&spawner, hw.leds, &input_state.leds);
     tasks::s_meter::spawn_tasks(&spawner, hw.s_meter, &input_state.s_meter);
     tasks::headphones_detect::spawn_tasks(&spawner, hw.headphones_detect);

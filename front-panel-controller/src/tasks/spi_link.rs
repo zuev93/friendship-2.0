@@ -36,9 +36,6 @@ async fn prepare_tx_task(mut alert: Output<'static>) {
                 match event {
                     crate::state::output::OutputEvent::Button(btn) => btn.serialize(&mut packet),
                     crate::state::output::OutputEvent::Encoder(enc) => enc.serialize(&mut packet),
-                    crate::state::output::OutputEvent::Potentiometer(pot) => {
-                        pot.serialize(&mut packet)
-                    }
                     crate::state::output::OutputEvent::Headphones(hp) => hp.serialize(&mut packet),
                 }
 

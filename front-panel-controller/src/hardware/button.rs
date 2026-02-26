@@ -1,15 +1,19 @@
-use embassy_stm32::exti::ExtiInput;
+use embassy_stm32::gpio::Input;
 
 pub struct Button {
-    pub pin: ExtiInput<'static>,
+    pub pin: Input<'static>,
 }
 
 impl Button {
-    pub fn new(exti_input: ExtiInput<'static>) -> Option<Self> {
-        Some(Self { pin: exti_input })
+    pub fn new(pin: Input<'static>) -> Option<Self> {
+        Some(Self { pin })
+    }
+
+    pub fn is_low(&self) -> bool {
+        self.pin.is_low()
     }
 }
 
 pub struct Buttons {
-    pub buttons: [Option<Button>; 12],
+    pub buttons: [Option<Button>; 15],
 }

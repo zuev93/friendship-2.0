@@ -19,15 +19,17 @@ pub enum ButtonFunction {
     Ok,           // Button 11 - OK/Select
 }
 
-// Physical potentiometer mapping to logical functions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum PotentiometerFunction {
-    Volume,     // Audio volume control
-    Microphone, // Microphone gain
-    RfPower,    // RF transmit power
-    IfGain,     // IF gain control
-    Clarifier,  // RIT/XIT clarifier
-    Squelch,    // Squelch level
+pub enum EncoderFunction {
+    Band,
+    Vfo,
+    Volume,
+    RfPower,
+    Microphone,
+    IfGain,
+    Clarifier,
+    Squelch,
+    Menu,
 }
 
 pub type ControlBusType = &'static Mutex<ThreadModeRawMutex, ControlBus>;

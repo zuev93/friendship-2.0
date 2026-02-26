@@ -2,7 +2,6 @@ mod button;
 mod display;
 mod encoder;
 mod led;
-mod potentiometer;
 mod s_meter;
 mod spi_link;
 mod wm8940;
@@ -11,7 +10,6 @@ pub use button::*;
 pub use display::*;
 pub use encoder::*;
 pub use led::*;
-pub use potentiometer::*;
 pub use s_meter::*;
 pub use spi_link::*;
 
@@ -25,6 +23,7 @@ use embassy_stm32::{
     i2c::{self, I2c},
     interrupt::typelevel as irqs,
     mode,
+    timer::qei::Qei,
     Config,
 };
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -37,22 +36,16 @@ bind_interrupts!(struct ExtiIrqs {
     EXTI3 => exti::InterruptHandler<irqs::EXTI3>;
     EXTI4 => exti::InterruptHandler<irqs::EXTI4>;
     EXTI5 => exti::InterruptHandler<irqs::EXTI5>;
-    EXTI6 => exti::InterruptHandler<irqs::EXTI6>;
-    EXTI7 => exti::InterruptHandler<irqs::EXTI7>;
     EXTI8 => exti::InterruptHandler<irqs::EXTI8>;
     EXTI9 => exti::InterruptHandler<irqs::EXTI9>;
     EXTI10 => exti::InterruptHandler<irqs::EXTI10>;
     EXTI11 => exti::InterruptHandler<irqs::EXTI11>;
-    EXTI12 => exti::InterruptHandler<irqs::EXTI12>;
-    EXTI13 => exti::InterruptHandler<irqs::EXTI13>;
-    EXTI14 => exti::InterruptHandler<irqs::EXTI14>;
-    EXTI15 => exti::InterruptHandler<irqs::EXTI15>;
 });
 
 pub struct Hardware {
+    pub qei_encoders: QeiEncoders,
+    pub exti_encoders: ExtiEncoders,
     pub buttons: Buttons,
-    pub encoders: Encoders,
-    pub potentiometers: Potentiometers,
     pub leds: Leds,
     pub s_meter: SMeter,
     pub headphones_detect: Input<'static>,
@@ -66,35 +59,57 @@ pub fn init() -> Hardware {
     let p = embassy_stm32::init(config);
 
     Hardware {
+        qei_encoders: QeiEncoders {
+            encoders: [
+                Some(QeiEncoder::Tim1(Qei::new(p.TIM1, p.PA8, p.PA9, qei_config()))),
+                Some(QeiEncoder::Tim2(Qei::new(p.TIM2, p.PA0, p.PA1, qei_config()))),
+                Some(QeiEncoder::Tim3(Qei::new(p.TIM3, p.PB4, p.PA7, qei_config()))),
+                Some(QeiEncoder::Tim8(Qei::new(p.TIM8, p.PC6, p.PC7, qei_config()))),
+            ],
+        },
+        exti_encoders: ExtiEncoders {
+            encoders: [
+                Some(ExtiEncoder {
+                    channel_a: ExtiInput::new(p.PC0, p.EXTI0, Pull::Up, ExtiIrqs),
+                    channel_b: ExtiInput::new(p.PC1, p.EXTI1, Pull::Up, ExtiIrqs),
+                }),
+                Some(ExtiEncoder {
+                    channel_a: ExtiInput::new(p.PC2, p.EXTI2, Pull::Up, ExtiIrqs),
+                    channel_b: ExtiInput::new(p.PC3, p.EXTI3, Pull::Up, ExtiIrqs),
+                }),
+                Some(ExtiEncoder {
+                    channel_a: ExtiInput::new(p.PC4, p.EXTI4, Pull::Up, ExtiIrqs),
+                    channel_b: ExtiInput::new(p.PC5, p.EXTI5, Pull::Up, ExtiIrqs),
+                }),
+                Some(ExtiEncoder {
+                    channel_a: ExtiInput::new(p.PC8, p.EXTI8, Pull::Up, ExtiIrqs),
+                    channel_b: ExtiInput::new(p.PC9, p.EXTI9, Pull::Up, ExtiIrqs),
+                }),
+                Some(ExtiEncoder {
+                    channel_a: ExtiInput::new(p.PC10, p.EXTI10, Pull::Up, ExtiIrqs),
+                    channel_b: ExtiInput::new(p.PC11, p.EXTI11, Pull::Up, ExtiIrqs),
+                }),
+            ],
+        },
         buttons: Buttons {
             buttons: [
-                Button::new(ExtiInput::new(p.PC0, p.EXTI0, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC1, p.EXTI1, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC2, p.EXTI2, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC3, p.EXTI3, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC4, p.EXTI4, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC5, p.EXTI5, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC6, p.EXTI6, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC7, p.EXTI7, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC8, p.EXTI8, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC9, p.EXTI9, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC10, p.EXTI10, Pull::Up, ExtiIrqs)),
-                Button::new(ExtiInput::new(p.PC11, p.EXTI11, Pull::Up, ExtiIrqs)),
+                Button::new(Input::new(p.PC12, Pull::Up)),
+                Button::new(Input::new(p.PC13, Pull::Up)),
+                Button::new(Input::new(p.PC14, Pull::Up)),
+                Button::new(Input::new(p.PC15, Pull::Up)),
+                Button::new(Input::new(p.PD14, Pull::Up)),
+                Button::new(Input::new(p.PE2, Pull::Up)),
+                Button::new(Input::new(p.PE3, Pull::Up)),
+                Button::new(Input::new(p.PE4, Pull::Up)),
+                Button::new(Input::new(p.PE5, Pull::Up)),
+                Button::new(Input::new(p.PE6, Pull::Up)),
+                Button::new(Input::new(p.PE7, Pull::Up)),
+                Button::new(Input::new(p.PE8, Pull::Up)),
+                Button::new(Input::new(p.PE9, Pull::Up)),
+                Button::new(Input::new(p.PE10, Pull::Up)),
+                Button::new(Input::new(p.PE11, Pull::Up)),
             ],
         },
-        encoders: Encoders {
-            encoders: [
-                Encoder::new(
-                    ExtiInput::new(p.PC12, p.EXTI12, Pull::Up, ExtiIrqs),
-                    ExtiInput::new(p.PC13, p.EXTI13, Pull::Up, ExtiIrqs),
-                ),
-                Encoder::new(
-                    ExtiInput::new(p.PC14, p.EXTI14, Pull::Up, ExtiIrqs),
-                    ExtiInput::new(p.PC15, p.EXTI15, Pull::Up, ExtiIrqs),
-                ),
-            ],
-        },
-        potentiometers: Potentiometers::new(p.ADC1, p.PA0, p.PA1, p.PA2, p.PA3, p.PA7, p.PB0),
         leds: Leds {
             leds: [
                 Led::new(p.PD0, p.PD1),
