@@ -4,7 +4,6 @@
 
 set -e
 
-# Terminal colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
@@ -12,55 +11,52 @@ RED='\033[0;31m'
 NC='\033[0m'
 BOLD='\033[1m'
 
-echo -e "${BOLD}🔨 Building Druzhba firmware...${NC}"
+echo -e "${BOLD}Building Druzhba firmware...${NC}"
 echo ""
 
-# Build mode (default: release)
 MODE="${1:-release}"
 
-# Build both controllers separately (to avoid feature conflicts)
 if [ "$MODE" = "debug" ]; then
     echo -e "${BLUE}Build mode: DEBUG${NC}"
     echo "Building main-controller..."
     cargo build -p druzhba-main-controller || exit 1
     echo "Building front-panel-controller..."
     cargo build -p druzhba-front-panel-controller || exit 1
-    BUILD_DIR="target/thumbv7em-none-eabihf/debug"
+    BUILD_DIR="target/thumbv8m.main-none-eabihf/debug"
 else
     echo -e "${BLUE}Build mode: RELEASE${NC}"
     echo "Building main-controller..."
     cargo build --release -p druzhba-main-controller || exit 1
     echo "Building front-panel-controller..."
     cargo build --release -p druzhba-front-panel-controller || exit 1
-    BUILD_DIR="target/thumbv7em-none-eabihf/release"
+    BUILD_DIR="target/thumbv8m.main-none-eabihf/release"
 fi
 
 echo ""
 
-# Draw progress bar
 draw_bar() {
     local percent=$1
     local width=40
     local filled=$((percent * width / 100))
     local empty=$((width - filled))
-    
+
     printf "["
-    printf "%${filled}s" | tr ' ' '█'
-    printf "%${empty}s" | tr ' ' '░'
+    printf "%${filled}s" | tr ' ' '='
+    printf "%${empty}s" | tr ' ' '.'
     printf "]"
 }
 
-# Format size with units
 format_size() {
     local size=$1
-    if [ $size -gt 1024 ]; then
-        echo "$(($size / 1024)) KB"
+    if [ $size -ge 1048576 ]; then
+        echo "$(awk -v s="$size" 'BEGIN {printf "%.1f", s / 1048576}') MB"
+    elif [ $size -ge 1024 ]; then
+        echo "$(awk -v s="$size" 'BEGIN {printf "%.1f", s / 1024}') KB"
     else
-        echo "$size bytes"
+        echo "$size B"
     fi
 }
 
-# Choose color based on percentage
 color_by_percent() {
     local percent=$1
     if [ $percent -lt 50 ]; then
@@ -72,101 +68,86 @@ color_by_percent() {
     fi
 }
 
-# Analyze memory usage for a single binary
 analyze_binary() {
     local BINARY_NAME=$1
     local FLASH_SIZE=$2
     local RAM_SIZE=$3
     local TITLE=$4
     local PACKAGE_DIR=$5
-    
-    echo -e "${BOLD}📊 Analyzing ${TITLE}...${NC}"
+
+    echo -e "${BOLD}Analyzing ${TITLE}...${NC}"
     echo ""
-    
-    # Get section sizes using cargo size from the package directory
+
     if [ "$MODE" = "debug" ]; then
         SIZE_OUTPUT=$(cd "$PACKAGE_DIR" && cargo size --bin "$BINARY_NAME" -- -A 2>&1)
     else
         SIZE_OUTPUT=$(cd "$PACKAGE_DIR" && cargo size --release --bin "$BINARY_NAME" -- -A 2>&1)
     fi
-    
-    # Check if cargo size succeeded
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Error: cargo size failed for $BINARY_NAME${NC}"
-        echo "$SIZE_OUTPUT"
-        return 1
-    fi
-    
-    # Parse cargo size output
+
     TEXT_SIZE=$(echo "$SIZE_OUTPUT" | grep "^\.text" | awk '{print $2}')
     RODATA_SIZE=$(echo "$SIZE_OUTPUT" | grep "^\.rodata" | awk '{print $2}')
     DATA_SIZE=$(echo "$SIZE_OUTPUT" | grep "^\.data" | awk '{print $2}')
     BSS_SIZE=$(echo "$SIZE_OUTPUT" | grep "^\.bss" | awk '{print $2}')
     VECTOR_SIZE=$(echo "$SIZE_OUTPUT" | grep "^\.vector_table" | awk '{print $2}')
-    
-    # Calculate totals
+
+    TEXT_SIZE=${TEXT_SIZE:-0}
+    RODATA_SIZE=${RODATA_SIZE:-0}
+    DATA_SIZE=${DATA_SIZE:-0}
+    BSS_SIZE=${BSS_SIZE:-0}
+    VECTOR_SIZE=${VECTOR_SIZE:-0}
+
     FLASH_USED=$((TEXT_SIZE + RODATA_SIZE + DATA_SIZE + VECTOR_SIZE))
-    RAM_USED=$((DATA_SIZE + BSS_SIZE))
-    
-    # Calculate percentages
+    RAM_STATIC=$((DATA_SIZE + BSS_SIZE))
+
     FLASH_PERCENT=$((FLASH_USED * 100 / FLASH_SIZE))
-    RAM_PERCENT=$((RAM_USED * 100 / RAM_SIZE))
-    
-    echo -e "${BOLD}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${BOLD}  💾 FLASH (program memory)${NC}"
-    echo -e "${BOLD}═══════════════════════════════════════════════════════════════${NC}"
+    RAM_PERCENT=$((RAM_STATIC * 100 / RAM_SIZE))
+
+    echo -e "${BOLD}  FLASH (${FLASH_SIZE} bytes total)${NC}"
+    echo "  ---------------------------------------------------------------"
     printf "  %-20s %10s\n" "Vector table:" "$(format_size $VECTOR_SIZE)"
-    printf "  %-20s %10s\n" "Executable code:" "$(format_size $TEXT_SIZE)"
-    printf "  %-20s %10s\n" "Constants:" "$(format_size $RODATA_SIZE)"
-    printf "  %-20s %10s\n" "Data (.data):" "$(format_size $DATA_SIZE)"
-    echo "  ───────────────────────────────────────────────────────────────"
+    printf "  %-20s %10s\n" "Code (.text):" "$(format_size $TEXT_SIZE)"
+    printf "  %-20s %10s\n" "Constants (.rodata):" "$(format_size $RODATA_SIZE)"
+    printf "  %-20s %10s\n" "Init data (.data):" "$(format_size $DATA_SIZE)"
+    echo "  ---------------------------------------------------------------"
     FLASH_COLOR=$(color_by_percent $FLASH_PERCENT)
-    printf "  ${BOLD}Used:${NC} ${FLASH_COLOR}$(format_size $FLASH_USED)${NC} of $(format_size $FLASH_SIZE) "
+    printf "  ${BOLD}Used:${NC} ${FLASH_COLOR}$(format_size $FLASH_USED)${NC} / $(format_size $FLASH_SIZE) "
     echo -e "${FLASH_COLOR}(${FLASH_PERCENT}%)${NC}"
     echo -n "  "
     draw_bar $FLASH_PERCENT
     echo ""
-    printf "  ${GREEN}Available: $(format_size $((FLASH_SIZE - FLASH_USED)))${NC}\n"
-    
+
     echo ""
-    echo -e "${BOLD}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${BOLD}  🧠 RAM (runtime memory)${NC}"
-    echo -e "${BOLD}═══════════════════════════════════════════════════════════════${NC}"
-    printf "  %-20s %10s\n" "Initialized data:" "$(format_size $DATA_SIZE)"
-    printf "  %-20s %10s\n" "Uninitialized data:" "$(format_size $BSS_SIZE)"
-    echo "  ───────────────────────────────────────────────────────────────"
+    echo -e "${BOLD}  RAM - static only (${RAM_SIZE} bytes total)${NC}"
+    echo "  ---------------------------------------------------------------"
+    printf "  %-20s %10s\n" "Initialized (.data):" "$(format_size $DATA_SIZE)"
+    printf "  %-20s %10s\n" "Zeroed (.bss):" "$(format_size $BSS_SIZE)"
+    echo "  ---------------------------------------------------------------"
     RAM_COLOR=$(color_by_percent $RAM_PERCENT)
-    printf "  ${BOLD}Used:${NC} ${RAM_COLOR}$(format_size $RAM_USED)${NC} of $(format_size $RAM_SIZE) "
+    printf "  ${BOLD}Static:${NC} ${RAM_COLOR}$(format_size $RAM_STATIC)${NC} / $(format_size $RAM_SIZE) "
     echo -e "${RAM_COLOR}(${RAM_PERCENT}%)${NC}"
     echo -n "  "
     draw_bar $RAM_PERCENT
     echo ""
-    printf "  ${GREEN}Available: $(format_size $((RAM_SIZE - RAM_USED)))${NC}\n"
-    
-    echo -e "${BOLD}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "  ${YELLOW}Note: stack usage not included (grows at runtime)${NC}"
+
     echo ""
-    
-    # Warnings
+
     if [ $FLASH_PERCENT -gt 90 ]; then
-        echo -e "${RED}⚠️  WARNING: Flash almost full!${NC}"
+        echo -e "  ${RED}WARNING: Flash usage above 90%${NC}"
     fi
-    
-    if [ $RAM_PERCENT -gt 90 ]; then
-        echo -e "${RED}⚠️  WARNING: RAM almost full!${NC}"
+
+    if [ $RAM_PERCENT -gt 80 ]; then
+        echo -e "  ${RED}WARNING: Static RAM usage above 80%${NC}"
     fi
-    
-    if [ $FLASH_PERCENT -lt 50 ] && [ $RAM_PERCENT -lt 50 ]; then
-        echo -e "${GREEN}✅ Excellent memory usage! Plenty of room for expansion.${NC}"
-    fi
-    
+
     echo ""
 }
 
-# Analyze both controllers
-# Main Controller: STM32G474RE - 512 KB Flash, 128 KB RAM
-analyze_binary "druzhba-main-controller" 524288 131072 "Main Controller (STM32G474RE)" "main-controller"
+# Both controllers: STM32H563VI — 2 MB Flash, 640 KB SRAM
+FLASH_2MB=2097152
+SRAM_640KB=655360
 
-# Front Panel Controller: STM32F407VE - 512 KB Flash, 192 KB RAM  
-analyze_binary "druzhba-front-panel-controller" 524288 196608 "Front Panel Controller (STM32F407VE)" "front-panel-controller"
+analyze_binary "druzhba-main-controller" $FLASH_2MB $SRAM_640KB "Main Controller (STM32H563VI)" "main-controller"
+analyze_binary "druzhba-front-panel-controller" $FLASH_2MB $SRAM_640KB "Front Panel Controller (STM32H563VI)" "front-panel-controller"
 
-echo -e "${BOLD}🎯 Build completed successfully!${NC}"
+echo -e "${BOLD}Build completed.${NC}"
