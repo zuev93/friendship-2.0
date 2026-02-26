@@ -10,7 +10,7 @@ use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
 
 use crate::constants::TX_QUEUE_SIZE;
-use crate::hardware::{spi_slave::SpiSlave, SpiLink};
+use crate::hardware::{SpiLink, SpiSlaveInstance};
 use crate::state::input::{DisplayBuffer, InputState};
 use crate::state::output::OUTPUT_EVENTS;
 
@@ -50,7 +50,7 @@ async fn prepare_tx_task(mut alert: Output<'static>) {
 }
 
 #[embassy_executor::task]
-async fn spi_link_task(mut spi: SpiSlave, input_state: &'static InputState) {
+async fn spi_link_task(mut spi: SpiSlaveInstance, input_state: &'static InputState) {
     let mut rx_packet = Packet::new();
     let mut idle_packet = Packet::new();
     idle_packet.set_type(PacketType::Idle);
