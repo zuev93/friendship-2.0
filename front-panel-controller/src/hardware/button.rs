@@ -1,23 +1,12 @@
-use embassy_stm32::exti::Channel;
-use embassy_stm32::gpio::Pin;
-use embassy_stm32::{
-    exti::ExtiInput,
-    gpio::{AnyPin, Input, Pull},
-    Peripheral,
-};
+use embassy_stm32::exti::ExtiInput;
 
 pub struct Button {
-    pub pin: ExtiInput<'static, AnyPin>,
+    pub pin: ExtiInput<'static>,
 }
 
 impl Button {
-    pub fn new<'d, T: Pin>(
-        pin: impl Peripheral<P = T> + 'static,
-        ch: impl Peripheral<P = T::ExtiChannel> + Channel + 'static,
-    ) -> Option<Self> {
-        Some(Self {
-            pin: ExtiInput::new(Input::new(pin, Pull::Up).degrade(), ch.degrade()),
-        })
+    pub fn new(exti_input: ExtiInput<'static>) -> Option<Self> {
+        Some(Self { pin: exti_input })
     }
 }
 

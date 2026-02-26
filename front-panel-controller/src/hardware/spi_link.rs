@@ -1,30 +1,30 @@
 use embassy_stm32::{
-    gpio::{AnyPin, Level, Output, Pin, Speed},
+    gpio::{Level, Output, Pin, Speed},
     peripherals::*,
-    Peripheral,
+    Peri,
 };
 
 use super::spi_slave::SpiSlave;
 
 pub struct SpiLink {
     pub spi: SpiSlave,
-    pub link_alert: Output<'static, AnyPin>,
+    pub link_alert: Output<'static>,
 }
 
 impl SpiLink {
     pub fn new(
-        spi1: SPI1,
-        sck: PA5,
-        mosi: PB5,
-        miso: PA6,
-        nss: PA15,
-        link_alert_pin: impl Peripheral<P = impl Pin> + 'static,
+        spi1: Peri<'static, SPI1>,
+        sck: Peri<'static, PA5>,
+        mosi: Peri<'static, PB5>,
+        miso: Peri<'static, PA6>,
+        nss: Peri<'static, PA15>,
+        link_alert_pin: Peri<'static, impl Pin>,
     ) -> Self {
         let spi = SpiSlave::new(spi1, sck, mosi, miso, nss);
 
         Self {
             spi,
-            link_alert: Output::new(link_alert_pin, Level::Low, Speed::High).degrade(),
+            link_alert: Output::new(link_alert_pin, Level::Low, Speed::High),
         }
     }
 }

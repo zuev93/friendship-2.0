@@ -5,8 +5,8 @@ Modern digital redesign of the classic Soviet "Druzhba-M" HF transceiver. Superh
 
 ## Architecture
 Distributed system with two STM32 microcontrollers communicating via SPI:
-- **Main Controller**: STM32G474RE - core transceiver logic, signal processing, peripheral control
-- **Front Panel Controller**: STM32F407VE - user interface, displays, encoders, buttons, audio output
+- **Main Controller**: STM32H563VI - core transceiver logic, signal processing, peripheral control
+- **Front Panel Controller**: STM32H563VI - user interface, displays, encoders, buttons, audio output
 
 ## Code Structure
 ```
@@ -40,3 +40,4 @@ front-panel-controller/src/
 7. When stuck - STOP and ASK, never assume
 8. Report problems immediately, don't work around them
 9. Write clean, working code following instructions exactly
+10. **NEVER modify pin assignments without asking the user first** - pins are hardware. PCBs are physical and cannot be changed after manufacturing. Be extra cautious about any hardware-related changes

@@ -1,4 +1,5 @@
 use embassy_executor::Spawner;
+use embassy_stm32::adc::SampleTime;
 use embassy_time::Timer;
 
 use crate::constants::POTENTIOMETERS_POLL_INTERVAL;
@@ -18,12 +19,12 @@ async fn potentiometers_task(mut pots: Potentiometers) {
         Timer::after(POTENTIOMETERS_POLL_INTERVAL).await;
 
         let values = [
-            adc1.read(&mut pots.var1),
-            adc1.read(&mut pots.var2),
-            adc1.read(&mut pots.var3),
-            adc1.read(&mut pots.var4),
-            adc1.read(&mut pots.var5),
-            adc1.read(&mut pots.var6),
+            adc1.blocking_read(&mut pots.var1, SampleTime::CYCLES47_5),
+            adc1.blocking_read(&mut pots.var2, SampleTime::CYCLES47_5),
+            adc1.blocking_read(&mut pots.var3, SampleTime::CYCLES47_5),
+            adc1.blocking_read(&mut pots.var4, SampleTime::CYCLES47_5),
+            adc1.blocking_read(&mut pots.var5, SampleTime::CYCLES47_5),
+            adc1.blocking_read(&mut pots.var6, SampleTime::CYCLES47_5),
         ];
 
         for (i, &value) in values.iter().enumerate() {

@@ -2,7 +2,7 @@
 members = [
     "common",
     "main-controller",
-    # "front-panel-controller",  # Temporarily disabled for rust-analyzer
+    "front-panel-controller",
 ]
 resolver = "2"
 

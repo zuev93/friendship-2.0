@@ -12,8 +12,8 @@ embassy-time = { workspace = true }
 embassy-sync = { workspace = true }
 embassy-futures = { workspace = true }
 
-embassy-stm32 = { version = "0.4", features = [
-    "stm32f407ve", 
+embassy-stm32 = { version = "0.5", features = [
+    "stm32h563vi",
     "memory-x",
     "time-driver-any",
     "exti",

@@ -4,7 +4,7 @@ use druzhba_common::protocol_types::{
 };
 use druzhba_common::spi_protocol::{Packet, PacketType};
 use embassy_executor::Spawner;
-use embassy_stm32::gpio::{AnyPin, Output};
+use embassy_stm32::gpio::Output;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
@@ -25,7 +25,7 @@ pub fn spawn_tasks(spawner: &Spawner, spi_link: SpiLink, input_state: &'static I
 }
 
 #[embassy_executor::task]
-async fn prepare_tx_task(mut alert: Output<'static, AnyPin>) {
+async fn prepare_tx_task(mut alert: Output<'static>) {
     use embassy_futures::select::{select, Either};
 
     loop {

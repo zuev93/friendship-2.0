@@ -1,26 +1,15 @@
-use embassy_stm32::exti::Channel;
-use embassy_stm32::gpio::Pin;
-use embassy_stm32::{
-    exti::ExtiInput,
-    gpio::{AnyPin, Input, Pull},
-    Peripheral,
-};
+use embassy_stm32::exti::ExtiInput;
 
 pub struct Encoder {
-    pub channel_a: ExtiInput<'static, AnyPin>,
-    pub channel_b: ExtiInput<'static, AnyPin>,
+    pub channel_a: ExtiInput<'static>,
+    pub channel_b: ExtiInput<'static>,
 }
 
 impl Encoder {
-    pub fn new<'d, T1: Pin, T2: Pin>(
-        pin1: impl Peripheral<P = T1> + 'static,
-        pin2: impl Peripheral<P = T2> + 'static,
-        ch1: impl Peripheral<P = T1::ExtiChannel> + Channel + 'static,
-        ch2: impl Peripheral<P = T2::ExtiChannel> + Channel + 'static,
-    ) -> Option<Encoder> {
+    pub fn new(a: ExtiInput<'static>, b: ExtiInput<'static>) -> Option<Encoder> {
         Some(Encoder {
-            channel_a: ExtiInput::new(Input::new(pin1, Pull::Up).degrade(), ch1.degrade()),
-            channel_b: ExtiInput::new(Input::new(pin2, Pull::Up).degrade(), ch2.degrade()),
+            channel_a: a,
+            channel_b: b,
         })
     }
 }

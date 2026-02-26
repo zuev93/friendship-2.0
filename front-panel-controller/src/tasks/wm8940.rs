@@ -1,14 +1,14 @@
 use druzhba_common::drivers::wm8940::Wm8940;
 use druzhba_common::error;
 use embassy_executor::Spawner;
-use embassy_stm32::i2c::I2c;
-use embassy_stm32::peripherals::{DMA1_CH5, DMA1_CH6, I2C1};
+use embassy_stm32::i2c::{self, I2c};
+use embassy_stm32::mode;
 
 use crate::state::input::Wm8940Signal;
 
 pub fn spawn_tasks(
     spawner: &Spawner,
-    wm8940: Wm8940<I2c<'static, I2C1, DMA1_CH6, DMA1_CH5>>,
+    wm8940: Wm8940<I2c<'static, mode::Async, i2c::Master>>,
     wm8940_signal: &'static Wm8940Signal,
 ) {
     spawner.must_spawn(wm8940_task(wm8940, wm8940_signal));
@@ -16,7 +16,7 @@ pub fn spawn_tasks(
 
 #[embassy_executor::task]
 async fn wm8940_task(
-    mut wm8940: Wm8940<I2c<'static, I2C1, DMA1_CH6, DMA1_CH5>>,
+    mut wm8940: Wm8940<I2c<'static, mode::Async, i2c::Master>>,
     wm8940_signal: &'static Wm8940Signal,
 ) {
     if wm8940.init().await.is_err() {

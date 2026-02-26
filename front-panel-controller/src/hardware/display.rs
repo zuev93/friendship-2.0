@@ -1,29 +1,31 @@
 use druzhba_common::drivers::ssd1315::{SSD1315Config, SSD1315};
 use embassy_stm32::gpio::Pin;
 use embassy_stm32::{
-    gpio::{AnyPin, Level, Output, Speed},
+    gpio::{Level, Output, Speed},
+    mode,
     peripherals::*,
     spi::{self, Spi},
     time::Hertz,
-    Peripheral,
+    Peri,
 };
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
 pub struct Display {
     pub display: SSD1315<
-        Spi<'static, SPI2, DMA1_CH4, DMA1_CH3>,
-        Output<'static, AnyPin>,
-        Output<'static, AnyPin>,
+        Spi<'static, mode::Async, spi::mode::Master>,
+        Output<'static>,
+        Output<'static>,
     >,
 }
 
 impl Display {
     pub fn new(
         display: SSD1315<
-            Spi<'static, SPI2, DMA1_CH4, DMA1_CH3>,
-            Output<'static, AnyPin>,
-            Output<'static, AnyPin>,
+            Spi<'static, mode::Async, spi::mode::Master>,
+            Output<'static>,
+            Output<'static>,
         >,
     ) -> Self {
         Self { display }
@@ -32,8 +34,8 @@ impl Display {
 
 pub struct Displays {
     pub displays: [Display; 2],
-    pub reset: Output<'static, AnyPin>,
-    pub backlight: Output<'static, AnyPin>,
+    pub reset: Output<'static>,
+    pub backlight: Output<'static>,
 }
 
 impl Displays {
@@ -43,40 +45,39 @@ impl Displays {
     }
 
     pub fn new(
-        spi2: SPI2,
-        sck: PB10,
-        mosi: PB15,
-        tx_dma: DMA1_CH4,
-        rx_dma: DMA1_CH3,
-        dc_pin: impl Peripheral<P = impl Pin> + 'static,
-        cs1_pin: impl Peripheral<P = impl Pin> + 'static,
-        cs2_pin: impl Peripheral<P = impl Pin> + 'static,
-        reset_pin: impl Peripheral<P = impl Pin> + 'static,
-        backlight_pin: impl Peripheral<P = impl Pin> + 'static,
+        spi2: Peri<'static, SPI2>,
+        sck: Peri<'static, PB10>,
+        mosi: Peri<'static, PB15>,
+        tx_dma: Peri<'static, GPDMA1_CH2>,
+        dc_pin: Peri<'static, impl Pin>,
+        cs1_pin: Peri<'static, impl Pin>,
+        cs2_pin: Peri<'static, impl Pin>,
+        reset_pin: Peri<'static, impl Pin>,
+        backlight_pin: Peri<'static, impl Pin>,
     ) -> Self {
         let mut spi_config = spi::Config::default();
         spi_config.frequency = Hertz(10_000_000);
 
-        let spi2 = Spi::new_txonly(spi2, sck, mosi, tx_dma, rx_dma, spi_config);
+        let spi2 = Spi::new_txonly(spi2, sck, mosi, tx_dma, spi_config);
 
-        let spi2_mutex: &'static Mutex<ThreadModeRawMutex, Spi<'static, SPI2, DMA1_CH4, DMA1_CH3>> = {
+        let spi2_mutex: &'static Mutex<ThreadModeRawMutex, Spi<'static, mode::Async, spi::mode::Master>> = {
             static SPI2_MUTEX: StaticCell<
-                Mutex<ThreadModeRawMutex, Spi<'static, SPI2, DMA1_CH4, DMA1_CH3>>,
+                Mutex<ThreadModeRawMutex, Spi<'static, mode::Async, spi::mode::Master>>,
             > = StaticCell::new();
             SPI2_MUTEX.init(Mutex::new(spi2))
         };
 
-        let dc = Output::new(dc_pin, Level::Low, Speed::Medium).degrade();
-        let dc_mutex: &'static Mutex<ThreadModeRawMutex, Output<'static, AnyPin>> = {
-            static DC_MUTEX: StaticCell<Mutex<ThreadModeRawMutex, Output<'static, AnyPin>>> =
+        let dc = Output::new(dc_pin, Level::Low, Speed::Medium);
+        let dc_mutex: &'static Mutex<ThreadModeRawMutex, Output<'static>> = {
+            static DC_MUTEX: StaticCell<Mutex<ThreadModeRawMutex, Output<'static>>> =
                 StaticCell::new();
             DC_MUTEX.init(Mutex::new(dc))
         };
 
-        let cs1 = Output::new(cs1_pin, Level::High, Speed::Medium).degrade();
-        let cs2 = Output::new(cs2_pin, Level::High, Speed::Medium).degrade();
-        let reset = Output::new(reset_pin, Level::High, Speed::Medium).degrade();
-        let backlight = Output::new(backlight_pin, Level::Low, Speed::Medium).degrade();
+        let cs1 = Output::new(cs1_pin, Level::High, Speed::Medium);
+        let cs2 = Output::new(cs2_pin, Level::High, Speed::Medium);
+        let reset = Output::new(reset_pin, Level::High, Speed::Medium);
+        let backlight = Output::new(backlight_pin, Level::Low, Speed::Medium);
 
         let display1 = Display::new(SSD1315::new(
             spi2_mutex,
