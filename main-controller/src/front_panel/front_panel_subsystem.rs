@@ -1,7 +1,7 @@
 use embassy_executor::Spawner;
 use embassy_stm32::exti::ExtiInput;
-use embassy_stm32::gpio::{Pin, Pull};
 use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, SckPin, TxDma, WsPin};
+use embassy_stm32::gpio::Pin;
 use embassy_stm32::Peri;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
@@ -19,7 +19,7 @@ use crate::front_panel::tasks::{
 pub struct FrontPanelSubsystem {}
 
 impl FrontPanelSubsystem {
-    pub async fn init_subsystem<T: spi::Instance, T2: Pin, T3: spi::Instance>(
+    pub async fn init_subsystem<T: spi::Instance, T3: spi::Instance>(
         spawner: Spawner,
         spi_bus: Peri<'static, T>,
         bus_mosi: Peri<'static, impl MosiPin<T>>,
@@ -28,8 +28,7 @@ impl FrontPanelSubsystem {
         bus_dma_tx: Peri<'static, impl TxDma<T>>,
         bus_dma_rx: Peri<'static, impl RxDma<T>>,
         bus_cs_pin: Peri<'static, impl Pin>,
-        bus_alert_pin: Peri<'static, T2>,
-        bus_alert_exti: Peri<'static, T2::ExtiChannel>,
+        alert_input: ExtiInput<'static>,
 
         spi_audio: Peri<'static, T3>,
         audio_txsd: Peri<'static, impl MosiPin<T3>>,
@@ -47,12 +46,6 @@ impl FrontPanelSubsystem {
         );
         let bus = SPI_LINK.init(Mutex::new(control_bus_instance));
 
-        let alert_pin = ExtiInput::new(
-            bus_alert_pin,
-            bus_alert_exti,
-            // TODO check schematics
-            Pull::Up,
-        );
         let audio = Audio::new(
             bus,
             spi_audio,
@@ -64,7 +57,7 @@ impl FrontPanelSubsystem {
             audio_txdma,
             audio_rxdma,
         );
-        spawner.must_spawn(spi_receiver_task(bus, alert_pin));
+        spawner.must_spawn(spi_receiver_task(bus, alert_input));
 
         spawner.must_spawn(mode_led_task(bus));
         spawner.must_spawn(transmit_led_task(bus));

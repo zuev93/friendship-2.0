@@ -1,7 +1,11 @@
 use embassy_executor::Spawner;
+use embassy_stm32::exti::{self, ExtiInput};
+use embassy_stm32::gpio::Pull;
+use embassy_stm32::sai;
 use embassy_stm32::{
     bind_interrupts,
     i2c::{self},
+    interrupt::typelevel as irq_types,
     peripherals as stm_peripherals, Config as StmConfig,
 };
 
@@ -18,6 +22,7 @@ bind_interrupts!(pub struct Irqs {
     I2C3_ER => i2c::ErrorInterruptHandler<stm_peripherals::I2C3>;
     I2C4_EV => i2c::EventInterruptHandler<stm_peripherals::I2C4>;
     I2C4_ER => i2c::ErrorInterruptHandler<stm_peripherals::I2C4>;
+    EXTI13 => exti::InterruptHandler<irq_types::EXTI13>;
 });
 
 pub struct Hardware {}
@@ -36,23 +41,27 @@ impl Hardware {
             p.I2C1,
             p.PB9,
             p.PB8,
-            p.DMA1_CH6,
-            p.DMA1_CH7,
+            p.GPDMA1_CH0,
+            p.GPDMA1_CH1,
             p.SPI2,
             p.PB15,
             p.PB14,
             p.PB12,
             p.PB13,
             p.PC6,
-            p.DMA1_CH0,
-            p.DMA1_CH1,
+            p.GPDMA1_CH2,
+            p.GPDMA1_CH3,
         )
         .await;
+
+        let alert_input = ExtiInput::new(p.PC13, p.EXTI13, Pull::Up, irqs);
         FrontPanelSubsystem::init_subsystem(
-            spawner, p.SPI1, p.PB5, p.PB4, p.PA5, p.DMA2_CH3, p.DMA2_CH2, p.PA4, p.PC13, p.EXTI13,
-            p.SPI3, p.PB2, p.PC11, p.PA15, p.PC10, p.PC7, p.DMA2_CH0, p.DMA2_CH1,
+            spawner, p.SPI1, p.PB5, p.PB4, p.PA5, p.GPDMA1_CH4, p.GPDMA1_CH5, p.PA4, alert_input,
+            p.SPI3, p.PB2, p.PC11, p.PA15, p.PC10, p.PC7, p.GPDMA2_CH0, p.GPDMA2_CH1,
         )
         .await;
+
+        let (sai1_a, _sai1_b) = sai::split_subblocks(p.SAI1);
         ControlBoardSybstem::init_subsystem(
             spawner,
             i2c_map.control_board,
@@ -61,14 +70,11 @@ impl Hardware {
             p.I2C3,
             p.PC9,
             p.PA8,
-            p.SPI6,
-            p.PA7,
-            p.PA6,
-            p.PA0,
-            p.PC12,
-            p.PA3,
-            p.BDMA2_CH2,
-            p.BDMA2_CH3,
+            sai1_a,
+            p.PE5,
+            p.PE6,
+            p.PE4,
+            p.GPDMA2_CH2,
         )
         .await;
         PeripheralsSubsystem::init_subsystem(
@@ -77,8 +83,8 @@ impl Hardware {
             p.I2C4,
             p.PB7,
             p.PB6,
-            p.BDMA2_CH0,
-            p.BDMA2_CH1,
+            p.GPDMA2_CH4,
+            p.GPDMA2_CH5,
             irqs,
         );
         AppSubsystem::init_subsystem(spawner);

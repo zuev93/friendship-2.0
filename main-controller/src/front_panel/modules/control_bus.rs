@@ -8,7 +8,7 @@ use embassy_stm32::{
 };
 
 pub struct ControlBus {
-    spi: Spi<'static, mode::Async>,
+    spi: Spi<'static, mode::Async, spi::mode::Master>,
     cs: Output<'static>,
     idle_packet: Packet,
 }
@@ -47,9 +47,9 @@ impl ControlBus {
 
         self.cs.set_low();
 
-        let result = self
+        let result: Result<(), _> = self
             .spi
-            .transfer(&mut rx_packet.data, &tx_packet.data)
+            .transfer::<u8>(&mut rx_packet.data, &tx_packet.data)
             .await
             .map_err(|_| ());
 
