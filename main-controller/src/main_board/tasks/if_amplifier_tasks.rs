@@ -54,12 +54,13 @@ async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplif
 #[embassy_executor::task]
 async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
     loop {
-        let rssi = mutex.lock().await.read_rssi().await;
-        if rssi.is_err() {
-            error(rssi.err().unwrap()).await;
-            continue;
-        }
-        let rssi_data = rssi.unwrap();
+        let rssi_data = match mutex.lock().await.read_rssi().await {
+            Ok(data) => data,
+            Err(e) => {
+                error(e).await;
+                continue;
+            }
+        };
         let selected_rssi = select_rssi(rssi_data.rssi1, rssi_data.rssi2);
         CURRENT_RSSI.signal(selected_rssi);
 

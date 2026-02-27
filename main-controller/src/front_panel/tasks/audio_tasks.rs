@@ -19,7 +19,7 @@ static AUDIO_I2S_WRITER: StaticCell<AudioWriter> = StaticCell::new();
 
 pub async fn create_tasks(spawner: Spawner, audio: Audio) {
     let audio_panel = AUDIO_PANEL.init(audio);
-    let (reader, writer) = audio_panel.split_i2s().await;
+    let (reader, writer) = audio_panel.split_i2s();
     let reader = AUDIO_I2S_READER.init(reader);
     let writer = AUDIO_I2S_WRITER.init(writer);
     spawner.must_spawn(audio_panel_i2s_mic_task(reader));
@@ -65,7 +65,8 @@ async fn control_task(audio: &'static mut Audio) {
                 }
             }
             Either::Second(volume) => {
-                if let Err(_) = audio.set_volume(volume as u8).await {
+                let percent = (volume.raw().max(0) as u32 * 100 / 1000) as u8;
+                if let Err(_) = audio.set_volume(percent).await {
                     error("Failed to set audio volume").await;
                 }
             }

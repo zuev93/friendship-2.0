@@ -58,6 +58,7 @@ impl Hardware {
         FrontPanelSubsystem::init_subsystem(
             spawner, p.SPI1, p.PB5, p.PB4, p.PA5, p.GPDMA1_CH4, p.GPDMA1_CH5, p.PA4, alert_input,
             p.SPI3, p.PB2, p.PC11, p.PA15, p.PC10, p.PC7, p.GPDMA2_CH0, p.GPDMA2_CH1,
+            p.CRC,
         )
         .await;
 
@@ -70,6 +71,9 @@ impl Hardware {
             p.I2C3,
             p.PC9,
             p.PA8,
+            p.GPDMA2_CH6,
+            p.GPDMA2_CH7,
+            irqs,
             sai1_a,
             p.PE5,
             p.PE6,

@@ -7,6 +7,7 @@ extern crate druzhba_common as common;
 mod app;
 mod consts;
 mod control_board;
+mod crc;
 mod front_panel;
 mod hardware;
 mod i2c_map;

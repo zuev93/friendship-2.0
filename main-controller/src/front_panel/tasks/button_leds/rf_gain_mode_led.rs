@@ -6,7 +6,6 @@ use crate::{
     },
 };
 use common::protocol_types::{LedCommand, LedState};
-use common::spi_protocol::Packet;
 
 use super::find_button_id;
 
@@ -26,12 +25,10 @@ pub async fn rf_gain_mode_led_task(control_bus: ControlBusType) {
         };
 
         let led_cmd = LedCommand { led_id, state };
-        let mut packet = Packet::new();
-        led_cmd.serialize(&mut packet);
 
         let response = {
             let mut spi = control_bus.lock().await;
-            spi.send_packet(&packet).await
+            spi.send(&led_cmd).await
         };
 
         if let Ok(response_packet) = response {

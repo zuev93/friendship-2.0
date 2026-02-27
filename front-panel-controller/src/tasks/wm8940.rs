@@ -1,4 +1,4 @@
-use druzhba_common::drivers::wm8940::Wm8940;
+use druzhba_common::drivers::wm8940::{Register, Wm8940};
 use druzhba_common::error;
 use embassy_executor::Spawner;
 use embassy_stm32::i2c::{self, I2c};
@@ -29,10 +29,7 @@ async fn wm8940_task(
 
         if config.enable {
             if let Err(_) = wm8940
-                .write_register(
-                    druzhba_common::drivers::wm8940::Register::LeftDacVolume,
-                    config.dac_volume_left as u16 | 0x100,
-                )
+                .set_volume(Register::LeftDacVolume, config.dac_volume_left)
                 .await
             {
                 error::error("WM8940 DAC left volume write failed").await;
@@ -40,10 +37,7 @@ async fn wm8940_task(
             }
 
             if let Err(_) = wm8940
-                .write_register(
-                    druzhba_common::drivers::wm8940::Register::RightDacVolume,
-                    config.dac_volume_right as u16 | 0x100,
-                )
+                .set_volume(Register::RightDacVolume, config.dac_volume_right)
                 .await
             {
                 error::error("WM8940 DAC right volume write failed").await;
@@ -51,10 +45,7 @@ async fn wm8940_task(
             }
 
             if let Err(_) = wm8940
-                .write_register(
-                    druzhba_common::drivers::wm8940::Register::LeftAdcVolume,
-                    config.adc_volume_left as u16 | 0x100,
-                )
+                .set_volume(Register::LeftAdcVolume, config.adc_volume_left)
                 .await
             {
                 error::error("WM8940 ADC left volume write failed").await;
@@ -62,20 +53,14 @@ async fn wm8940_task(
             }
 
             if let Err(_) = wm8940
-                .write_register(
-                    druzhba_common::drivers::wm8940::Register::RightAdcVolume,
-                    config.adc_volume_right as u16 | 0x100,
-                )
+                .set_volume(Register::RightAdcVolume, config.adc_volume_right)
                 .await
             {
                 error::error("WM8940 ADC right volume write failed").await;
                 continue;
             }
         } else {
-            if let Err(_) = wm8940
-                .write_register(druzhba_common::drivers::wm8940::Register::Power1, 0)
-                .await
-            {
+            if let Err(_) = wm8940.power_down().await {
                 error::error("WM8940 power down failed").await;
             }
         }

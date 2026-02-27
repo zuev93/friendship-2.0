@@ -21,8 +21,9 @@ use embassy_stm32::{
     i2c::{self, I2c},
     interrupt::typelevel as irqs,
     mode,
+    peripherals::CRC as CRC_PERI,
     timer::qei::Qei,
-    Config,
+    Config, Peri,
 };
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
@@ -50,6 +51,7 @@ pub struct Hardware {
     pub wm8940: Wm8940<I2c<'static, mode::Async, i2c::Master>>,
     pub spi_link: SpiLink,
     pub displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    pub crc_peripheral: Peri<'static, CRC_PERI>,
 }
 
 pub fn init() -> Hardware {
@@ -127,5 +129,6 @@ pub fn init() -> Hardware {
             p.SPI2, p.PB10, p.PB15, p.GPDMA1_CH2, p.PB13, p.PB11, p.PB12, p.PB14, p.PB9,
         )
         .as_mutex(),
+        crc_peripheral: p.CRC,
     }
 }

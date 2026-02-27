@@ -8,8 +8,6 @@ pub enum Mode {
 
 #[derive(Clone, Copy, PartialEq)]
 #[allow(dead_code)]
-// TODO check actual values and consider splitting the type.
-// Hardware wise we have 2 filters + 3 filters -> 6 combinations in total.
 pub enum FilterType {
     None,
     Single,
@@ -18,10 +16,8 @@ pub enum FilterType {
 }
 
 impl FilterType {
-    // TODO move to settings
-    // TODO tune us in
-    const FILTER_CENTER_HZ: u32 = 10_000_000; // 10 MHz center
-    const WIDE_FILTER_BANDWIDTH_HZ: u32 = 2_400; // 2.4 kHz bandwidth (SSB)
+    const FILTER_CENTER_HZ: u32 = 10_000_000;
+    const WIDE_FILTER_BANDWIDTH_HZ: u32 = 2_400;
     const NARROW_FILTER_BANDWIDTH_HZ: u32 = 1_200;
     const SINGLE_FILTER_BANDWIDTH_HZ: u32 = 3_600;
 
@@ -31,8 +27,8 @@ impl FilterType {
 
     pub fn bandwidth_hz(self) -> u32 {
         match self {
-            Self::DoubleNarrow => Self::WIDE_FILTER_BANDWIDTH_HZ,
-            Self::DoubleWide => Self::NARROW_FILTER_BANDWIDTH_HZ,
+            Self::DoubleNarrow => Self::NARROW_FILTER_BANDWIDTH_HZ,
+            Self::DoubleWide => Self::WIDE_FILTER_BANDWIDTH_HZ,
             Self::Single => Self::SINGLE_FILTER_BANDWIDTH_HZ,
             Self::None => Self::SINGLE_FILTER_BANDWIDTH_HZ,
         }
@@ -59,7 +55,6 @@ impl TransmitMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(dead_code)]
 pub enum ClarifierMode {
     Off,
     Rit,
@@ -77,7 +72,6 @@ impl ClarifierMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[allow(dead_code)]
 pub enum RfGainMode {
     Attenuator,
     Normal,
@@ -186,11 +180,72 @@ impl Band {
 
 pub type Frequency = u32; // Frequency in Hz (0 to 4,294,967,295)
 
-pub type Volume = i16;
-pub type Microphone = i16;
-pub type IfGain = i16;
-pub type ClarifierValue = i16;
-pub type Squelch = i16;
+const ACCUMULATOR_MAX: i16 = 1000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Volume(i16);
+
+impl Volume {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Microphone(i16);
+
+impl Microphone {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct IfGain(i16);
+
+impl IfGain {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClarifierValue(i16);
+
+impl ClarifierValue {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Squelch(i16);
+
+impl Squelch {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
 
 /// RF Power level in hundredths of percent (0.00% - 100.00%)
 /// Provides intuitive control over transmitter power output with high precision
@@ -208,12 +263,18 @@ impl RfPowerPercent {
     }
 
     pub fn from_accumulated(raw: i16) -> Self {
-        let centipercent = ((raw.max(0) as u32 * 10000) / 1000) as u16;
+        let centipercent = ((raw.max(0) as u32 * 10000) / ACCUMULATOR_MAX as u32) as u16;
         Self::new(centipercent)
     }
 }
 
 pub type RfPower = RfPowerPercent;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PaTemperatures {
+    pub driver_raw: i16,
+    pub final_raw: i16,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CouplerMetrics {

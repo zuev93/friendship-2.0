@@ -1,5 +1,6 @@
 use embassy_executor::Spawner;
 use embassy_stm32::exti::ExtiInput;
+use embassy_stm32::peripherals::CRC as CRC_PERI;
 use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, SckPin, TxDma, WsPin};
 use embassy_stm32::gpio::Pin;
 use embassy_stm32::Peri;
@@ -38,11 +39,13 @@ impl FrontPanelSubsystem {
         audio_mck: Peri<'static, impl MckPin<T3>>,
         audio_txdma: Peri<'static, impl TxDma<T3>>,
         audio_rxdma: Peri<'static, impl RxDma<T3>>,
+        crc_peripheral: Peri<'static, CRC_PERI>,
     ) {
         static SPI_LINK: StaticCell<Mutex<ThreadModeRawMutex, ControlBus>> = StaticCell::new();
 
         let control_bus_instance = ControlBus::new(
             spi_bus, bus_mosi, bus_miso, bus_sck, bus_dma_tx, bus_dma_rx, bus_cs_pin,
+            crc_peripheral,
         );
         let bus = SPI_LINK.init(Mutex::new(control_bus_instance));
 

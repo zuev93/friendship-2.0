@@ -15,7 +15,7 @@ This project aims to create a modern version of the legendary "Druzhba-M" transc
 ### Digital User Interface
 - **Graphic OLED displays** (SSD1315): Replacing 7-segment indicators with modern graphical displays for rich user interfaces
 - **Tactile buttons with I2C bridges**: Digital button matrix controlled by microcontrollers instead of mechanical switches
-- **Precision rotary encoders**: Digital potentiometers replacing variable capacitors and mechanical tuning controls
+- **Precision rotary encoders**: Digital encoders replacing variable capacitors and mechanical tuning controls
 
 ### Digital Audio Processing
 - **Digital audio codec** (WM8940): Complete digital audio processing pipeline replacing analog audio circuits
@@ -32,11 +32,10 @@ This project aims to create a modern version of the legendary "Druzhba-M" transc
 - **Smart power control**: Microcontroller-managed power sequencing and protection
 
 ### Hardware Architecture
-The system consists of three STM32 microcontrollers communicating via SPI and I2C buses:
+The system consists of two STM32 microcontrollers communicating via SPI and I2C buses:
 
-- **Front Panel Controller** (STM32F407): User interface, OLED displays, buttons, encoders, S-meter, audio output
-- **Main Controller** (STM32G474): Core transceiver logic, signal processing, modulation, frequency synthesis
-- **Control Board Controller**: Power management, audio codec control, system monitoring
+- **Main Controller** (STM32H563VI): Core transceiver logic, signal processing, modulation, frequency synthesis, power management
+- **Front Panel Controller** (STM32H563VI): User interface, OLED displays, buttons, encoders, S-meter, audio output
 
 ### Communication Infrastructure
 - **SPI protocol**: High-speed communication between main controllers
@@ -45,13 +44,13 @@ The system consists of three STM32 microcontrollers communicating via SPI and I2
 
 ## Technology Stack
 
-- **Language**: Rust 🦀 (embedded, no_std, async)
-- **Framework**: Embassy for async embedded development
-- **Hardware**: STM32F407VE and STM32G474RE microcontrollers
+- **Language**: Rust (embedded, no_std, async)
+- **Framework**: Embassy 0.5 for async embedded development
+- **Hardware**: 2x STM32H563VI (Cortex-M33, 250MHz)
 - **Communication**: SPI and I2C protocols for inter-board communication
 - **Architecture**: Event-driven embedded systems with message passing
-- **Build System**: Cargo with custom target configuration
-- **Development Tools**: Probe-rs for debugging, cargo-embed for flashing
+- **Build System**: Cargo with thumbv8m.main-none-eabihf target
+- **Development Tools**: Probe-rs for debugging and flashing
 
 ## Features (Implemented & Planned)
 
@@ -95,14 +94,14 @@ cargo build --release
 ## Project Structure
 
 - `common/` - Shared Rust library with hardware abstractions and device drivers
-- `front-panel-controller/` - STM32F407 firmware for user interface (displays, buttons, encoders)
-- `main-controller/` - STM32G474 firmware for core transceiver functionality
+- `main-controller/` - STM32H563VI firmware for core transceiver functionality
+- `front-panel-controller/` - STM32H563VI firmware for user interface (displays, buttons, encoders)
 
 ### Architecture Details
 
-The system uses a distributed architecture with two STM32 microcontrollers:
+The system uses a distributed architecture with two STM32H563VI microcontrollers:
 
-#### Main Controller (STM32G474)
+#### Main Controller (STM32H563VI)
 - **app/**: High-level application logic, audio processing, tone generation
 - **main_board/**: Core transceiver modules (mixer, detector, IF amplifier, DDS control)
 - **control_board/**: Power management, audio codec control
@@ -110,7 +109,7 @@ The system uses a distributed architecture with two STM32 microcontrollers:
 - **peripherals/**: External devices (filters, amplifiers)
 - **display/**: System status display management
 
-#### Front Panel Controller (STM32F407)
+#### Front Panel Controller (STM32H563VI)
 - **hardware/**: Button, encoder, display, and LED drivers
 - **state/**: Input processing and output state management
 - **tasks/**: Asynchronous task handlers for UI elements

@@ -1,5 +1,6 @@
 pub mod ad9834;
 pub mod ads1115;
+pub mod ina228;
 pub mod ina3221;
 pub mod mcp4725;
 pub mod pca9534;

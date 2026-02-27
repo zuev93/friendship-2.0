@@ -1,5 +1,7 @@
 use crate::{app::types::Volume, consts::AUDIO_BUFFER_SIZE};
 
+const MAX_VOLUME_RAW: i16 = 1000;
+
 #[derive(Copy, Clone)]
 struct Gains {
     rx_to_hp: u8,
@@ -32,8 +34,6 @@ pub struct AudioMixer {
 }
 
 impl AudioMixer {
-    pub const MAX_VOLUME_RAW: Volume = 26_500;
-
     pub const fn new() -> Self {
         Self {
             rx: [0; AUDIO_BUFFER_SIZE],
@@ -73,9 +73,8 @@ impl AudioMixer {
     }
 
     pub fn set_volume(&mut self, volume: Volume) {
-        let clamped = volume.max(0) as u32;
-        let normalized = clamped.min(AudioMixer::MAX_VOLUME_RAW as u32);
-        self.volume_gain = ((normalized * 255) / AudioMixer::MAX_VOLUME_RAW as u32) as u8;
+        let raw = volume.raw().max(0) as u32;
+        self.volume_gain = ((raw * 255) / MAX_VOLUME_RAW as u32) as u8;
     }
 
     pub fn set_headphones_connected(&mut self, connected: bool) {

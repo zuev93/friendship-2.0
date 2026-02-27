@@ -50,7 +50,9 @@ pub struct PeripheralI2cMap {
     pub bpf_pca_gpio: I2cAddress,
     pub lpf_gpio: I2cAddress,
     pub lpf_ads1115: I2cAddress,
-    pub hf_amp_gpio: I2cAddress,
+    pub hf_amp_driver_dac: I2cAddress,
+    pub hf_amp_final_dac: I2cAddress,
+    pub hf_amp_adc: I2cAddress,
 }
 
 impl PeripheralI2cMap {
@@ -60,19 +62,25 @@ impl PeripheralI2cMap {
             bpf_pca_gpio: I2cAddress::new(0x23),
             lpf_gpio: I2cAddress::new(0x20),
             lpf_ads1115: I2cAddress::new(0x48),
-            hf_amp_gpio: I2cAddress::new(0x22),
+            hf_amp_driver_dac: I2cAddress::new(0x60),
+            hf_amp_final_dac: I2cAddress::new(0x61),
+            hf_amp_adc: I2cAddress::new(0x49),
         }
     }
 }
 
 pub struct ControlBoardI2cMap {
-    pub ina3221: I2cAddress,
+    pub ina228_vbus: I2cAddress,
+    pub ina228_pa: I2cAddress,
+    pub ina228_3v3: I2cAddress,
 }
 
 impl ControlBoardI2cMap {
     pub const fn new() -> Self {
         Self {
-            ina3221: I2cAddress::new(0x40),
+            ina228_vbus: I2cAddress::new(0x41),
+            ina228_pa: I2cAddress::new(0x40),
+            ina228_3v3: I2cAddress::new(0x44),
         }
     }
 }

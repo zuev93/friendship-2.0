@@ -12,18 +12,16 @@ use embassy_stm32::i2s::{
 use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin};
 use embassy_stm32::time::Hertz;
 use embassy_stm32::Peri;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
 static TX_BUFFER: StaticCell<[u16; AUDIO_BUFFER_SIZE]> = StaticCell::new();
 static RX_BUFFER: StaticCell<[u16; AUDIO_BUFFER_SIZE]> = StaticCell::new();
-static AUDIO_I2S: StaticCell<Mutex<ThreadModeRawMutex, I2S<'static, u16>>> = StaticCell::new();
+static AUDIO_I2S: StaticCell<I2S<'static, u16>> = StaticCell::new();
 
 pub struct AudioPanel {
     audio_codec: Pcm3060<MainBoardI2C>,
     io: PCA9534<MainBoardI2C>,
-    i2s: &'static Mutex<ThreadModeRawMutex, I2S<'static, u16>>,
+    i2s: Option<&'static mut I2S<'static, u16>>,
 }
 
 impl AudioPanel {
@@ -58,12 +56,12 @@ impl AudioPanel {
         let i2s = I2S::new_full_duplex(
             spi_peri, txsd, rxsd, ws, ck, mck, txdma, tx_buffer, rxdma, rx_buffer, config,
         );
-        let i2s = AUDIO_I2S.init(Mutex::new(i2s));
+        let i2s = AUDIO_I2S.init(i2s);
 
         Self {
             audio_codec: pcm3060,
             io: pca9534,
-            i2s,
+            i2s: Some(i2s),
         }
     }
 
@@ -76,18 +74,11 @@ impl AudioPanel {
         }
     }
 
-    pub async fn split_i2s(
+    pub fn split_i2s(
         &mut self,
     ) -> (Reader<'static, 'static, u16>, Writer<'static, 'static, u16>) {
-        let mut i2s_guard = self.i2s.lock().await;
-        let (reader, writer) = unsafe {
-            core::mem::transmute::<
-                (Reader<'_, '_, u16>, Writer<'_, '_, u16>),
-                (Reader<'static, 'static, u16>, Writer<'static, 'static, u16>),
-            >(i2s_guard.split().unwrap())
-        };
-        core::mem::forget(i2s_guard);
-        (reader, writer)
+        let i2s = self.i2s.take().expect("I2S already split");
+        i2s.split().expect("I2S split failed")
     }
 
     pub async fn init(&mut self) -> Result<(), &'static str> {
@@ -113,8 +104,7 @@ impl AudioPanel {
             .await
             .map_err(|_| "Failed to initialize PCM3060")?;
 
-        let mut i2s_guard = self.i2s.lock().await;
-        i2s_guard.start();
+        self.i2s.as_mut().expect("I2S not available").start();
 
         Ok(())
     }

@@ -1,4 +1,4 @@
-use crate::spi_protocol::{Packet, PacketType};
+use crate::spi_protocol::{PacketSerializable, PacketType};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ButtonState {
@@ -12,23 +12,18 @@ pub struct ButtonEvent {
     pub state: ButtonState,
 }
 
-impl ButtonEvent {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::ButtonEvent);
-        let payload = packet.payload_mut();
+impl PacketSerializable for ButtonEvent {
+    const PACKET_TYPE: PacketType = PacketType::ButtonEvent;
+
+    fn write_payload(&self, payload: &mut [u8]) {
         payload[0] = self.id;
         payload[1] = match self.state {
             ButtonState::Pressed => 1,
             ButtonState::Released => 0,
         };
-        packet.set_crc();
     }
 
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::ButtonEvent) {
-            return None;
-        }
-        let payload = packet.payload();
+    fn read_payload(payload: &[u8]) -> Option<Self> {
         Some(Self {
             id: payload[0],
             state: if payload[1] == 1 {
@@ -53,24 +48,19 @@ pub struct EncoderEvent {
     pub steps: i8,
 }
 
-impl EncoderEvent {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::EncoderEvent);
-        let payload = packet.payload_mut();
+impl PacketSerializable for EncoderEvent {
+    const PACKET_TYPE: PacketType = PacketType::EncoderEvent;
+
+    fn write_payload(&self, payload: &mut [u8]) {
         payload[0] = self.id;
         payload[1] = match self.direction {
             EncoderDirection::Clockwise => 1,
             EncoderDirection::CounterClockwise => 0,
         };
         payload[2] = self.steps as u8;
-        packet.set_crc();
     }
 
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::EncoderEvent) {
-            return None;
-        }
-        let payload = packet.payload();
+    fn read_payload(payload: &[u8]) -> Option<Self> {
         Some(Self {
             id: payload[0],
             direction: if payload[1] == 1 {
@@ -88,19 +78,14 @@ pub struct HeadphonesEvent {
     pub connected: bool,
 }
 
-impl HeadphonesEvent {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::HeadphonesEvent);
-        let payload = packet.payload_mut();
+impl PacketSerializable for HeadphonesEvent {
+    const PACKET_TYPE: PacketType = PacketType::HeadphonesEvent;
+
+    fn write_payload(&self, payload: &mut [u8]) {
         payload[0] = if self.connected { 1 } else { 0 };
-        packet.set_crc();
     }
 
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::HeadphonesEvent) {
-            return None;
-        }
-        let payload = packet.payload();
+    fn read_payload(payload: &[u8]) -> Option<Self> {
         Some(Self {
             connected: payload[0] != 0,
         })
@@ -120,20 +105,15 @@ pub struct LedCommand {
     pub state: LedState,
 }
 
-impl LedCommand {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::LedCommand);
-        let payload = packet.payload_mut();
+impl PacketSerializable for LedCommand {
+    const PACKET_TYPE: PacketType = PacketType::LedCommand;
+
+    fn write_payload(&self, payload: &mut [u8]) {
         payload[0] = self.led_id;
         payload[1] = self.state as u8;
-        packet.set_crc();
     }
 
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::LedCommand) {
-            return None;
-        }
-        let payload = packet.payload();
+    fn read_payload(payload: &[u8]) -> Option<Self> {
         let state = match payload[1] {
             0 => LedState::Off,
             1 => LedState::Red,
@@ -152,22 +132,18 @@ pub struct SMeterCommand {
     pub value: u16,
 }
 
-impl SMeterCommand {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::SMeterCommand);
-        let payload = packet.payload_mut();
-        payload[0] = (self.value >> 8) as u8;
-        payload[1] = self.value as u8;
-        packet.set_crc();
+impl PacketSerializable for SMeterCommand {
+    const PACKET_TYPE: PacketType = PacketType::SMeterCommand;
+
+    fn write_payload(&self, payload: &mut [u8]) {
+        let bytes = self.value.to_be_bytes();
+        payload[0] = bytes[0];
+        payload[1] = bytes[1];
     }
 
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::SMeterCommand) {
-            return None;
-        }
-        let payload = packet.payload();
+    fn read_payload(payload: &[u8]) -> Option<Self> {
         Some(Self {
-            value: ((payload[0] as u16) << 8) | (payload[1] as u16),
+            value: u16::from_be_bytes([payload[0], payload[1]]),
         })
     }
 }
@@ -181,23 +157,18 @@ pub struct Wm8940Command {
     pub enable: bool,
 }
 
-impl Wm8940Command {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::Wm8940Command);
-        let payload = packet.payload_mut();
+impl PacketSerializable for Wm8940Command {
+    const PACKET_TYPE: PacketType = PacketType::Wm8940Command;
+
+    fn write_payload(&self, payload: &mut [u8]) {
         payload[0] = self.dac_volume_left;
         payload[1] = self.dac_volume_right;
         payload[2] = self.adc_volume_left;
         payload[3] = self.adc_volume_right;
         payload[4] = if self.enable { 1 } else { 0 };
-        packet.set_crc();
     }
 
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::Wm8940Command) {
-            return None;
-        }
-        let payload = packet.payload();
+    fn read_payload(payload: &[u8]) -> Option<Self> {
         Some(Self {
             dac_volume_left: payload[0],
             dac_volume_right: payload[1],
@@ -217,25 +188,21 @@ pub struct DisplayCommand {
     pub dirty: bool,
 }
 
-impl DisplayCommand {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::DisplayCommand);
-        let payload = packet.payload_mut();
+impl PacketSerializable for DisplayCommand {
+    const PACKET_TYPE: PacketType = PacketType::DisplayCommand;
+
+    fn write_payload(&self, payload: &mut [u8]) {
         payload[0] = self.display_id;
         let data_len = DISPLAY_BUFFER_SIZE.min(payload.len() - 3);
-        payload[1] = (data_len >> 8) as u8;
-        payload[2] = data_len as u8;
+        let len_bytes = (data_len as u16).to_be_bytes();
+        payload[1] = len_bytes[0];
+        payload[2] = len_bytes[1];
         payload[3..3 + data_len].copy_from_slice(&self.buffer[..data_len]);
-        packet.set_crc();
     }
 
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::DisplayCommand) {
-            return None;
-        }
-        let payload = packet.payload();
+    fn read_payload(payload: &[u8]) -> Option<Self> {
         let display_id = payload[0];
-        let data_len = ((payload[1] as usize) << 8) | (payload[2] as usize);
+        let data_len = u16::from_be_bytes([payload[1], payload[2]]) as usize;
         let mut buffer = [0u8; DISPLAY_BUFFER_SIZE];
         let copy_len = data_len.min(buffer.len()).min(payload.len() - 3);
         buffer[..copy_len].copy_from_slice(&payload[3..3 + copy_len]);
@@ -252,19 +219,14 @@ pub struct DisplayEnableCommand {
     pub enabled: bool,
 }
 
-impl DisplayEnableCommand {
-    pub fn serialize(&self, packet: &mut Packet) {
-        packet.set_type(PacketType::DisplayEnableCommand);
-        let payload = packet.payload_mut();
+impl PacketSerializable for DisplayEnableCommand {
+    const PACKET_TYPE: PacketType = PacketType::DisplayEnableCommand;
+
+    fn write_payload(&self, payload: &mut [u8]) {
         payload[0] = if self.enabled { 1 } else { 0 };
-        packet.set_crc();
     }
 
-    pub fn deserialize(packet: &Packet) -> Option<Self> {
-        if packet.packet_type() != Some(PacketType::DisplayEnableCommand) {
-            return None;
-        }
-        let payload = packet.payload();
+    fn read_payload(payload: &[u8]) -> Option<Self> {
         Some(Self {
             enabled: payload[0] != 0,
         })

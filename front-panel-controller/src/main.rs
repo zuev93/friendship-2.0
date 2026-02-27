@@ -2,6 +2,7 @@
 #![no_main]
 
 mod constants;
+mod crc;
 mod hardware;
 mod state;
 mod tasks;
@@ -11,14 +12,17 @@ use embassy_time::Timer;
 use panic_halt as _;
 use static_cell::StaticCell;
 
+use crate::crc::HardwareCrc16Modbus;
 use crate::state::input::InputState;
 
 static INPUT_STATE: StaticCell<InputState> = StaticCell::new();
+static HW_CRC: StaticCell<HardwareCrc16Modbus> = StaticCell::new();
 
 #[embassy_executor::main]
 async fn main(spawner: Spawner) {
     let input_state = INPUT_STATE.init(InputState::new());
     let hw = hardware::init();
+    let hw_crc = HW_CRC.init(HardwareCrc16Modbus::new(hw.crc_peripheral));
 
     tasks::buttons::spawn_tasks(&spawner, hw.buttons);
     tasks::encoders::spawn_tasks(&spawner, hw.qei_encoders, hw.exti_encoders);
@@ -32,7 +36,7 @@ async fn main(spawner: Spawner) {
         &input_state.displays,
         &input_state.displays_enabled,
     );
-    tasks::spi_link::spawn_tasks(&spawner, hw.spi_link, input_state);
+    tasks::spi_link::spawn_tasks(&spawner, hw.spi_link, input_state, hw_crc);
 
     loop {
         Timer::after_secs(60).await;

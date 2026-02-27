@@ -2,7 +2,7 @@ use common::drivers::ads1115::{ADS1115Config, ADS1115};
 use common::drivers::pca9534::{Pin, PCA9534};
 use embassy_time::Instant;
 
-use crate::app::types::{FilterType, IfGainMode, Mode};
+use crate::app::types::{FilterType, IfGain, IfGainMode, Mode};
 use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex, RssiDbm};
 use common::drivers::mcp4725::MCP4725;
@@ -10,8 +10,9 @@ use common::drivers::mcp4725::MCP4725;
 // TODO move to settings
 // AGC constants
 const TARGET_RSSI_DBM: i8 = -73; // S9 level target (~S9)
+const DAC_12BIT_MAX: u16 = 4095;
 const MIN_GAIN: i16 = 0;
-const MAX_GAIN: i16 = 26500;
+const MAX_GAIN: i16 = DAC_12BIT_MAX as i16;
 
 // AGC time constants in milliseconds
 const AGC_FAST_TIME_CONSTANT_MS: u32 = 200; // 200ms to settle (for CW, fast signals)
@@ -65,8 +66,8 @@ impl IfAmplifier {
         }
     }
 
-    pub async fn set_manual_gain_raw(&mut self, raw_value: i16) -> Result<(), &'static str> {
-        self.desired_manual_gain = raw_value;
+    pub async fn set_manual_gain_raw(&mut self, gain: IfGain) -> Result<(), &'static str> {
+        self.desired_manual_gain = ((gain.raw().max(0) as u32 * DAC_12BIT_MAX as u32) / 1000) as i16;
         self.update_state().await
     }
 
@@ -121,8 +122,7 @@ impl IfAmplifier {
                     IfGainMode::AgcSlow => self.calculate_agc_gain(true),
                 };
 
-                let value = value.clamp(MIN_GAIN, MAX_GAIN);
-                let dac_value = ((value as u32 * 4095) / 26500) as u16;
+                let dac_value = value.clamp(MIN_GAIN, MAX_GAIN) as u16;
 
                 self.dac_gain
                     .set_raw(dac_value)

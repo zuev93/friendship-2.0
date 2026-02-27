@@ -31,6 +31,10 @@ impl PacketType {
     }
 }
 
+pub trait Crc16 {
+    fn calculate(&self, data: &[u8]) -> u16;
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Packet {
     pub data: [u8; PACKET_SIZE],
@@ -59,37 +63,42 @@ impl Packet {
         &mut self.data[1..PACKET_SIZE - 2]
     }
 
-    pub fn set_crc(&mut self) {
-        let crc = Self::calculate_crc(&self.data[..PACKET_SIZE - 2]);
-        self.data[PACKET_SIZE - 2] = (crc >> 8) as u8;
-        self.data[PACKET_SIZE - 1] = crc as u8;
+    pub fn set_crc(&mut self, crc: &impl Crc16) {
+        let checksum = crc.calculate(&self.data[..PACKET_SIZE - 2]);
+        let bytes = checksum.to_be_bytes();
+        self.data[PACKET_SIZE - 2] = bytes[0];
+        self.data[PACKET_SIZE - 1] = bytes[1];
     }
 
-    pub fn verify_crc(&self) -> bool {
-        let calculated = Self::calculate_crc(&self.data[..PACKET_SIZE - 2]);
-        let stored =
-            ((self.data[PACKET_SIZE - 2] as u16) << 8) | (self.data[PACKET_SIZE - 1] as u16);
+    pub fn verify_crc(&self, crc: &impl Crc16) -> bool {
+        let calculated = crc.calculate(&self.data[..PACKET_SIZE - 2]);
+        let stored = u16::from_be_bytes([self.data[PACKET_SIZE - 2], self.data[PACKET_SIZE - 1]]);
         calculated == stored
-    }
-
-    fn calculate_crc(data: &[u8]) -> u16 {
-        let mut crc: u16 = 0xFFFF;
-        for &byte in data {
-            crc ^= byte as u16;
-            for _ in 0..8 {
-                if crc & 0x0001 != 0 {
-                    crc = (crc >> 1) ^ 0xA001;
-                } else {
-                    crc >>= 1;
-                }
-            }
-        }
-        crc
     }
 }
 
 impl Default for Packet {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+pub trait PacketSerializable: Sized {
+    const PACKET_TYPE: PacketType;
+
+    fn write_payload(&self, payload: &mut [u8]);
+    fn read_payload(payload: &[u8]) -> Option<Self>;
+
+    fn serialize(&self, packet: &mut Packet, crc: &impl Crc16) {
+        packet.set_type(Self::PACKET_TYPE);
+        self.write_payload(packet.payload_mut());
+        packet.set_crc(crc);
+    }
+
+    fn deserialize(packet: &Packet) -> Option<Self> {
+        if packet.packet_type() != Some(Self::PACKET_TYPE) {
+            return None;
+        }
+        Self::read_payload(packet.payload())
     }
 }

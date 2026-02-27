@@ -14,7 +14,7 @@ use common::protocol_types::{
     ButtonEvent as ProtocolButtonEvent, ButtonState, EncoderDirection,
     EncoderEvent as ProtocolEncoderEvent, HeadphonesEvent as ProtocolHeadphonesEvent,
 };
-use common::spi_protocol::PacketType;
+use common::spi_protocol::{PacketSerializable, PacketType};
 
 pub async fn handle_response_packet(packet: &common::spi_protocol::Packet) {
     match packet.packet_type() {

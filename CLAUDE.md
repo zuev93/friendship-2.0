@@ -19,7 +19,7 @@ main-controller/src/
   i2c_map.rs              - All I2C address definitions (single source of truth)
   hardware.rs             - Hardware initialization and pin assignments
 front-panel-controller/src/
-  hardware/               - Button, encoder, display, WM8940, LED, potentiometer drivers
+  hardware/               - Button, encoder, display, WM8940, LED, SPI slave link drivers
   state/                  - Input/output state management
   tasks/                  - Async task handlers
 ```

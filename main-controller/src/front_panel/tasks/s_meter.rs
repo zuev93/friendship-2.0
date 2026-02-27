@@ -3,7 +3,6 @@ use crate::{
     main_board::events::CURRENT_RSSI,
 };
 use common::protocol_types::SMeterCommand;
-use common::spi_protocol::Packet;
 
 #[embassy_executor::task]
 pub async fn s_meter_task(control_bus: ControlBusType) {
@@ -12,12 +11,10 @@ pub async fn s_meter_task(control_bus: ControlBusType) {
         let value = dbm_to_s_meter_value(rssi.dbm);
 
         let smeter_cmd = SMeterCommand { value };
-        let mut packet = Packet::new();
-        smeter_cmd.serialize(&mut packet);
 
         let response = {
             let mut spi = control_bus.lock().await;
-            spi.send_packet(&packet).await
+            spi.send(&smeter_cmd).await
         };
 
         if let Ok(response_packet) = response {

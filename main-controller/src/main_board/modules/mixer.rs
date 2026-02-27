@@ -38,7 +38,7 @@ impl Mixer {
             filter: FilterType::Single,
             mode: Mode::StandBy,
             clarifier_mode: ClarifierMode::Off,
-            clarifier_value: 0,
+            clarifier_value: ClarifierValue::new(0),
         }
     }
 
@@ -100,14 +100,14 @@ impl Mixer {
             Mode::StandBy | Mode::WarmUp => 0,
             Mode::Rx => {
                 if self.clarifier_mode == ClarifierMode::Rit {
-                    base_freq.saturating_add_signed(self.clarifier_value as i32)
+                    base_freq.saturating_add_signed(self.clarifier_value.raw() as i32)
                 } else {
                     base_freq
                 }
             }
             Mode::Tx => {
                 if self.clarifier_mode == ClarifierMode::XIT {
-                    base_freq.saturating_add_signed(self.clarifier_value as i32)
+                    base_freq.saturating_add_signed(self.clarifier_value.raw() as i32)
                 } else {
                     base_freq
                 }

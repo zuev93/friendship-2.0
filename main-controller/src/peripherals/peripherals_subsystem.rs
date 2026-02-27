@@ -12,7 +12,7 @@ use static_cell::StaticCell;
 use crate::i2c_map::{PeripheralI2cMap};
 use crate::peripherals::modules::{bpf::Bpf, hf_amp::HfAmp, lpf::Lpf};
 use crate::peripherals::tasks::bpf_task::bpf_task;
-use crate::peripherals::tasks::hf_amp_task::hf_amp_task;
+use crate::peripherals::tasks::hf_amp_task;
 use crate::peripherals::tasks::lpf_tasks;
 
 pub struct PeripheralsSubsystem {}
@@ -50,6 +50,14 @@ impl PeripheralsSubsystem {
             i2c_map.bpf_tca_gpio,
             i2c_map.bpf_pca_gpio,
         )));
-        spawner.must_spawn(hf_amp_task(HfAmp::new(i2c_mutex, i2c_map.hf_amp_gpio)));
+        hf_amp_task::create_tasks(
+            spawner,
+            HfAmp::new(
+                i2c_mutex,
+                i2c_map.hf_amp_driver_dac,
+                i2c_map.hf_amp_final_dac,
+                i2c_map.hf_amp_adc,
+            ),
+        );
     }
 }
