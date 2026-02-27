@@ -71,6 +71,7 @@ impl Hardware {
             spawner,
             i2c_map.control_board,
             p.PB0,
+            p.PB3,
             p.PB1,
             p.I2C3,
             p.PC9,

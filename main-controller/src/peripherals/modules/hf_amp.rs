@@ -1,16 +1,48 @@
+use embassy_time::{Duration, Instant, Timer};
+
 use crate::app::types::{Mode, PaTemperatures, RfPowerPercent};
-use crate::control_board::events::{PdContract, PowerTelemetry};
+use crate::control_board::events::{
+    PdContract, PowerTelemetry, PA_CURRENT_READING, PA_CURRENT_REQUEST, PA_FAST_MODE,
+    RAIL_50V_READY,
+};
 use crate::i2c_map::I2cAddress;
 use crate::peripherals::types::{PeripherialI2c, PeripherialI2cMutex};
 use common::drivers::ads1115::{ADS1115, ADS1115Config};
 use common::drivers::mcp4725::MCP4725;
 
-const DRIVER_IDQ_MA: u16 = 100;
-const FINAL_IDQ_MA: u16 = 100;
-const DAC_COUNTS_PER_MA: u16 = 29;
+const FINAL_TARGET_IDQ_MA: i32 = 150;
+const FINAL_TOLERANCE_MA: i32 = 20;
+const DRIVER_TARGET_IDQ_MA: i32 = 125;
+const DRIVER_TOLERANCE_MA: i32 = 25;
+const CALIBRATION_STALE_MS: u64 = 60_000;
+const CALIBRATION_TEMP_DRIFT: i16 = 12_000;
+const DAC_COARSE_STEP: u16 = 8;
+const DAC_FINE_STEP: u16 = 2;
 
 const THERMAL_DERATING_START: i16 = 20000;
 const THERMAL_SHUTDOWN: i16 = 30000;
+
+const RAIL_50V_TIMEOUT: Duration = Duration::from_millis(500);
+
+struct CalibrationState {
+    driver_dac_code: u16,
+    final_dac_code: u16,
+    calibrated_at: Option<Instant>,
+    calibration_temp: i16,
+    valid: bool,
+}
+
+impl CalibrationState {
+    fn new() -> Self {
+        Self {
+            driver_dac_code: 0,
+            final_dac_code: 0,
+            calibrated_at: None,
+            calibration_temp: 0,
+            valid: false,
+        }
+    }
+}
 
 pub struct HfAmp {
     driver_dac: MCP4725<PeripherialI2c>,
@@ -21,6 +53,7 @@ pub struct HfAmp {
     user_power: RfPowerPercent,
     power_budget_limit: RfPowerPercent,
     thermal_limit: RfPowerPercent,
+    cal: CalibrationState,
 }
 
 impl HfAmp {
@@ -39,6 +72,7 @@ impl HfAmp {
             user_power: RfPowerPercent::new(10000),
             power_budget_limit: RfPowerPercent::new(10000),
             thermal_limit: RfPowerPercent::new(10000),
+            cal: CalibrationState::new(),
         }
     }
 
@@ -67,7 +101,137 @@ impl HfAmp {
                     .map_err(|_| "HfAmp: final DAC zero failed")?;
                 Ok(())
             }
-            Mode::Tx => self.update_bias().await,
+            Mode::Tx => self.enter_tx().await,
+        }
+    }
+
+    async fn enter_tx(&mut self) -> Result<(), &'static str> {
+        match embassy_time::with_timeout(RAIL_50V_TIMEOUT, RAIL_50V_READY.wait()).await {
+            Ok(true) => {}
+            Ok(false) => return Err("HfAmp: 50V rail not ready"),
+            Err(_) => return Err("HfAmp: 50V rail timeout"),
+        }
+
+        if self.needs_calibration() {
+            self.calibrate().await?;
+        }
+
+        self.update_bias().await?;
+
+        Timer::after_millis(50).await;
+
+        PA_CURRENT_REQUEST.signal(());
+        let total_idq = PA_CURRENT_READING.wait().await;
+        if total_idq < 50 || total_idq > 500 {
+            self.driver_dac.set_raw(0).await.map_err(|_| "HfAmp: DAC zero failed")?;
+            self.final_dac.set_raw(0).await.map_err(|_| "HfAmp: DAC zero failed")?;
+            self.cal.valid = false;
+            return Err("HfAmp: IDQ verification failed");
+        }
+
+        Ok(())
+    }
+
+    fn needs_calibration(&self) -> bool {
+        if !self.cal.valid {
+            return true;
+        }
+        match self.cal.calibrated_at {
+            None => true,
+            Some(t) => t.elapsed().as_millis() > CALIBRATION_STALE_MS,
+        }
+    }
+
+    async fn calibrate(&mut self) -> Result<(), &'static str> {
+        self.driver_dac.set_raw(0).await.map_err(|_| "HfAmp: driver DAC zero failed")?;
+        self.final_dac.set_raw(0).await.map_err(|_| "HfAmp: final DAC zero failed")?;
+        Timer::after_millis(10).await;
+
+        PA_FAST_MODE.signal(true);
+        Timer::after_millis(5).await;
+
+        let final_code =
+            self.ramp_calibrate_stage(false, FINAL_TARGET_IDQ_MA, FINAL_TOLERANCE_MA).await?;
+
+        self.final_dac.set_raw(0).await.map_err(|_| "HfAmp: final DAC zero failed")?;
+        Timer::after_millis(5).await;
+
+        let driver_code =
+            self.ramp_calibrate_stage(true, DRIVER_TARGET_IDQ_MA, DRIVER_TOLERANCE_MA).await?;
+
+        self.driver_dac
+            .set_raw(driver_code)
+            .await
+            .map_err(|_| "HfAmp: driver DAC restore failed")?;
+        self.final_dac
+            .set_raw(final_code)
+            .await
+            .map_err(|_| "HfAmp: final DAC restore failed")?;
+
+        PA_FAST_MODE.signal(false);
+
+        self.cal.driver_dac_code = driver_code;
+        self.cal.final_dac_code = final_code;
+        self.cal.calibrated_at = Some(Instant::now());
+        self.cal.valid = true;
+
+        if self.adc_initialized {
+            if let Ok(temp) = self.adc.read_ain0().await {
+                self.cal.calibration_temp = temp;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn ramp_calibrate_stage(
+        &mut self,
+        is_driver: bool,
+        target_ma: i32,
+        tolerance_ma: i32,
+    ) -> Result<u16, &'static str> {
+        let mut dac_code: u16 = 0;
+        let mut step = DAC_COARSE_STEP;
+        let mut overshot = false;
+
+        loop {
+            dac_code = dac_code.saturating_add(step);
+            if dac_code > 4095 {
+                if is_driver {
+                    self.driver_dac.set_raw(0).await.map_err(|_| "HfAmp: DAC failed")?;
+                } else {
+                    self.final_dac.set_raw(0).await.map_err(|_| "HfAmp: DAC failed")?;
+                }
+                return Err("HfAmp: calibration DAC maxed out");
+            }
+
+            if is_driver {
+                self.driver_dac.set_raw(dac_code).await.map_err(|_| "HfAmp: DAC failed")?;
+            } else {
+                self.final_dac.set_raw(dac_code).await.map_err(|_| "HfAmp: DAC failed")?;
+            }
+
+            Timer::after_millis(5).await;
+
+            PA_CURRENT_REQUEST.signal(());
+            let current = PA_CURRENT_READING.wait().await;
+
+            let diff = current - target_ma;
+
+            if diff.abs() <= tolerance_ma {
+                return Ok(dac_code);
+            }
+
+            if diff > 0 {
+                if !overshot {
+                    overshot = true;
+                    dac_code = dac_code.saturating_sub(step);
+                    step = DAC_FINE_STEP;
+                } else {
+                    dac_code = dac_code.saturating_sub(step);
+                    return Ok(dac_code);
+                }
+            }
         }
     }
 
@@ -129,6 +293,13 @@ impl HfAmp {
             RfPowerPercent::new(10000)
         };
 
+        if self.cal.valid && self.cal.calibration_temp != 0 {
+            let drift = (worst - self.cal.calibration_temp).abs();
+            if drift > CALIBRATION_TEMP_DRIFT {
+                self.cal.valid = false;
+            }
+        }
+
         if self.thermal_limit != old_limit {
             let _ = self.update_bias().await;
         }
@@ -137,6 +308,17 @@ impl HfAmp {
             driver_raw,
             final_raw,
         })
+    }
+
+    pub fn is_thermal_emergency(temps: &PaTemperatures) -> bool {
+        temps.driver_raw >= THERMAL_SHUTDOWN || temps.final_raw >= THERMAL_SHUTDOWN
+    }
+
+    pub async fn emergency_off(&mut self) {
+        let _ = self.driver_dac.set_raw(0).await;
+        let _ = self.final_dac.set_raw(0).await;
+        self.cal.valid = false;
+        self.mode = Mode::StandBy;
     }
 
     async fn update_bias(&mut self) -> Result<(), &'static str> {
@@ -150,10 +332,8 @@ impl HfAmp {
             .min(self.power_budget_limit.centipercent)
             .min(self.thermal_limit.centipercent);
 
-        let driver_max = DRIVER_IDQ_MA as u32 * DAC_COUNTS_PER_MA as u32;
-        let final_max = FINAL_IDQ_MA as u32 * DAC_COUNTS_PER_MA as u32;
-        let driver_bias = ((effective as u32 * driver_max) / 10000) as u16;
-        let final_bias = ((effective as u32 * final_max) / 10000) as u16;
+        let driver_bias = ((effective as u32 * self.cal.driver_dac_code as u32) / 10000) as u16;
+        let final_bias = ((effective as u32 * self.cal.final_dac_code as u32) / 10000) as u16;
 
         self.driver_dac
             .set_raw(driver_bias)

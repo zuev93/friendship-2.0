@@ -23,6 +23,7 @@ impl ControlBoardSybstem {
         spawner: Spawner,
         i2c_map: ControlBoardI2cMap,
         pin_50v_enabled: Peri<'static, impl Pin>,
+        pin_50v_mode: Peri<'static, impl Pin>,
         pin_3v3_enabled: Peri<'static, impl Pin>,
         i2c_periph: Peri<'static, T1>,
         sda: Peri<'static, impl SdaPin<T1>>,
@@ -58,6 +59,7 @@ impl ControlBoardSybstem {
 
         let power_control = PowerControl::new(
             pin_50v_enabled,
+            pin_50v_mode,
             pin_3v3_enabled,
             i2c_mutex,
             i2c_map.ina228_vbus,

@@ -1,10 +1,11 @@
 use embassy_stm32::gpio::{Level, Output, Pin, Speed};
 use embassy_stm32::Peri;
+use embassy_time::Timer;
 
 use crate::{
     app::types::Mode,
     control_board::{
-        events::PowerTelemetry,
+        events::{EmergencyReason, PdContract, PowerTelemetry, RAIL_50V_READY},
         types::{ControlBoardI2C, ControlBoardI2cMutex},
     },
     i2c_map::I2cAddress,
@@ -18,6 +19,7 @@ const RAIL_3V3_MAX_CURRENT_MA: u32 = 2000;
 
 pub struct PowerControl {
     pin_50v_enabled: Output<'static>,
+    pin_50v_mode: Output<'static>,
     pin_3v3_enabled: Output<'static>,
     ina_vbus: Ina228<ControlBoardI2C>,
     ina_pa: Ina228<ControlBoardI2C>,
@@ -28,6 +30,7 @@ pub struct PowerControl {
 impl PowerControl {
     pub fn new(
         pin_50v_enabled: Peri<'static, impl Pin>,
+        pin_50v_mode: Peri<'static, impl Pin>,
         pin_3v3_enabled: Peri<'static, impl Pin>,
         i2c: ControlBoardI2cMutex,
         ina228_vbus_addr: I2cAddress,
@@ -36,6 +39,7 @@ impl PowerControl {
     ) -> Self {
         Self {
             pin_50v_enabled: Output::new(pin_50v_enabled, Level::Low, Speed::Medium),
+            pin_50v_mode: Output::new(pin_50v_mode, Level::Low, Speed::Medium),
             pin_3v3_enabled: Output::new(pin_3v3_enabled, Level::Low, Speed::Medium),
             mode: Mode::StandBy,
             ina_vbus: Ina228::new(ina228_vbus_addr.into(), SHUNT_MOHM, VBUS_MAX_CURRENT_MA, i2c),
@@ -45,23 +49,88 @@ impl PowerControl {
     }
 
     pub async fn set_mode(&mut self, mode: Mode) -> Result<(), &'static str> {
+        let prev = self.mode;
         self.mode = mode;
 
-        self.update_state().await
-    }
-
-    async fn update_state(&mut self) -> Result<(), &'static str> {
-        if self.mode == Mode::WarmUp {
+        if mode == Mode::WarmUp {
             self.init().await?;
         }
-        let level = if self.mode != Mode::StandBy {
-            Level::High
-        } else {
-            Level::Low
-        };
-        self.pin_50v_enabled.set_level(level);
-        self.pin_3v3_enabled.set_level(level);
+
+        match mode {
+            Mode::StandBy => {
+                self.pin_50v_mode.set_low();
+                self.pin_50v_enabled.set_low();
+                self.pin_3v3_enabled.set_low();
+                RAIL_50V_READY.signal(false);
+            }
+            Mode::WarmUp => {
+                self.pin_50v_mode.set_low();
+                self.pin_50v_enabled.set_low();
+                self.pin_3v3_enabled.set_high();
+                RAIL_50V_READY.signal(false);
+            }
+            Mode::Rx => {
+                if prev == Mode::Tx {
+                    self.pin_50v_mode.set_low();
+                    RAIL_50V_READY.signal(false);
+                }
+                self.pin_50v_enabled.set_high();
+                self.pin_3v3_enabled.set_high();
+            }
+            Mode::Tx => {
+                self.pin_50v_enabled.set_high();
+                self.pin_3v3_enabled.set_high();
+                self.pin_50v_mode.set_high();
+                Timer::after_millis(50).await;
+                RAIL_50V_READY.signal(true);
+            }
+        }
+
         Ok(())
+    }
+
+    pub async fn read_pa_current_ma(&mut self) -> Result<i32, &'static str> {
+        self.ina_pa
+            .read_current_ma()
+            .await
+            .map_err(|_| "INA228 PA current read failed")
+    }
+
+    pub async fn set_pa_fast_mode(&mut self) -> Result<(), &'static str> {
+        self.ina_pa
+            .set_fast_mode()
+            .await
+            .map_err(|_| "INA228 PA set fast mode failed")
+    }
+
+    pub async fn set_pa_normal_mode(&mut self) -> Result<(), &'static str> {
+        self.ina_pa
+            .set_normal_mode()
+            .await
+            .map_err(|_| "INA228 PA set normal mode failed")
+    }
+
+    pub fn check_limits(
+        &self,
+        telemetry: &PowerTelemetry,
+        pd_contract: &PdContract,
+    ) -> Option<EmergencyReason> {
+        let vbus_limit = (pd_contract.current_ma * 95) / 100;
+        if telemetry.vbus_current_ma > 0 && telemetry.vbus_current_ma as u32 > vbus_limit {
+            return Some(EmergencyReason::VbusOvercurrent);
+        }
+
+        if self.mode != Mode::Tx && telemetry.pa_current_ma > 500 {
+            return Some(EmergencyReason::PaOvercurrent);
+        }
+
+        None
+    }
+
+    pub fn emergency_shutdown(&mut self) {
+        self.pin_50v_mode.set_low();
+        self.pin_50v_enabled.set_low();
+        self.mode = Mode::StandBy;
     }
 
     pub async fn read_power_telemetry(&mut self) -> Result<PowerTelemetry, &'static str> {

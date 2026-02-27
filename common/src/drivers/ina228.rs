@@ -11,6 +11,7 @@ const REG_POWER: u8 = 0x08;
 const CFG_RST: u16 = 1 << 15;
 const CFG_ADCRANGE_163MV: u16 = 0;
 
+const ADC_AVG_4: u16 = 0b001 << 0;
 const ADC_AVG_64: u16 = 0b011 << 0;
 const ADC_VBUSCT_1052US: u16 = 0b100 << 6;
 const ADC_VSHCT_1052US: u16 = 0b100 << 3;
@@ -96,6 +97,24 @@ where
         let power_lsb_nw = self.current_lsb_na as u64 * 3200 / 1000;
         let nw = raw as u64 * power_lsb_nw;
         Ok((nw / 1_000_000) as u32)
+    }
+
+    pub async fn set_fast_mode(&self) -> Result<(), I2C::Error> {
+        let adc_config = ADC_MODE_CONTINUOUS_ALL
+            | ADC_VTCT_1052US
+            | ADC_VBUSCT_1052US
+            | ADC_VSHCT_1052US
+            | ADC_AVG_4;
+        self.write_reg16(REG_ADC_CONFIG, adc_config).await
+    }
+
+    pub async fn set_normal_mode(&self) -> Result<(), I2C::Error> {
+        let adc_config = ADC_MODE_CONTINUOUS_ALL
+            | ADC_VTCT_1052US
+            | ADC_VBUSCT_1052US
+            | ADC_VSHCT_1052US
+            | ADC_AVG_64;
+        self.write_reg16(REG_ADC_CONFIG, adc_config).await
     }
 
     pub async fn read_all(&mut self) -> Result<Ina228Reading, I2C::Error> {
