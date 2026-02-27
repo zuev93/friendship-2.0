@@ -6,7 +6,8 @@ use embassy_stm32::{
     },
     interrupt,
     mode::{self},
-    spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin},
+    peripherals as stm_peripherals,
+    sai::{self, Dma, FsPin, MclkPin, SckPin, SdPin},
     Peri,
 };
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
@@ -27,7 +28,7 @@ use crate::main_board::{
 pub struct MainBoardSubsystem {}
 
 impl MainBoardSubsystem {
-    pub async fn init_subsystem<T1: i2c::Instance, T2: spi::Instance>(
+    pub async fn init_subsystem<T1: i2c::Instance>(
         spawner: Spawner,
         main_i2c_map: MainI2cMap,
         irqs: impl interrupt::typelevel::Binding<T1::EventInterrupt, EventInterruptHandler<T1>>
@@ -38,14 +39,15 @@ impl MainBoardSubsystem {
         scl: Peri<'static, impl SclPin<T1>>,
         i2c_txdma: Peri<'static, impl I2cTxDma<T1>>,
         i2c_rxdma: Peri<'static, impl I2cRxDma<T1>>,
-        spi_peri: Peri<'static, T2>,
-        txsd: Peri<'static, impl MosiPin<T2>>,
-        rxsd: Peri<'static, impl MisoPin<T2>>,
-        ws: Peri<'static, impl WsPin<T2>>,
-        ck: Peri<'static, impl CkPin<T2>>,
-        mck: Peri<'static, impl MckPin<T2>>,
-        spi_txdma: Peri<'static, impl TxDma<T2>>,
-        spi_rxdma: Peri<'static, impl RxDma<T2>>,
+        sai1_a: sai::SubBlock<'static, stm_peripherals::SAI1, sai::A>,
+        sai1_b: sai::SubBlock<'static, stm_peripherals::SAI1, sai::B>,
+        sai_sck: Peri<'static, impl SckPin<stm_peripherals::SAI1, sai::A>>,
+        sai_sd_a: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::A>>,
+        sai_sd_b: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::B>>,
+        sai_fs: Peri<'static, impl FsPin<stm_peripherals::SAI1, sai::A>>,
+        sai_mclk: Peri<'static, impl MclkPin<stm_peripherals::SAI1, sai::A>>,
+        sai_dma_a: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::A>>,
+        sai_dma_b: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::B>>,
     ) {
         let mut i2c_config = i2c::Config::default();
         i2c_config.sda_pullup = true;
@@ -76,14 +78,15 @@ impl MainBoardSubsystem {
                 i2c_mutex,
                 main_i2c_map.audio_pcm3060,
                 main_i2c_map.audio_panel_pca9534,
-                spi_peri,
-                txsd,
-                rxsd,
-                ws,
-                ck,
-                mck,
-                spi_txdma,
-                spi_rxdma,
+                sai1_a,
+                sai1_b,
+                sai_sck,
+                sai_sd_a,
+                sai_sd_b,
+                sai_fs,
+                sai_mclk,
+                sai_dma_a,
+                sai_dma_b,
             ),
         )
         .await;

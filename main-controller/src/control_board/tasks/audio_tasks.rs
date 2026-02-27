@@ -11,12 +11,12 @@ static AUDIO_PANEL: StaticCell<Audio> = StaticCell::new();
 
 pub async fn create_tasks(spawner: Spawner, audio: Audio) {
     let audio_panel = AUDIO_PANEL.init(audio);
-    spawner.must_spawn(audio_panel_sai_speakers_task(audio_panel));
+    spawner.must_spawn(audio_panel_i2s_speakers_task(audio_panel));
     spawner.must_spawn(control_task(audio_panel));
 }
 
 #[embassy_executor::task]
-async fn audio_panel_sai_speakers_task(audio: &'static Audio) {
+async fn audio_panel_i2s_speakers_task(audio: &'static Audio) {
     loop {
         let buffer = AUDIO_BUFFER_SPEAKERS.wait().await;
         if let Err(e) = audio.write(&buffer).await {

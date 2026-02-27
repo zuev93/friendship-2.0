@@ -1,7 +1,9 @@
 use embassy_executor::Spawner;
 use embassy_stm32::exti::ExtiInput;
+use embassy_stm32::peripherals as stm_peripherals;
 use embassy_stm32::peripherals::CRC as CRC_PERI;
-use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, SckPin, TxDma, WsPin};
+use embassy_stm32::sai::{self, Dma, FsPin, SckPin, SdPin};
+use embassy_stm32::spi::{self, MisoPin, MosiPin, RxDma, SckPin as SpiSckPin, TxDma};
 use embassy_stm32::gpio::Pin;
 use embassy_stm32::Peri;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -20,25 +22,25 @@ use crate::front_panel::tasks::{
 pub struct FrontPanelSubsystem {}
 
 impl FrontPanelSubsystem {
-    pub async fn init_subsystem<T: spi::Instance, T3: spi::Instance>(
+    pub async fn init_subsystem<T: spi::Instance>(
         spawner: Spawner,
         spi_bus: Peri<'static, T>,
         bus_mosi: Peri<'static, impl MosiPin<T>>,
         bus_miso: Peri<'static, impl MisoPin<T>>,
-        bus_sck: Peri<'static, impl SckPin<T>>,
+        bus_sck: Peri<'static, impl SpiSckPin<T>>,
         bus_dma_tx: Peri<'static, impl TxDma<T>>,
         bus_dma_rx: Peri<'static, impl RxDma<T>>,
         bus_cs_pin: Peri<'static, impl Pin>,
         alert_input: ExtiInput<'static>,
 
-        spi_audio: Peri<'static, T3>,
-        audio_txsd: Peri<'static, impl MosiPin<T3>>,
-        audio_rxsd: Peri<'static, impl MisoPin<T3>>,
-        audio_ws: Peri<'static, impl WsPin<T3>>,
-        audio_ck: Peri<'static, impl CkPin<T3>>,
-        audio_mck: Peri<'static, impl MckPin<T3>>,
-        audio_txdma: Peri<'static, impl TxDma<T3>>,
-        audio_rxdma: Peri<'static, impl RxDma<T3>>,
+        sai2_b: sai::SubBlock<'static, stm_peripherals::SAI2, sai::B>,
+        sai2_a: sai::SubBlock<'static, stm_peripherals::SAI2, sai::A>,
+        sai_sck: Peri<'static, impl SckPin<stm_peripherals::SAI2, sai::B>>,
+        sai_sd_b: Peri<'static, impl SdPin<stm_peripherals::SAI2, sai::B>>,
+        sai_sd_a: Peri<'static, impl SdPin<stm_peripherals::SAI2, sai::A>>,
+        sai_fs: Peri<'static, impl FsPin<stm_peripherals::SAI2, sai::B>>,
+        sai_dma_b: Peri<'static, impl Dma<stm_peripherals::SAI2, sai::B>>,
+        sai_dma_a: Peri<'static, impl Dma<stm_peripherals::SAI2, sai::A>>,
         crc_peripheral: Peri<'static, CRC_PERI>,
     ) {
         static SPI_LINK: StaticCell<Mutex<ThreadModeRawMutex, ControlBus>> = StaticCell::new();
@@ -51,14 +53,14 @@ impl FrontPanelSubsystem {
 
         let audio = Audio::new(
             bus,
-            spi_audio,
-            audio_txsd,
-            audio_rxsd,
-            audio_ws,
-            audio_ck,
-            audio_mck,
-            audio_txdma,
-            audio_rxdma,
+            sai2_b,
+            sai2_a,
+            sai_sck,
+            sai_sd_b,
+            sai_sd_a,
+            sai_fs,
+            sai_dma_b,
+            sai_dma_a,
         );
         spawner.must_spawn(spi_receiver_task(bus, alert_input));
 

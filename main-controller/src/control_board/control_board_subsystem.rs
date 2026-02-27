@@ -1,11 +1,10 @@
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::Pin;
-use embassy_stm32::i2c::{ErrorInterruptHandler, EventInterruptHandler, RxDma, TxDma};
+use embassy_stm32::i2c::{ErrorInterruptHandler, EventInterruptHandler, RxDma as I2cRxDma, TxDma as I2cTxDma};
 use embassy_stm32::i2c::{self, mode as i2c_mode, I2c, SclPin, SdaPin};
 use embassy_stm32::mode;
-use embassy_stm32::peripherals as stm_peripherals;
 use embassy_stm32::peripherals::{GPDMA1_CH6, GPDMA1_CH7, PB13, PB14, UCPD1};
-use embassy_stm32::sai::{self, Dma, FsPin, SckPin, SdPin, SubBlockInstance};
+use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin};
 use embassy_stm32::{interrupt, Peri};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
@@ -19,7 +18,7 @@ use crate::i2c_map::ControlBoardI2cMap;
 pub struct ControlBoardSybstem {}
 
 impl ControlBoardSybstem {
-    pub async fn init_subsystem<T1: i2c::Instance, S: SubBlockInstance>(
+    pub async fn init_subsystem<T1: i2c::Instance, T2: spi::Instance>(
         spawner: Spawner,
         i2c_map: ControlBoardI2cMap,
         pin_50v_enabled: Peri<'static, impl Pin>,
@@ -28,17 +27,20 @@ impl ControlBoardSybstem {
         i2c_periph: Peri<'static, T1>,
         sda: Peri<'static, impl SdaPin<T1>>,
         scl: Peri<'static, impl SclPin<T1>>,
-        dma_tx: Peri<'static, impl TxDma<T1>>,
-        dma_rx: Peri<'static, impl RxDma<T1>>,
+        dma_tx: Peri<'static, impl I2cTxDma<T1>>,
+        dma_rx: Peri<'static, impl I2cRxDma<T1>>,
         irqs: impl interrupt::typelevel::Binding<T1::EventInterrupt, EventInterruptHandler<T1>>
             + interrupt::typelevel::Binding<T1::ErrorInterrupt, ErrorInterruptHandler<T1>>
             + 'static,
 
-        sai_sub_block: sai::SubBlock<'static, stm_peripherals::SAI1, S>,
-        sai_sck: Peri<'static, impl SckPin<stm_peripherals::SAI1, S>>,
-        sai_sd: Peri<'static, impl SdPin<stm_peripherals::SAI1, S>>,
-        sai_fs: Peri<'static, impl FsPin<stm_peripherals::SAI1, S>>,
-        sai_dma: Peri<'static, impl Dma<stm_peripherals::SAI1, S>>,
+        spi_peri: Peri<'static, T2>,
+        spi_txsd: Peri<'static, impl MosiPin<T2>>,
+        spi_rxsd: Peri<'static, impl MisoPin<T2>>,
+        spi_ws: Peri<'static, impl WsPin<T2>>,
+        spi_ck: Peri<'static, impl CkPin<T2>>,
+        spi_mck: Peri<'static, impl MckPin<T2>>,
+        spi_txdma: Peri<'static, impl TxDma<T2>>,
+        spi_rxdma: Peri<'static, impl RxDma<T2>>,
 
         ucpd_peri: Peri<'static, UCPD1>,
         ucpd_cc1: Peri<'static, PB13>,
@@ -66,7 +68,9 @@ impl ControlBoardSybstem {
             i2c_map.ina228_pa,
             i2c_map.ina228_3v3,
         );
-        let audio = Audio::new(sai_sub_block, sai_sck, sai_sd, sai_fs, sai_dma);
+        let audio = Audio::new(
+            spi_peri, spi_txsd, spi_rxsd, spi_ws, spi_ck, spi_mck, spi_txdma, spi_rxdma,
+        );
 
         power_tasks::create_tasks(spawner, power_control);
         audio_tasks::create_tasks(spawner, audio).await;

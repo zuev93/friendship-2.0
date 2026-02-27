@@ -40,7 +40,7 @@ impl MainI2cMap {
             if_amp_mcp4725: I2cAddress::new(0x61),
             detector_sc18is602: I2cAddress::new(0b0101001),
             audio_pcm3060: I2cAddress::new(0b1000110),
-            audio_panel_pca9534: I2cAddress::new(0x20),
+            audio_panel_pca9534: I2cAddress::new(0b0100011),
         }
     }
 }

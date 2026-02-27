@@ -4,64 +4,93 @@ use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 use common::drivers::pca9534::{Pin, PCA9534};
 use common::drivers::pcm3060::Pcm3060;
-use embassy_stm32::gpio::Speed;
 
-use embassy_stm32::i2s::{
-    ClockPolarity, Config, Format, Mode as I2sMode, Reader, Standard, Writer, I2S,
-};
-use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin};
-use embassy_stm32::time::Hertz;
+use embassy_stm32::peripherals as stm_peripherals;
+use embassy_stm32::sai::{self, Dma, FsPin, MclkPin, Sai, SckPin, SdPin, TxRx};
 use embassy_stm32::Peri;
 use static_cell::StaticCell;
 
 static TX_BUFFER: StaticCell<[u16; AUDIO_BUFFER_SIZE]> = StaticCell::new();
 static RX_BUFFER: StaticCell<[u16; AUDIO_BUFFER_SIZE]> = StaticCell::new();
-static AUDIO_I2S: StaticCell<I2S<'static, u16>> = StaticCell::new();
+static SAI_TX: StaticCell<Sai<'static, stm_peripherals::SAI1, u16>> = StaticCell::new();
+static SAI_RX: StaticCell<Sai<'static, stm_peripherals::SAI1, u16>> = StaticCell::new();
 
 pub struct AudioPanel {
     audio_codec: Pcm3060<MainBoardI2C>,
     io: PCA9534<MainBoardI2C>,
-    i2s: Option<&'static mut I2S<'static, u16>>,
+    sai_tx: Option<&'static mut Sai<'static, stm_peripherals::SAI1, u16>>,
+    sai_rx: Option<&'static mut Sai<'static, stm_peripherals::SAI1, u16>>,
 }
 
 impl AudioPanel {
-    pub fn new<T: spi::Instance>(
+    pub fn new(
         i2c: &'static MainBoardI2CMutex,
         pcm3060_addr: I2cAddress,
         pca9534_addr: I2cAddress,
-        spi_peri: Peri<'static, T>,
-        txsd: Peri<'static, impl MosiPin<T>>,
-        rxsd: Peri<'static, impl MisoPin<T>>,
-        ws: Peri<'static, impl WsPin<T>>,
-        ck: Peri<'static, impl CkPin<T>>,
-        mck: Peri<'static, impl MckPin<T>>,
-        txdma: Peri<'static, impl TxDma<T>>,
-        rxdma: Peri<'static, impl RxDma<T>>,
+        sub_block_a: sai::SubBlock<'static, stm_peripherals::SAI1, sai::A>,
+        sub_block_b: sai::SubBlock<'static, stm_peripherals::SAI1, sai::B>,
+        sck: Peri<'static, impl SckPin<stm_peripherals::SAI1, sai::A>>,
+        sd_a: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::A>>,
+        sd_b: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::B>>,
+        fs: Peri<'static, impl FsPin<stm_peripherals::SAI1, sai::A>>,
+        mclk: Peri<'static, impl MclkPin<stm_peripherals::SAI1, sai::A>>,
+        dma_a: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::A>>,
+        dma_b: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::B>>,
     ) -> Self {
         let pcm3060 = Pcm3060::new(pcm3060_addr.into(), i2c);
         let pca9534 = PCA9534::new(pca9534_addr.into(), i2c);
 
-        let mut config = Config::default();
-        config.frequency = Hertz(48_000);
-        config.gpio_speed = Speed::VeryHigh;
-        config.mode = I2sMode::Master;
-        config.standard = Standard::Philips;
-        config.format = Format::Data16Channel16;
-        config.clock_polarity = ClockPolarity::IdleLow;
-        config.master_clock = false;
+        let mut tx_config = sai::Config::new();
+        tx_config.mode = sai::Mode::Master;
+        tx_config.tx_rx = TxRx::Transmitter;
+        tx_config.sync_output = true;
+        tx_config.data_size = sai::DataSize::Data16;
+        tx_config.stereo_mono = sai::StereoMono::Stereo;
+        tx_config.frame_sync_offset = sai::FrameSyncOffset::BeforeFirstBit;
+        tx_config.frame_sync_polarity = sai::FrameSyncPolarity::ActiveLow;
+        tx_config.frame_sync_active_level_length = sai::word::U7(16);
+        tx_config.frame_sync_definition = sai::FrameSyncDefinition::ChannelIdentification;
+        tx_config.frame_length = 32;
+        tx_config.slot_size = sai::SlotSize::DataSize;
+        tx_config.slot_count = sai::word::U4(2);
+        tx_config.slot_enable = 0b11;
+        tx_config.bit_order = sai::BitOrder::MsbFirst;
+        tx_config.clock_strobe = sai::ClockStrobe::Falling;
+        tx_config.output_drive = sai::OutputDrive::Immediately;
+        tx_config.fifo_threshold = sai::FifoThreshold::ThreeQuarters;
+
+        let mut rx_config = sai::Config::new();
+        rx_config.tx_rx = TxRx::Receiver;
+        rx_config.data_size = sai::DataSize::Data16;
+        rx_config.stereo_mono = sai::StereoMono::Stereo;
+        rx_config.frame_sync_offset = sai::FrameSyncOffset::BeforeFirstBit;
+        rx_config.frame_sync_polarity = sai::FrameSyncPolarity::ActiveLow;
+        rx_config.frame_sync_active_level_length = sai::word::U7(16);
+        rx_config.frame_sync_definition = sai::FrameSyncDefinition::ChannelIdentification;
+        rx_config.frame_length = 32;
+        rx_config.slot_size = sai::SlotSize::DataSize;
+        rx_config.slot_count = sai::word::U4(2);
+        rx_config.slot_enable = 0b11;
+        rx_config.bit_order = sai::BitOrder::MsbFirst;
+        rx_config.clock_strobe = sai::ClockStrobe::Falling;
+        rx_config.fifo_threshold = sai::FifoThreshold::ThreeQuarters;
 
         let tx_buffer = TX_BUFFER.init([0u16; AUDIO_BUFFER_SIZE]);
         let rx_buffer = RX_BUFFER.init([0u16; AUDIO_BUFFER_SIZE]);
 
-        let i2s = I2S::new_full_duplex(
-            spi_peri, txsd, rxsd, ws, ck, mck, txdma, tx_buffer, rxdma, rx_buffer, config,
+        let sai_tx = Sai::new_asynchronous_with_mclk(
+            sub_block_a, sck, sd_a, fs, mclk, dma_a, tx_buffer, tx_config,
         );
-        let i2s = AUDIO_I2S.init(i2s);
+        let sai_rx = Sai::new_synchronous(sub_block_b, sd_b, dma_b, rx_buffer, rx_config);
+
+        let sai_tx = SAI_TX.init(sai_tx);
+        let sai_rx = SAI_RX.init(sai_rx);
 
         Self {
             audio_codec: pcm3060,
             io: pca9534,
-            i2s: Some(i2s),
+            sai_tx: Some(sai_tx),
+            sai_rx: Some(sai_rx),
         }
     }
 
@@ -74,11 +103,15 @@ impl AudioPanel {
         }
     }
 
-    pub fn split_i2s(
+    pub fn split_sai(
         &mut self,
-    ) -> (Reader<'static, 'static, u16>, Writer<'static, 'static, u16>) {
-        let i2s = self.i2s.take().expect("I2S already split");
-        i2s.split().expect("I2S split failed")
+    ) -> (
+        &'static mut Sai<'static, stm_peripherals::SAI1, u16>,
+        &'static mut Sai<'static, stm_peripherals::SAI1, u16>,
+    ) {
+        let tx = self.sai_tx.take().expect("SAI TX already split");
+        let rx = self.sai_rx.take().expect("SAI RX already split");
+        (tx, rx)
     }
 
     pub async fn init(&mut self) -> Result<(), &'static str> {
@@ -104,7 +137,11 @@ impl AudioPanel {
             .await
             .map_err(|_| "Failed to initialize PCM3060")?;
 
-        self.i2s.as_mut().expect("I2S not available").start();
+        self.sai_rx
+            .as_mut()
+            .expect("SAI RX not available")
+            .start()
+            .map_err(|_| "SAI RX start failed")?;
 
         Ok(())
     }

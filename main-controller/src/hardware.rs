@@ -38,6 +38,9 @@ impl Hardware {
         let irqs = Irqs;
         let i2c_map = I2cMap::new();
 
+        let (sai1_a, sai1_b) = sai::split_subblocks(p.SAI1);
+        let (sai2_a, sai2_b) = sai::split_subblocks(p.SAI2);
+
         MainBoardSubsystem::init_subsystem(
             spawner,
             i2c_map.main,
@@ -47,12 +50,13 @@ impl Hardware {
             p.PB8,
             p.GPDMA1_CH0,
             p.GPDMA1_CH1,
-            p.SPI2,
-            p.PB15,
-            p.PC2,
-            p.PB12,
-            p.PA9,
-            p.PC6,
+            sai1_a,
+            sai1_b,
+            p.PE5,
+            p.PE6,
+            p.PE3,
+            p.PE4,
+            p.PE2,
             p.GPDMA1_CH2,
             p.GPDMA1_CH3,
         )
@@ -60,13 +64,27 @@ impl Hardware {
 
         let alert_input = ExtiInput::new(p.PC13, p.EXTI13, Pull::Up, irqs);
         FrontPanelSubsystem::init_subsystem(
-            spawner, p.SPI1, p.PB5, p.PB4, p.PA5, p.GPDMA1_CH4, p.GPDMA1_CH5, p.PA4, alert_input,
-            p.SPI3, p.PB2, p.PC11, p.PA15, p.PC10, p.PC7, p.GPDMA2_CH0, p.GPDMA2_CH1,
+            spawner,
+            p.SPI1,
+            p.PB5,
+            p.PB4,
+            p.PA5,
+            p.GPDMA1_CH4,
+            p.GPDMA1_CH5,
+            p.PA4,
+            alert_input,
+            sai2_b,
+            sai2_a,
+            p.PE12,
+            p.PE11,
+            p.PD11,
+            p.PE13,
+            p.GPDMA2_CH0,
+            p.GPDMA2_CH1,
             p.CRC,
         )
         .await;
 
-        let (sai1_a, _sai1_b) = sai::split_subblocks(p.SAI1);
         ControlBoardSybstem::init_subsystem(
             spawner,
             i2c_map.control_board,
@@ -79,11 +97,14 @@ impl Hardware {
             p.GPDMA2_CH6,
             p.GPDMA2_CH7,
             irqs,
-            sai1_a,
-            p.PE5,
-            p.PE6,
-            p.PE4,
+            p.SPI2,
+            p.PB15,
+            p.PC2,
+            p.PB12,
+            p.PA9,
+            p.PC6,
             p.GPDMA2_CH2,
+            p.GPDMA2_CH3,
             p.UCPD1,
             p.PB13,
             p.PB14,
