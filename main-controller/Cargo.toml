@@ -18,6 +18,7 @@ embassy-stm32 = { version = "0.5", features = [
     "memory-x",
     "time-driver-any",
     "exti",
+    "unstable-pac",
 ] }
 
 # HAL traits
@@ -36,6 +37,10 @@ panic-halt = { workspace = true }
 ufmt = { workspace = true }
 heapless = { workspace = true }
 static_cell = { workspace = true }
+
+# USB PD 3.1 EPR sink negotiation
+usbpd = { version = "2", default-features = false }
+usbpd-traits = { version = "2", default-features = false }
 
 [[bin]]
 name = "druzhba-main-controller"

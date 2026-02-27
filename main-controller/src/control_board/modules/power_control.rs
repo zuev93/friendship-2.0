@@ -17,7 +17,7 @@ const PA_MAX_CURRENT_MA: u32 = 5000;
 const RAIL_3V3_MAX_CURRENT_MA: u32 = 2000;
 
 pub struct PowerControl {
-    pin_13v8_enabled: Output<'static>,
+    pin_50v_enabled: Output<'static>,
     pin_3v3_enabled: Output<'static>,
     ina_vbus: Ina228<ControlBoardI2C>,
     ina_pa: Ina228<ControlBoardI2C>,
@@ -27,7 +27,7 @@ pub struct PowerControl {
 
 impl PowerControl {
     pub fn new(
-        pin_13v8_enabled: Peri<'static, impl Pin>,
+        pin_50v_enabled: Peri<'static, impl Pin>,
         pin_3v3_enabled: Peri<'static, impl Pin>,
         i2c: ControlBoardI2cMutex,
         ina228_vbus_addr: I2cAddress,
@@ -35,7 +35,7 @@ impl PowerControl {
         ina228_3v3_addr: I2cAddress,
     ) -> Self {
         Self {
-            pin_13v8_enabled: Output::new(pin_13v8_enabled, Level::Low, Speed::Medium),
+            pin_50v_enabled: Output::new(pin_50v_enabled, Level::Low, Speed::Medium),
             pin_3v3_enabled: Output::new(pin_3v3_enabled, Level::Low, Speed::Medium),
             mode: Mode::StandBy,
             ina_vbus: Ina228::new(ina228_vbus_addr.into(), SHUNT_MOHM, VBUS_MAX_CURRENT_MA, i2c),
@@ -59,7 +59,7 @@ impl PowerControl {
         } else {
             Level::Low
         };
-        self.pin_13v8_enabled.set_level(level);
+        self.pin_50v_enabled.set_level(level);
         self.pin_3v3_enabled.set_level(level);
         Ok(())
     }

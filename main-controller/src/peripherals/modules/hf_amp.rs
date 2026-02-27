@@ -1,5 +1,5 @@
 use crate::app::types::{Mode, PaTemperatures, RfPowerPercent};
-use crate::control_board::events::PowerTelemetry;
+use crate::control_board::events::{PdContract, PowerTelemetry};
 use crate::i2c_map::I2cAddress;
 use crate::peripherals::types::{PeripherialI2c, PeripherialI2cMutex};
 use common::drivers::ads1115::{ADS1115, ADS1115Config};
@@ -11,8 +11,6 @@ const DAC_COUNTS_PER_MA: u16 = 29;
 
 const THERMAL_DERATING_START: i16 = 20000;
 const THERMAL_SHUTDOWN: i16 = 30000;
-
-const VCC_MAX_CURRENT_MA: u16 = 5000;
 
 pub struct HfAmp {
     driver_dac: MCP4725<PeripherialI2c>,
@@ -83,10 +81,15 @@ impl HfAmp {
         self.update_bias().await
     }
 
-    pub fn derive_power_budget(telemetry: &PowerTelemetry) -> RfPowerPercent {
+    pub fn derive_power_budget(telemetry: &PowerTelemetry, contract: &PdContract) -> RfPowerPercent {
+        let max_current = contract.current_ma;
         let current = telemetry.vbus_current_ma.max(0) as u32;
-        let headroom_ma = (VCC_MAX_CURRENT_MA as u32).saturating_sub(current);
-        let centipercent = ((headroom_ma * 10000) / VCC_MAX_CURRENT_MA as u32) as u16;
+        let headroom_ma = max_current.saturating_sub(current);
+        let centipercent = if max_current > 0 {
+            ((headroom_ma * 10000) / max_current) as u16
+        } else {
+            0
+        };
         RfPowerPercent::new(centipercent)
     }
 

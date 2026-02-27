@@ -6,7 +6,9 @@ use embassy_stm32::{
     bind_interrupts,
     i2c::{self},
     interrupt::typelevel as irq_types,
-    peripherals as stm_peripherals, Config as StmConfig,
+    peripherals as stm_peripherals,
+    ucpd,
+    Config as StmConfig,
 };
 
 use crate::{
@@ -23,13 +25,15 @@ bind_interrupts!(pub struct Irqs {
     I2C4_EV => i2c::EventInterruptHandler<stm_peripherals::I2C4>;
     I2C4_ER => i2c::ErrorInterruptHandler<stm_peripherals::I2C4>;
     EXTI13 => exti::InterruptHandler<irq_types::EXTI13>;
+    UCPD1 => ucpd::InterruptHandler<stm_peripherals::UCPD1>;
 });
 
 pub struct Hardware {}
 
 impl Hardware {
     pub async fn init_subsystem(spawner: Spawner) {
-        let config = StmConfig::default();
+        let mut config = StmConfig::default();
+        config.enable_ucpd1_dead_battery = true;
         let p = embassy_stm32::init(config);
         let irqs = Irqs;
         let i2c_map = I2cMap::new();
@@ -45,9 +49,9 @@ impl Hardware {
             p.GPDMA1_CH1,
             p.SPI2,
             p.PB15,
-            p.PB14,
+            p.PC2,
             p.PB12,
-            p.PB13,
+            p.PA9,
             p.PC6,
             p.GPDMA1_CH2,
             p.GPDMA1_CH3,
@@ -79,6 +83,11 @@ impl Hardware {
             p.PE6,
             p.PE4,
             p.GPDMA2_CH2,
+            p.UCPD1,
+            p.PB13,
+            p.PB14,
+            p.GPDMA1_CH6,
+            p.GPDMA1_CH7,
         )
         .await;
         PeripheralsSubsystem::init_subsystem(
