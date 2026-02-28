@@ -1,6 +1,6 @@
 use druzhba_common::error;
 use druzhba_common::protocol_types::{
-    DisplayEnableCommand, LedCommand, MeterStateCommand, WaterfallLineCommand, Wm8940Command,
+    LedCommand, RadioStateCommand, WaterfallLineCommand, Wm8940Command,
 };
 use druzhba_common::spi_protocol::{Crc16, Packet, PacketSerializable, PacketType};
 use embassy_executor::Spawner;
@@ -90,10 +90,8 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
         }
     } else if let Some(wm8940_cmd) = Wm8940Command::deserialize(packet) {
         input_state.wm8940.signal(wm8940_cmd);
-    } else if let Some(enable_cmd) = DisplayEnableCommand::deserialize(packet) {
-        input_state.displays_enabled.signal(enable_cmd.enabled);
-    } else if let Some(cmd) = MeterStateCommand::deserialize(packet) {
-        input_state.meter_state.signal(crate::state::input::MeterState {
+    } else if let Some(cmd) = RadioStateCommand::deserialize(packet) {
+        input_state.radio_state.signal(crate::state::input::RadioState {
             rssi_dbm: cmd.rssi_dbm,
             forward_power_mw: cmd.forward_power_mw,
             vswr_x100: cmd.vswr_x100,
@@ -102,6 +100,14 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
             agc_mode: cmd.agc_mode,
             rf_gain_mode: cmd.rf_gain_mode,
             filter_bw_hz: cmd.filter_bw_hz,
+            frequency: cmd.frequency,
+            band: cmd.band,
+            nb_enabled: cmd.nb_enabled,
+            clarifier_mode: cmd.clarifier_mode,
+            clarifier_raw: cmd.clarifier_raw,
+            rf_power_centipercent: cmd.rf_power_centipercent,
+            volume_raw: cmd.volume_raw,
+            squelch_raw: cmd.squelch_raw,
         });
     } else if let Some(cmd) = WaterfallLineCommand::deserialize(packet) {
         input_state.waterfall_line.signal(crate::state::input::WaterfallLineData {

@@ -4,6 +4,7 @@ pub mod encoders;
 pub mod error_display;
 pub mod headphones_detect;
 pub mod leds;
+pub mod render_main;
 pub mod render_meter;
 pub mod render_spectrum;
 pub mod spi_link;

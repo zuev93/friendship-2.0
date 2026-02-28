@@ -12,7 +12,7 @@ pub struct LedUpdate {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct MeterState {
+pub struct RadioState {
     pub rssi_dbm: i8,
     pub forward_power_mw: u16,
     pub vswr_x100: u16,
@@ -21,13 +21,21 @@ pub struct MeterState {
     pub agc_mode: IfGainMode,
     pub rf_gain_mode: RfGainMode,
     pub filter_bw_hz: u16,
+    pub frequency: u32,
+    pub band: u8,
+    pub nb_enabled: bool,
+    pub clarifier_mode: u8,
+    pub clarifier_raw: i16,
+    pub rf_power_centipercent: u16,
+    pub volume_raw: i16,
+    pub squelch_raw: i16,
 }
 
 pub type LedSignal = Signal<ThreadModeRawMutex, LedUpdate>;
 
 pub type Wm8940Signal = Signal<ThreadModeRawMutex, Wm8940Config>;
 
-pub type MeterStateSignal = Signal<ThreadModeRawMutex, MeterState>;
+pub type RadioStateSignal = Signal<ThreadModeRawMutex, RadioState>;
 
 #[derive(Clone, Copy)]
 pub struct WaterfallLineData {
@@ -42,8 +50,7 @@ pub type WaterfallLineSignal = Signal<ThreadModeRawMutex, WaterfallLineData>;
 pub struct InputState {
     pub leds: LedSignal,
     pub wm8940: Wm8940Signal,
-    pub displays_enabled: Signal<ThreadModeRawMutex, bool>,
-    pub meter_state: MeterStateSignal,
+    pub radio_state: RadioStateSignal,
     pub waterfall_line: WaterfallLineSignal,
 }
 
@@ -52,8 +59,7 @@ impl InputState {
         Self {
             leds: Signal::new(),
             wm8940: Signal::new(),
-            displays_enabled: Signal::new(),
-            meter_state: Signal::new(),
+            radio_state: Signal::new(),
             waterfall_line: Signal::new(),
         }
     }

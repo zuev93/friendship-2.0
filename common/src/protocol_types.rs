@@ -222,26 +222,7 @@ impl PacketSerializable for Wm8940Command {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct DisplayEnableCommand {
-    pub enabled: bool,
-}
-
-impl PacketSerializable for DisplayEnableCommand {
-    const PACKET_TYPE: PacketType = PacketType::DisplayEnableCommand;
-
-    fn write_payload(&self, payload: &mut [u8]) {
-        payload[0] = if self.enabled { 1 } else { 0 };
-    }
-
-    fn read_payload(payload: &[u8]) -> Option<Self> {
-        Some(Self {
-            enabled: payload[0] != 0,
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct MeterStateCommand {
+pub struct RadioStateCommand {
     pub rssi_dbm: i8,
     pub forward_power_mw: u16,
     pub vswr_x100: u16,
@@ -250,10 +231,18 @@ pub struct MeterStateCommand {
     pub agc_mode: IfGainMode,
     pub rf_gain_mode: RfGainMode,
     pub filter_bw_hz: u16,
+    pub frequency: u32,
+    pub band: u8,
+    pub nb_enabled: bool,
+    pub clarifier_mode: u8,
+    pub clarifier_raw: i16,
+    pub rf_power_centipercent: u16,
+    pub volume_raw: i16,
+    pub squelch_raw: i16,
 }
 
-impl PacketSerializable for MeterStateCommand {
-    const PACKET_TYPE: PacketType = PacketType::MeterStateCommand;
+impl PacketSerializable for RadioStateCommand {
+    const PACKET_TYPE: PacketType = PacketType::RadioStateCommand;
 
     fn write_payload(&self, payload: &mut [u8]) {
         payload[0] = self.rssi_dbm as u8;
@@ -289,6 +278,26 @@ impl PacketSerializable for MeterStateCommand {
         let bw = self.filter_bw_hz.to_be_bytes();
         payload[9] = bw[0];
         payload[10] = bw[1];
+        let freq = self.frequency.to_be_bytes();
+        payload[11] = freq[0];
+        payload[12] = freq[1];
+        payload[13] = freq[2];
+        payload[14] = freq[3];
+        payload[15] = self.band;
+        payload[16] = if self.nb_enabled { 1 } else { 0 };
+        payload[17] = self.clarifier_mode;
+        let cr = self.clarifier_raw.to_be_bytes();
+        payload[18] = cr[0];
+        payload[19] = cr[1];
+        let rp = self.rf_power_centipercent.to_be_bytes();
+        payload[20] = rp[0];
+        payload[21] = rp[1];
+        let vol = self.volume_raw.to_be_bytes();
+        payload[22] = vol[0];
+        payload[23] = vol[1];
+        let sql = self.squelch_raw.to_be_bytes();
+        payload[24] = sql[0];
+        payload[25] = sql[1];
     }
 
     fn read_payload(payload: &[u8]) -> Option<Self> {
@@ -328,6 +337,14 @@ impl PacketSerializable for MeterStateCommand {
             agc_mode,
             rf_gain_mode,
             filter_bw_hz: u16::from_be_bytes([payload[9], payload[10]]),
+            frequency: u32::from_be_bytes([payload[11], payload[12], payload[13], payload[14]]),
+            band: payload[15],
+            nb_enabled: payload[16] != 0,
+            clarifier_mode: payload[17],
+            clarifier_raw: i16::from_be_bytes([payload[18], payload[19]]),
+            rf_power_centipercent: u16::from_be_bytes([payload[20], payload[21]]),
+            volume_raw: i16::from_be_bytes([payload[22], payload[23]]),
+            squelch_raw: i16::from_be_bytes([payload[24], payload[25]]),
         })
     }
 }

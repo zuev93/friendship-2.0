@@ -9,7 +9,7 @@ use embedded_graphics::{
 };
 use heapless::String;
 
-use crate::state::input::{IfGainMode, MeterState, Mode, RfGainMode, TransmitMode};
+use crate::state::input::{IfGainMode, Mode, RadioState, RfGainMode, TransmitMode};
 use crate::ui::{meter_bar, BLACK, BLUE, BRIGHT_GREEN, DARK_GRAY, DIM_WHITE, GRAY, GREEN, ORANGE, RED, WHITE, YELLOW};
 
 const DBM_MIN: i8 = -120;
@@ -24,7 +24,7 @@ const BAR_X: i32 = 2;
 const BAR_WIDTH: u32 = 170;
 const BAR_HEIGHT: u32 = 14;
 
-pub fn render(target: &mut impl DrawTarget<Color = Rgb565>, state: &MeterState, peak_dbm: i8) {
+pub fn render(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioState, peak_dbm: i8) {
     let _ = Rectangle::new(Point::zero(), Size::new(240, 135))
         .into_styled(PrimitiveStyle::with_fill(BLACK))
         .draw(target);
@@ -47,7 +47,7 @@ fn s9_bar() -> u16 {
     dbm_to_bar(DBM_S9)
 }
 
-fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &MeterState) {
+fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioState) {
     let _ = Rectangle::new(Point::new(0, 0), Size::new(240, 14))
         .into_styled(PrimitiveStyle::with_fill(DARK_GRAY))
         .draw(target);
