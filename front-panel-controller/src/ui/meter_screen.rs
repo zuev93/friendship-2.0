@@ -2,13 +2,13 @@ use core::fmt::Write;
 
 use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyle},
+    pixelcolor::Rgb565,
     prelude::*,
     primitives::{PrimitiveStyle, Rectangle},
     text::Text,
 };
 use heapless::String;
 
-use crate::hardware::buffered_display::BufferedDisplay;
 use crate::state::input::{IfGainMode, MeterState, Mode, RfGainMode, TransmitMode};
 use crate::ui::{meter_bar, BLACK, BLUE, BRIGHT_GREEN, DARK_GRAY, DIM_WHITE, GRAY, GREEN, ORANGE, RED, WHITE, YELLOW};
 
@@ -24,7 +24,7 @@ const BAR_X: i32 = 2;
 const BAR_WIDTH: u32 = 170;
 const BAR_HEIGHT: u32 = 14;
 
-pub fn render(target: &mut BufferedDisplay, state: &MeterState, peak_dbm: i8) {
+pub fn render(target: &mut impl DrawTarget<Color = Rgb565>, state: &MeterState, peak_dbm: i8) {
     let _ = Rectangle::new(Point::zero(), Size::new(240, 135))
         .into_styled(PrimitiveStyle::with_fill(BLACK))
         .draw(target);
@@ -47,7 +47,7 @@ fn s9_bar() -> u16 {
     dbm_to_bar(DBM_S9)
 }
 
-fn draw_status_bar(target: &mut BufferedDisplay, state: &MeterState) {
+fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &MeterState) {
     let _ = Rectangle::new(Point::new(0, 0), Size::new(240, 14))
         .into_styled(PrimitiveStyle::with_fill(DARK_GRAY))
         .draw(target);
@@ -98,7 +98,7 @@ fn draw_status_bar(target: &mut BufferedDisplay, state: &MeterState) {
     Text::new(mode_label, Point::new(210, 10), mode_rx_style).draw(target).ok();
 }
 
-fn draw_scale(target: &mut BufferedDisplay) {
+fn draw_scale(target: &mut impl DrawTarget<Color = Rgb565>) {
     let style = MonoTextStyle::new(&FONT_6X10, GRAY);
 
     let labels: &[(i32, &str)] = &[
@@ -116,7 +116,7 @@ fn draw_scale(target: &mut BufferedDisplay) {
         .draw(target);
 }
 
-fn draw_smeter_bar(target: &mut BufferedDisplay, dbm: i8, peak_dbm: i8) {
+fn draw_smeter_bar(target: &mut impl DrawTarget<Color = Rgb565>, dbm: i8, peak_dbm: i8) {
     let y: i32 = 32;
     let height: u32 = 16;
     let value = dbm_to_bar(dbm);
@@ -142,7 +142,7 @@ fn draw_smeter_bar(target: &mut BufferedDisplay, dbm: i8, peak_dbm: i8) {
     }
 }
 
-fn draw_smeter_readout(target: &mut BufferedDisplay, dbm: i8) {
+fn draw_smeter_readout(target: &mut impl DrawTarget<Color = Rgb565>, dbm: i8) {
     let y: i32 = 62;
     let _ = Rectangle::new(Point::new(0, y - 10), Size::new(240, 14))
         .into_styled(PrimitiveStyle::with_fill(BLACK))
@@ -170,7 +170,7 @@ fn draw_smeter_readout(target: &mut BufferedDisplay, dbm: i8) {
     Text::new(&dbm_str, Point::new(190, y), dim_style).draw(target).ok();
 }
 
-fn draw_power_bar(target: &mut BufferedDisplay, forward_power_mw: u16) {
+fn draw_power_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_mw: u16) {
     let y: i32 = 78;
     let label_style = MonoTextStyle::new(&FONT_6X10, DIM_WHITE);
     let val_style = MonoTextStyle::new(&FONT_6X10, WHITE);
@@ -191,7 +191,7 @@ fn draw_power_bar(target: &mut BufferedDisplay, forward_power_mw: u16) {
     Text::new(&pwr_str, Point::new(176, y + 10), val_style).draw(target).ok();
 }
 
-fn draw_swr_bar(target: &mut BufferedDisplay, vswr_x100: u16) {
+fn draw_swr_bar(target: &mut impl DrawTarget<Color = Rgb565>, vswr_x100: u16) {
     let y: i32 = 96;
     let label_style = MonoTextStyle::new(&FONT_6X10, DIM_WHITE);
     let val_style = MonoTextStyle::new(&FONT_6X10, WHITE);
@@ -217,7 +217,7 @@ fn draw_swr_bar(target: &mut BufferedDisplay, vswr_x100: u16) {
     Text::new(&swr_str, Point::new(176, y + 10), val_style).draw(target).ok();
 }
 
-fn draw_detail_bar(target: &mut BufferedDisplay, forward_power_mw: u16, vswr_x100: u16) {
+fn draw_detail_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_mw: u16, vswr_x100: u16) {
     let y: i32 = 125;
     let style = MonoTextStyle::new(&FONT_6X10, DIM_WHITE);
 

@@ -12,25 +12,31 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
+use super::buffered_display::BufferedDisplay;
+
 const DISPLAY_SPI_FREQUENCY: Hertz = Hertz(15_000_000);
 
 pub struct Display {
-    pub display: ST7789<
+    pub driver: ST7789<
         Spi<'static, mode::Async, spi::mode::Master>,
         Output<'static>,
         Output<'static>,
     >,
+    pub fb: BufferedDisplay,
 }
 
 impl Display {
-    pub fn new(
-        display: ST7789<
+    fn new(
+        driver: ST7789<
             Spi<'static, mode::Async, spi::mode::Master>,
             Output<'static>,
             Output<'static>,
         >,
     ) -> Self {
-        Self { display }
+        Self {
+            driver,
+            fb: BufferedDisplay::new(),
+        }
     }
 }
 

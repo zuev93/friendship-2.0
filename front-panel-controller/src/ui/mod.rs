@@ -1,5 +1,6 @@
-pub mod display1;
+pub mod error_screen;
 pub mod meter_bar;
+pub mod meter_screen;
 
 use embedded_graphics::pixelcolor::Rgb565;
 

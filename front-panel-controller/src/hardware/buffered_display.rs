@@ -13,7 +13,6 @@ pub const BUFFER_SIZE: usize = WIDTH * HEIGHT * 2;
 pub struct BufferedDisplay {
     buffers: [[u8; BUFFER_SIZE]; 2],
     back: u8,
-    dirty: bool,
 }
 
 impl BufferedDisplay {
@@ -21,14 +20,12 @@ impl BufferedDisplay {
         Self {
             buffers: [[0u8; BUFFER_SIZE]; 2],
             back: 0,
-            dirty: false,
         }
     }
 
     pub fn swap(&mut self) -> &[u8; BUFFER_SIZE] {
         let front = self.back as usize;
         self.back = 1 - self.back;
-        self.dirty = false;
         &self.buffers[front]
     }
 
@@ -62,7 +59,6 @@ impl DrawTarget for BufferedDisplay {
                 buf[index + 1] = raw as u8;
             }
         }
-        self.dirty = true;
         Ok(())
     }
 
@@ -77,7 +73,6 @@ impl DrawTarget for BufferedDisplay {
             buf[i + 1] = lo;
             i += 2;
         }
-        self.dirty = true;
         Ok(())
     }
 }

@@ -34,7 +34,7 @@ async fn init_task(
             Timer::after_millis(DISPLAY_RESET_DELAY_MS).await;
 
             for (i, display) in d.displays.iter_mut().enumerate() {
-                if let Err(_) = display.display.init().await {
+                if let Err(_) = display.driver.init().await {
                     let msg = match i {
                         0 => "Display 1 init failed",
                         1 => "Display 2 init failed",

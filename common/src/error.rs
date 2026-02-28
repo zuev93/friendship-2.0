@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
@@ -13,7 +11,6 @@ pub enum BsodError {
 
 pub static BSOD: Signal<ThreadModeRawMutex, BsodError> = Signal::new();
 
-// TODO subscribe to the channel from the UI
 pub static ERROR_MESSAGES: Channel<ThreadModeRawMutex, &'static str, 16> = Channel::new();
 
 pub async fn error(message: &'static str) {

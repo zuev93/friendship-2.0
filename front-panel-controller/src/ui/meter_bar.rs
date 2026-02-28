@@ -4,10 +4,8 @@ use embedded_graphics::{
     primitives::{PrimitiveStyle, Rectangle},
 };
 
-use crate::hardware::buffered_display::BufferedDisplay;
-
 pub fn draw_meter_bar(
-    target: &mut BufferedDisplay,
+    target: &mut impl DrawTarget<Color = Rgb565>,
     x: i32,
     y: i32,
     width: u32,
@@ -41,7 +39,7 @@ pub fn draw_meter_bar(
 }
 
 pub fn draw_gradient_meter(
-    target: &mut BufferedDisplay,
+    target: &mut impl DrawTarget<Color = Rgb565>,
     x: i32,
     y: i32,
     width: u32,

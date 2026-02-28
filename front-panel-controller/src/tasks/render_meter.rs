@@ -1,16 +1,25 @@
+use embassy_executor::Spawner;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 
-use crate::hardware::buffered_display::BufferedDisplay;
 use crate::hardware::Displays;
 use crate::state::input::MeterStateSignal;
 use crate::ui;
 
-#[embassy_executor::task]
-pub async fn render_display1_task(
-    fb: &'static mut BufferedDisplay,
+pub fn spawn_tasks(
+    spawner: &Spawner,
     displays: &'static Mutex<ThreadModeRawMutex, Displays>,
     meter_state_signal: &'static MeterStateSignal,
+    display_index: usize,
+) {
+    spawner.must_spawn(render_meter_task(displays, meter_state_signal, display_index));
+}
+
+#[embassy_executor::task]
+async fn render_meter_task(
+    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    meter_state_signal: &'static MeterStateSignal,
+    display_index: usize,
 ) {
     let mut peak_dbm: i8 = -120;
     loop {
@@ -22,10 +31,10 @@ pub async fn render_display1_task(
             peak_dbm = peak_dbm.saturating_sub(1);
         }
 
-        ui::display1::render(fb, &state, peak_dbm);
-
-        let front = fb.swap();
         let mut d = displays.lock().await;
-        let _ = d.displays[0].display.draw(front).await;
+        let display = &mut d.displays[display_index];
+        ui::meter_screen::render(&mut display.fb, &state, peak_dbm);
+        let front = display.fb.swap();
+        let _ = display.driver.draw(front).await;
     }
 }
