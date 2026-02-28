@@ -1,6 +1,6 @@
 use druzhba_common::error;
 use druzhba_common::protocol_types::{
-    DisplayEnableCommand, LedCommand, MeterStateCommand, Wm8940Command,
+    DisplayEnableCommand, LedCommand, MeterStateCommand, WaterfallLineCommand, Wm8940Command,
 };
 use druzhba_common::spi_protocol::{Crc16, Packet, PacketSerializable, PacketType};
 use embassy_executor::Spawner;
@@ -102,6 +102,13 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
             agc_mode: cmd.agc_mode,
             rf_gain_mode: cmd.rf_gain_mode,
             filter_bw_hz: cmd.filter_bw_hz,
+        });
+    } else if let Some(cmd) = WaterfallLineCommand::deserialize(packet) {
+        input_state.waterfall_line.signal(crate::state::input::WaterfallLineData {
+            center_freq: cmd.center_freq,
+            span_hz: cmd.span_hz,
+            sweep_status: cmd.sweep_status,
+            bins: cmd.bins,
         });
     }
 }

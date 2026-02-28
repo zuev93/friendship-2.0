@@ -1,4 +1,4 @@
-use crate::spi_protocol::{PacketSerializable, PacketType};
+use crate::spi_protocol::{PacketSerializable, PacketType, PACKET_SIZE};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Mode {
@@ -328,6 +328,80 @@ impl PacketSerializable for MeterStateCommand {
             agc_mode,
             rf_gain_mode,
             filter_bw_hz: u16::from_be_bytes([payload[9], payload[10]]),
+        })
+    }
+}
+
+pub const WATERFALL_BINS: usize = 240;
+const WATERFALL_CMD_SIZE: usize = 4 + 4 + 1 + WATERFALL_BINS;
+const _: () = assert!(WATERFALL_CMD_SIZE <= PACKET_SIZE - 3);
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(u8)]
+pub enum SweepStatus {
+    Idle = 0,
+    Sweeping = 1,
+    Listening = 2,
+}
+
+impl SweepStatus {
+    pub fn from_u8(v: u8) -> Self {
+        match v {
+            1 => Self::Sweeping,
+            2 => Self::Listening,
+            _ => Self::Idle,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct WaterfallLineCommand {
+    pub center_freq: u32,
+    pub span_hz: u32,
+    pub sweep_status: SweepStatus,
+    pub bins: [i8; WATERFALL_BINS],
+}
+
+impl PacketSerializable for WaterfallLineCommand {
+    const PACKET_TYPE: PacketType = PacketType::WaterfallLineCommand;
+
+    fn write_payload(&self, payload: &mut [u8]) {
+        let cf = self.center_freq.to_be_bytes();
+        payload[0] = cf[0];
+        payload[1] = cf[1];
+        payload[2] = cf[2];
+        payload[3] = cf[3];
+        let sp = self.span_hz.to_be_bytes();
+        payload[4] = sp[0];
+        payload[5] = sp[1];
+        payload[6] = sp[2];
+        payload[7] = sp[3];
+        payload[8] = self.sweep_status as u8;
+        let mut i = 0;
+        while i < WATERFALL_BINS {
+            payload[9 + i] = self.bins[i] as u8;
+            i += 1;
+        }
+    }
+
+    fn read_payload(payload: &[u8]) -> Option<Self> {
+        if payload.len() < WATERFALL_CMD_SIZE {
+            return None;
+        }
+        let center_freq = u32::from_be_bytes([payload[0], payload[1], payload[2], payload[3]]);
+        let span_hz = u32::from_be_bytes([payload[4], payload[5], payload[6], payload[7]]);
+        let sweep_status = SweepStatus::from_u8(payload[8]);
+        let mut bins = [0i8; WATERFALL_BINS];
+        let mut i = 0;
+        while i < WATERFALL_BINS {
+            bins[i] = payload[9 + i] as i8;
+            i += 1;
+        }
+        Some(Self {
+            center_freq,
+            span_hz,
+            sweep_status,
+            bins,
         })
     }
 }

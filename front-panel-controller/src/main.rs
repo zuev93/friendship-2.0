@@ -33,6 +33,7 @@ async fn main(spawner: Spawner) {
     tasks::displays::spawn_tasks(&spawner, hw.displays, &input_state.displays_enabled);
     tasks::spi_link::spawn_tasks(&spawner, hw.spi_link, input_state, hw_crc);
     tasks::render_meter::spawn_tasks(&spawner, hw.displays, &input_state.meter_state, 0);
+    tasks::render_spectrum::spawn_tasks(&spawner, hw.displays, &input_state.waterfall_line, 1);
     tasks::error_display::spawn_tasks(&spawner, hw.displays);
 
     loop {

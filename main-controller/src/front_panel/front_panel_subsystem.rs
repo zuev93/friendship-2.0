@@ -14,6 +14,7 @@ use crate::front_panel::modules::audio::Audio;
 use crate::front_panel::modules::control_bus::ControlBus;
 use crate::front_panel::tasks::meter_state::meter_state_task;
 use crate::front_panel::tasks::spi_receiver::spi_receiver_task;
+use crate::front_panel::tasks::waterfall_sender::waterfall_sender_task;
 use crate::front_panel::tasks::{
     agc_mode_led_task, audio_tasks, mode_led_task, rf_gain_mode_led_task, rit_mode_led_task,
     tone_led_task, transmit_led_task, transmit_mode_led_task,
@@ -72,6 +73,7 @@ impl FrontPanelSubsystem {
         spawner.must_spawn(tone_led_task(bus));
         spawner.must_spawn(transmit_mode_led_task(bus));
         spawner.must_spawn(meter_state_task(bus));
+        spawner.must_spawn(waterfall_sender_task(bus));
         audio_tasks::create_tasks(spawner, audio).await;
     }
 }

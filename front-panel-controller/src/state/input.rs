@@ -1,7 +1,8 @@
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 
 pub use druzhba_common::protocol_types::{
-    IfGainMode, LedState, Mode, RfGainMode, TransmitMode, Wm8940Command as Wm8940Config,
+    IfGainMode, LedState, Mode, RfGainMode, SweepStatus, TransmitMode,
+    Wm8940Command as Wm8940Config, WATERFALL_BINS,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -28,11 +29,22 @@ pub type Wm8940Signal = Signal<ThreadModeRawMutex, Wm8940Config>;
 
 pub type MeterStateSignal = Signal<ThreadModeRawMutex, MeterState>;
 
+#[derive(Clone, Copy)]
+pub struct WaterfallLineData {
+    pub center_freq: u32,
+    pub span_hz: u32,
+    pub sweep_status: SweepStatus,
+    pub bins: [i8; WATERFALL_BINS],
+}
+
+pub type WaterfallLineSignal = Signal<ThreadModeRawMutex, WaterfallLineData>;
+
 pub struct InputState {
     pub leds: LedSignal,
     pub wm8940: Wm8940Signal,
     pub displays_enabled: Signal<ThreadModeRawMutex, bool>,
     pub meter_state: MeterStateSignal,
+    pub waterfall_line: WaterfallLineSignal,
 }
 
 impl InputState {
@@ -42,6 +54,7 @@ impl InputState {
             wm8940: Signal::new(),
             displays_enabled: Signal::new(),
             meter_state: Signal::new(),
+            waterfall_line: Signal::new(),
         }
     }
 }

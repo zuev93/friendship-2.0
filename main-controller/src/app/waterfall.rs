@@ -22,7 +22,7 @@ impl WaterfallSweeper {
         start + self.current_bin as u32 * step
     }
 
-    pub fn store_rssi(&mut self, rssi_raw: i16) {
+    pub fn store_rssi(&mut self, rssi_raw: i8) {
         if self.current_bin < WATERFALL_BINS {
             self.line.bins[self.current_bin] = rssi_raw;
             self.current_bin += 1;

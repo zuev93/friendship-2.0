@@ -241,12 +241,12 @@ pub struct CouplerMetrics {
     pub vswr: f32,
 }
 
-pub const WATERFALL_BINS: usize = 128;
-pub const WATERFALL_LINES: usize = 64;
+pub const WATERFALL_BINS: usize = 240;
+pub const WATERFALL_LINES: usize = 90;
 
 #[derive(Clone, Copy)]
 pub struct WaterfallLine {
-    pub bins: [i16; WATERFALL_BINS],
+    pub bins: [i8; WATERFALL_BINS],
     pub complete: bool,
 }
 

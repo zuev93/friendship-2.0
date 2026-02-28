@@ -62,7 +62,7 @@ pub async fn sweep_scheduler_task() {
             let freq = sweeper.next_bin_frequency(vfo_freq);
             SWEEP_REQUEST.signal(SweepRequest::SetFrequency(freq));
             let rssi = CURRENT_RSSI.wait().await;
-            sweeper.store_rssi(rssi.dbm as i16);
+            sweeper.store_rssi(rssi.dbm);
         }
 
         SWEEP_REQUEST.signal(SweepRequest::Done);
