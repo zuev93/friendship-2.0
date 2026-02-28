@@ -30,6 +30,8 @@ pub struct AudioMixer {
     out_speakers: [u16; AUDIO_BUFFER_SIZE],
     volume_gain: u8,
     headphones_connected: bool,
+    squelch_open: bool,
+    squelch_threshold_dbm: i8,
     gains: Gains,
 }
 
@@ -44,6 +46,8 @@ impl AudioMixer {
             out_speakers: [0; AUDIO_BUFFER_SIZE],
             volume_gain: 255,
             headphones_connected: true,
+            squelch_open: true,
+            squelch_threshold_dbm: -120,
             gains: GAINS,
         }
     }
@@ -81,10 +85,19 @@ impl AudioMixer {
         self.headphones_connected = connected;
     }
 
+    pub fn set_squelch_threshold(&mut self, threshold_dbm: i8) {
+        self.squelch_threshold_dbm = threshold_dbm;
+    }
+
+    pub fn update_squelch(&mut self, rssi_dbm: i8) {
+        self.squelch_open = rssi_dbm >= self.squelch_threshold_dbm;
+    }
+
     pub fn mix(&mut self) {
         let g = self.gains;
+        let rx_gain = if self.squelch_open { 255 } else { 0u8 };
         for i in 0..AUDIO_BUFFER_SIZE {
-            let rx = self.rx[i];
+            let rx = scale_u8(self.rx[i], rx_gain);
             let gen = self.generator[i];
             let mic = self.mic[i];
 

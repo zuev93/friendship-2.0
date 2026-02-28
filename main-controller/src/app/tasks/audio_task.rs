@@ -1,16 +1,19 @@
 use embassy_executor::Spawner;
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::{select4, Either4};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::{
     app::{
         audio_mixer::AudioMixer,
-        events::{AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, CURRENT_VOLUME},
+        events::{
+            AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, CURRENT_SQUELCH,
+            CURRENT_VOLUME,
+        },
         tone_generator::ToneGenerator,
     },
     front_panel::events::{AUDIO_MIC_BUFFER, HEADPHONES_CONNECTED},
-    main_board::events::AUDIO_RX_BUFFER,
+    main_board::events::{AUDIO_RX_BUFFER, CURRENT_RSSI},
 };
 
 pub fn spawn_tasks(
@@ -49,13 +52,37 @@ async fn audio_task(
 #[embassy_executor::task]
 async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     loop {
-        match select(CURRENT_VOLUME.wait(), HEADPHONES_CONNECTED.wait()).await {
-            Either::First(volume) => {
+        match select4(
+            CURRENT_VOLUME.wait(),
+            HEADPHONES_CONNECTED.wait(),
+            CURRENT_SQUELCH.wait(),
+            CURRENT_RSSI.wait(),
+        )
+        .await
+        {
+            Either4::First(volume) => {
                 mutex.lock().await.set_volume(volume);
             }
-            Either::Second(connected) => {
+            Either4::Second(connected) => {
                 mutex.lock().await.set_headphones_connected(connected);
+            }
+            Either4::Third(squelch) => {
+                let dbm = squelch_to_dbm(squelch.raw());
+                mutex.lock().await.set_squelch_threshold(dbm);
+            }
+            Either4::Fourth(rssi) => {
+                mutex.lock().await.update_squelch(rssi.dbm);
             }
         }
     }
+}
+
+fn squelch_to_dbm(raw: i16) -> i8 {
+    const DBM_MIN: i32 = -120;
+    const DBM_MAX: i32 = -20;
+    const RAW_MAX: i32 = 1000;
+    if raw <= 0 {
+        return -128;
+    }
+    (DBM_MIN + (raw as i32 * (DBM_MAX - DBM_MIN) / RAW_MAX)) as i8
 }
