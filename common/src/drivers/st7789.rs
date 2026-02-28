@@ -81,37 +81,37 @@ pub enum Error {
     Gpio,
 }
 
-pub struct ST7789<SPI, DC, RST>
+pub struct ST7789<SPI, DC, CS>
 where
     SPI: SpiBus + 'static,
     DC: OutputPin + 'static,
-    RST: OutputPin + 'static,
+    CS: OutputPin + 'static,
 {
     spi: &'static Mutex<ThreadModeRawMutex, SPI>,
-    dc: DC,
-    rst: RST,
+    dc: &'static Mutex<ThreadModeRawMutex, DC>,
+    cs: CS,
     rotation: Rotation,
     col_offset: u16,
     row_offset: u16,
 }
 
-impl<SPI, DC, RST> ST7789<SPI, DC, RST>
+impl<SPI, DC, CS> ST7789<SPI, DC, CS>
 where
     SPI: SpiBus + 'static,
     DC: OutputPin + 'static,
-    RST: OutputPin + 'static,
+    CS: OutputPin + 'static,
 {
     pub fn new(
         spi: &'static Mutex<ThreadModeRawMutex, SPI>,
-        dc: DC,
-        rst: RST,
+        dc: &'static Mutex<ThreadModeRawMutex, DC>,
+        cs: CS,
         rotation: Rotation,
     ) -> Self {
         let (col_offset, row_offset) = rotation.offsets();
         Self {
             spi,
             dc,
-            rst,
+            cs,
             rotation,
             col_offset,
             row_offset,
@@ -119,8 +119,6 @@ where
     }
 
     pub async fn init(&mut self) -> Result<(), Error> {
-        self.hard_reset().await?;
-
         self.send_command(CMD_SWRESET).await?;
         Timer::after_millis(150).await;
 
@@ -180,13 +178,7 @@ where
         Ok(())
     }
 
-    pub async fn set_window(
-        &mut self,
-        x: u16,
-        y: u16,
-        w: u16,
-        h: u16,
-    ) -> Result<(), Error> {
+    pub async fn set_window(&mut self, x: u16, y: u16, w: u16, h: u16) -> Result<(), Error> {
         let x0 = x + self.col_offset;
         let x1 = x + w - 1 + self.col_offset;
         let y0 = y + self.row_offset;
@@ -250,33 +242,27 @@ where
         self.send_data(&[rotation.madctl()]).await
     }
 
-    async fn hard_reset(&mut self) -> Result<(), Error> {
-        self.rst.set_high().map_err(|_| Error::Gpio)?;
-        Timer::after_millis(10).await;
-        self.rst.set_low().map_err(|_| Error::Gpio)?;
-        Timer::after_millis(10).await;
-        self.rst.set_high().map_err(|_| Error::Gpio)?;
-        Timer::after_millis(120).await;
+    async fn send_command(&mut self, cmd: u8) -> Result<(), Error> {
+        self.cs.set_low().map_err(|_| Error::Gpio)?;
+        {
+            let mut spi = self.spi.lock().await;
+            let mut dc = self.dc.lock().await;
+            dc.set_low().map_err(|_| Error::Gpio)?;
+            spi.write(&[cmd]).await.map_err(|_| Error::Spi)?;
+        }
+        self.cs.set_high().map_err(|_| Error::Gpio)?;
         Ok(())
     }
 
-    async fn send_command(&mut self, cmd: u8) -> Result<(), Error> {
-        self.dc.set_low().map_err(|_| Error::Gpio)?;
-        self.spi
-            .lock()
-            .await
-            .write(&[cmd])
-            .await
-            .map_err(|_| Error::Spi)
-    }
-
     async fn send_data(&mut self, data: &[u8]) -> Result<(), Error> {
-        self.dc.set_high().map_err(|_| Error::Gpio)?;
-        self.spi
-            .lock()
-            .await
-            .write(data)
-            .await
-            .map_err(|_| Error::Spi)
+        self.cs.set_low().map_err(|_| Error::Gpio)?;
+        {
+            let mut spi = self.spi.lock().await;
+            let mut dc = self.dc.lock().await;
+            dc.set_high().map_err(|_| Error::Gpio)?;
+            spi.write(data).await.map_err(|_| Error::Spi)?;
+        }
+        self.cs.set_high().map_err(|_| Error::Gpio)?;
+        Ok(())
     }
 }

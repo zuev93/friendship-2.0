@@ -32,6 +32,8 @@ panic-halt = { workspace = true }
 ufmt = { workspace = true }
 heapless = { workspace = true }
 static_cell = { workspace = true }
+embedded-graphics = { workspace = true }
+embedded-graphics-core = { workspace = true }
 
 [[bin]]
 name = "druzhba-front-panel-controller"

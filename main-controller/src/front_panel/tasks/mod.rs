@@ -1,6 +1,6 @@
 pub mod audio_tasks;
 mod button_leds;
-pub mod s_meter;
+pub mod meter_state;
 pub mod spi_receiver;
 
 pub use button_leds::{

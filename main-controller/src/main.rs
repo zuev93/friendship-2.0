@@ -4,6 +4,9 @@
 // Re-export common crate so it's available to all modules
 extern crate druzhba_common as common;
 
+// TODO add bluetooth? wifi
+// ADD led
+
 mod app;
 mod consts;
 mod control_board;

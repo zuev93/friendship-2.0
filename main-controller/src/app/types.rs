@@ -1,10 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Mode {
-    StandBy,
-    WarmUp,
-    Rx,
-    Tx,
-}
+pub use common::protocol_types::{IfGainMode, Mode, RfGainMode, TransmitMode};
 
 #[derive(Clone, Copy, PartialEq)]
 #[allow(dead_code)]
@@ -36,25 +30,6 @@ impl FilterType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum TransmitMode {
-    Usb,
-    Lsb,
-    Cw,
-    Am,
-}
-
-impl TransmitMode {
-    pub fn next(self) -> Self {
-        match self {
-            TransmitMode::Usb => TransmitMode::Lsb,
-            TransmitMode::Lsb => TransmitMode::Cw,
-            TransmitMode::Cw => TransmitMode::Am,
-            TransmitMode::Am => TransmitMode::Usb,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ClarifierMode {
     Off,
     Rit,
@@ -67,42 +42,6 @@ impl ClarifierMode {
             ClarifierMode::Off => ClarifierMode::Rit,
             ClarifierMode::Rit => ClarifierMode::XIT,
             ClarifierMode::XIT => ClarifierMode::Off,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum RfGainMode {
-    Attenuator,
-    Normal,
-    RfSingle, // only amp before filter
-    RfDouble, // amp before filter + pre amp
-}
-
-impl RfGainMode {
-    pub fn next(self) -> Self {
-        match self {
-            RfGainMode::Attenuator => RfGainMode::Normal,
-            RfGainMode::Normal => RfGainMode::RfSingle,
-            RfGainMode::RfSingle => RfGainMode::RfDouble,
-            RfGainMode::RfDouble => RfGainMode::Attenuator,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum IfGainMode {
-    Manual,
-    AgcFast,
-    AgcSlow,
-}
-
-impl IfGainMode {
-    pub fn toggle(self) -> Self {
-        match self {
-            IfGainMode::Manual => IfGainMode::AgcFast,
-            IfGainMode::AgcFast => IfGainMode::AgcSlow,
-            IfGainMode::AgcSlow => IfGainMode::Manual,
         }
     }
 }

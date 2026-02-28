@@ -1,6 +1,6 @@
 use druzhba_common::error;
 use druzhba_common::protocol_types::{
-    DisplayCommand, DisplayEnableCommand, LedCommand, SMeterCommand, Wm8940Command,
+    DisplayEnableCommand, LedCommand, MeterStateCommand, Wm8940Command,
 };
 use druzhba_common::spi_protocol::{Crc16, Packet, PacketSerializable, PacketType};
 use embassy_executor::Spawner;
@@ -12,7 +12,7 @@ use embassy_sync::signal::Signal;
 use crate::constants::TX_QUEUE_SIZE;
 use crate::crc::HardwareCrc16Modbus;
 use crate::hardware::{SpiLink, SpiSlaveInstance};
-use crate::state::input::{DisplayBuffer, InputState};
+use crate::state::input::InputState;
 use crate::state::output::OUTPUT_EVENTS;
 
 static TX_QUEUE: Channel<ThreadModeRawMutex, Packet, TX_QUEUE_SIZE> = Channel::new();
@@ -88,21 +88,21 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
                 state: led_cmd.state,
             });
         }
-    } else if let Some(smeter_cmd) = SMeterCommand::deserialize(packet) {
-        input_state.s_meter.signal(smeter_cmd.value);
     } else if let Some(wm8940_cmd) = Wm8940Command::deserialize(packet) {
         input_state.wm8940.signal(wm8940_cmd);
-    } else if let Some(display_cmd) = DisplayCommand::deserialize(packet) {
-        let display_id = display_cmd.display_id as usize;
-        if display_id < 2 {
-            let buffer = DisplayBuffer {
-                buffer: display_cmd.buffer,
-                dirty: display_cmd.dirty,
-            };
-            input_state.displays[display_id].signal(buffer);
-        }
     } else if let Some(enable_cmd) = DisplayEnableCommand::deserialize(packet) {
         input_state.displays_enabled.signal(enable_cmd.enabled);
+    } else if let Some(cmd) = MeterStateCommand::deserialize(packet) {
+        input_state.meter_state.signal(crate::state::input::MeterState {
+            rssi_dbm: cmd.rssi_dbm,
+            forward_power_mw: cmd.forward_power_mw,
+            vswr_x100: cmd.vswr_x100,
+            mode: cmd.mode,
+            transmit_mode: cmd.transmit_mode,
+            agc_mode: cmd.agc_mode,
+            rf_gain_mode: cmd.rf_gain_mode,
+            filter_bw_hz: cmd.filter_bw_hz,
+        });
     }
 }
 

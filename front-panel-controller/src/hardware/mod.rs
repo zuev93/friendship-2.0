@@ -1,8 +1,8 @@
+pub mod buffered_display;
 mod button;
-mod display;
+pub mod display;
 mod encoder;
 mod led;
-mod s_meter;
 mod spi_link;
 mod wm8940;
 
@@ -10,7 +10,6 @@ pub use button::*;
 pub use display::*;
 pub use encoder::*;
 pub use led::*;
-pub use s_meter::*;
 pub use spi_link::*;
 
 use druzhba_common::drivers::wm8940::Wm8940;
@@ -47,7 +46,6 @@ pub struct Hardware {
     pub exti_encoders: ExtiEncoders,
     pub buttons: Buttons,
     pub leds: Leds,
-    pub s_meter: SMeter,
     pub headphones_detect: ExtiInput<'static>,
     pub wm8940: Wm8940<I2c<'static, mode::Async, i2c::Master>>,
     pub spi_link: SpiLink,
@@ -122,12 +120,11 @@ pub fn init() -> Hardware {
                 Led::new(p.PD12, p.PD13),
             ],
         },
-        s_meter: SMeter::new(p.DAC1, p.PA4),
         headphones_detect: ExtiInput::new(p.PE12, p.EXTI12, Pull::Up, ExtiIrqs),
         wm8940: wm8940::new_wm8940(p.I2C1, p.PB6, p.PB7, p.GPDMA1_CH0, p.GPDMA1_CH1),
         spi_link: SpiLink::new(p.SPI1, p.PA5, p.PB5, p.PA6, p.PA15, p.GPDMA1_CH3, p.GPDMA1_CH4, p.PB1),
         displays: Displays::new(
-            p.SPI2, p.PB10, p.PB15, p.GPDMA1_CH2, p.PB13, p.PB11, p.PB12, p.PB14, p.PB9,
+            p.SPI2, p.PB10, p.PB15, p.GPDMA1_CH2, p.PB13, p.PB11, p.PB12, p.PE13, p.PB14, p.PB9,
         )
         .as_mutex(),
         crc_peripheral: p.CRC,

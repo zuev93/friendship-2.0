@@ -29,6 +29,8 @@ panic-halt = "1.0"
 ufmt = "0.2"
 heapless = "0.9.2"
 static_cell = "2.1"
+embedded-graphics = "0.8.2"
+embedded-graphics-core = "0.4.1"
 
 [profile.dev]
 panic = "abort"

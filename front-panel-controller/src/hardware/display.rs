@@ -1,4 +1,4 @@
-use druzhba_common::drivers::ssd1315::{SSD1315Config, SSD1315};
+use druzhba_common::drivers::st7789::{Rotation, ST7789};
 use embassy_stm32::gpio::Pin;
 use embassy_stm32::{
     gpio::{Level, Output, Speed},
@@ -12,10 +12,10 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
-const DISPLAY_SPI_FREQUENCY: Hertz = Hertz(10_000_000);
+const DISPLAY_SPI_FREQUENCY: Hertz = Hertz(15_000_000);
 
 pub struct Display {
-    pub display: SSD1315<
+    pub display: ST7789<
         Spi<'static, mode::Async, spi::mode::Master>,
         Output<'static>,
         Output<'static>,
@@ -24,7 +24,7 @@ pub struct Display {
 
 impl Display {
     pub fn new(
-        display: SSD1315<
+        display: ST7789<
             Spi<'static, mode::Async, spi::mode::Master>,
             Output<'static>,
             Output<'static>,
@@ -35,7 +35,7 @@ impl Display {
 }
 
 pub struct Displays {
-    pub displays: [Display; 2],
+    pub displays: [Display; 3],
     pub reset: Output<'static>,
     pub backlight: Output<'static>,
 }
@@ -54,6 +54,7 @@ impl Displays {
         dc_pin: Peri<'static, impl Pin>,
         cs1_pin: Peri<'static, impl Pin>,
         cs2_pin: Peri<'static, impl Pin>,
+        cs3_pin: Peri<'static, impl Pin>,
         reset_pin: Peri<'static, impl Pin>,
         backlight_pin: Peri<'static, impl Pin>,
     ) -> Self {
@@ -78,24 +79,31 @@ impl Displays {
 
         let cs1 = Output::new(cs1_pin, Level::High, Speed::Medium);
         let cs2 = Output::new(cs2_pin, Level::High, Speed::Medium);
+        let cs3 = Output::new(cs3_pin, Level::High, Speed::Medium);
         let reset = Output::new(reset_pin, Level::High, Speed::Medium);
         let backlight = Output::new(backlight_pin, Level::Low, Speed::Medium);
 
-        let display1 = Display::new(SSD1315::new(
+        let display1 = Display::new(ST7789::new(
             spi2_mutex,
             dc_mutex,
             cs1,
-            SSD1315Config::default(),
+            Rotation::Landscape90,
         ));
-        let display2 = Display::new(SSD1315::new(
+        let display2 = Display::new(ST7789::new(
             spi2_mutex,
             dc_mutex,
             cs2,
-            SSD1315Config::default(),
+            Rotation::Landscape90,
+        ));
+        let display3 = Display::new(ST7789::new(
+            spi2_mutex,
+            dc_mutex,
+            cs3,
+            Rotation::Landscape90,
         ));
 
         Self {
-            displays: [display1, display2],
+            displays: [display1, display2, display3],
             reset,
             backlight,
         }

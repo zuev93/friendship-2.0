@@ -1,6 +1,69 @@
 use crate::spi_protocol::{PacketSerializable, PacketType};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Mode {
+    StandBy,
+    WarmUp,
+    Rx,
+    Tx,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TransmitMode {
+    Usb,
+    Lsb,
+    Cw,
+    Am,
+}
+
+impl TransmitMode {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Usb => Self::Lsb,
+            Self::Lsb => Self::Cw,
+            Self::Cw => Self::Am,
+            Self::Am => Self::Usb,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum IfGainMode {
+    Manual,
+    AgcFast,
+    AgcSlow,
+}
+
+impl IfGainMode {
+    pub fn toggle(self) -> Self {
+        match self {
+            Self::Manual => Self::AgcFast,
+            Self::AgcFast => Self::AgcSlow,
+            Self::AgcSlow => Self::Manual,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RfGainMode {
+    Attenuator,
+    Normal,
+    RfSingle,
+    RfDouble,
+}
+
+impl RfGainMode {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Attenuator => Self::Normal,
+            Self::Normal => Self::RfSingle,
+            Self::RfSingle => Self::RfDouble,
+            Self::RfDouble => Self::Attenuator,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ButtonState {
     Released,
     Pressed,
@@ -128,27 +191,6 @@ impl PacketSerializable for LedCommand {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct SMeterCommand {
-    pub value: u16,
-}
-
-impl PacketSerializable for SMeterCommand {
-    const PACKET_TYPE: PacketType = PacketType::SMeterCommand;
-
-    fn write_payload(&self, payload: &mut [u8]) {
-        let bytes = self.value.to_be_bytes();
-        payload[0] = bytes[0];
-        payload[1] = bytes[1];
-    }
-
-    fn read_payload(payload: &[u8]) -> Option<Self> {
-        Some(Self {
-            value: u16::from_be_bytes([payload[0], payload[1]]),
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
 pub struct Wm8940Command {
     pub dac_volume_left: u8,
     pub dac_volume_right: u8,
@@ -179,41 +221,6 @@ impl PacketSerializable for Wm8940Command {
     }
 }
 
-pub const DISPLAY_BUFFER_SIZE: usize = 128 * 64 / 8;
-
-#[derive(Debug, Clone)]
-pub struct DisplayCommand {
-    pub display_id: u8,
-    pub buffer: [u8; DISPLAY_BUFFER_SIZE],
-    pub dirty: bool,
-}
-
-impl PacketSerializable for DisplayCommand {
-    const PACKET_TYPE: PacketType = PacketType::DisplayCommand;
-
-    fn write_payload(&self, payload: &mut [u8]) {
-        payload[0] = self.display_id;
-        let data_len = DISPLAY_BUFFER_SIZE.min(payload.len() - 3);
-        let len_bytes = (data_len as u16).to_be_bytes();
-        payload[1] = len_bytes[0];
-        payload[2] = len_bytes[1];
-        payload[3..3 + data_len].copy_from_slice(&self.buffer[..data_len]);
-    }
-
-    fn read_payload(payload: &[u8]) -> Option<Self> {
-        let display_id = payload[0];
-        let data_len = u16::from_be_bytes([payload[1], payload[2]]) as usize;
-        let mut buffer = [0u8; DISPLAY_BUFFER_SIZE];
-        let copy_len = data_len.min(buffer.len()).min(payload.len() - 3);
-        buffer[..copy_len].copy_from_slice(&payload[3..3 + copy_len]);
-        Some(Self {
-            display_id,
-            buffer,
-            dirty: true,
-        })
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct DisplayEnableCommand {
     pub enabled: bool,
@@ -229,6 +236,98 @@ impl PacketSerializable for DisplayEnableCommand {
     fn read_payload(payload: &[u8]) -> Option<Self> {
         Some(Self {
             enabled: payload[0] != 0,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MeterStateCommand {
+    pub rssi_dbm: i8,
+    pub forward_power_mw: u16,
+    pub vswr_x100: u16,
+    pub mode: Mode,
+    pub transmit_mode: TransmitMode,
+    pub agc_mode: IfGainMode,
+    pub rf_gain_mode: RfGainMode,
+    pub filter_bw_hz: u16,
+}
+
+impl PacketSerializable for MeterStateCommand {
+    const PACKET_TYPE: PacketType = PacketType::MeterStateCommand;
+
+    fn write_payload(&self, payload: &mut [u8]) {
+        payload[0] = self.rssi_dbm as u8;
+        let f = self.forward_power_mw.to_be_bytes();
+        payload[1] = f[0];
+        payload[2] = f[1];
+        let v = self.vswr_x100.to_be_bytes();
+        payload[3] = v[0];
+        payload[4] = v[1];
+        payload[5] = match self.mode {
+            Mode::StandBy => 0,
+            Mode::WarmUp => 1,
+            Mode::Rx => 2,
+            Mode::Tx => 3,
+        };
+        payload[6] = match self.transmit_mode {
+            TransmitMode::Usb => 0,
+            TransmitMode::Lsb => 1,
+            TransmitMode::Cw => 2,
+            TransmitMode::Am => 3,
+        };
+        payload[7] = match self.agc_mode {
+            IfGainMode::Manual => 0,
+            IfGainMode::AgcFast => 1,
+            IfGainMode::AgcSlow => 2,
+        };
+        payload[8] = match self.rf_gain_mode {
+            RfGainMode::Attenuator => 0,
+            RfGainMode::Normal => 1,
+            RfGainMode::RfSingle => 2,
+            RfGainMode::RfDouble => 3,
+        };
+        let bw = self.filter_bw_hz.to_be_bytes();
+        payload[9] = bw[0];
+        payload[10] = bw[1];
+    }
+
+    fn read_payload(payload: &[u8]) -> Option<Self> {
+        let mode = match payload[5] {
+            0 => Mode::StandBy,
+            1 => Mode::WarmUp,
+            2 => Mode::Rx,
+            3 => Mode::Tx,
+            _ => return None,
+        };
+        let transmit_mode = match payload[6] {
+            0 => TransmitMode::Usb,
+            1 => TransmitMode::Lsb,
+            2 => TransmitMode::Cw,
+            3 => TransmitMode::Am,
+            _ => return None,
+        };
+        let agc_mode = match payload[7] {
+            0 => IfGainMode::Manual,
+            1 => IfGainMode::AgcFast,
+            2 => IfGainMode::AgcSlow,
+            _ => return None,
+        };
+        let rf_gain_mode = match payload[8] {
+            0 => RfGainMode::Attenuator,
+            1 => RfGainMode::Normal,
+            2 => RfGainMode::RfSingle,
+            3 => RfGainMode::RfDouble,
+            _ => return None,
+        };
+        Some(Self {
+            rssi_dbm: payload[0] as i8,
+            forward_power_mw: u16::from_be_bytes([payload[1], payload[2]]),
+            vswr_x100: u16::from_be_bytes([payload[3], payload[4]]),
+            mode,
+            transmit_mode,
+            agc_mode,
+            rf_gain_mode,
+            filter_bw_hz: u16::from_be_bytes([payload[9], payload[10]]),
         })
     }
 }

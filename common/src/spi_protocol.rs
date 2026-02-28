@@ -8,10 +8,9 @@ pub enum PacketType {
     EncoderEvent = 0x02,
     HeadphonesEvent = 0x04,
     LedCommand = 0x10,
-    SMeterCommand = 0x11,
     Wm8940Command = 0x12,
-    DisplayCommand = 0x13,
     DisplayEnableCommand = 0x14,
+    MeterStateCommand = 0x15,
 }
 
 impl PacketType {
@@ -22,10 +21,9 @@ impl PacketType {
             0x02 => Some(PacketType::EncoderEvent),
             0x04 => Some(PacketType::HeadphonesEvent),
             0x10 => Some(PacketType::LedCommand),
-            0x11 => Some(PacketType::SMeterCommand),
             0x12 => Some(PacketType::Wm8940Command),
-            0x13 => Some(PacketType::DisplayCommand),
             0x14 => Some(PacketType::DisplayEnableCommand),
+            0x15 => Some(PacketType::MeterStateCommand),
             _ => None,
         }
     }
