@@ -4,7 +4,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{CURRENT_IF_GAIN, CURRENT_IF_GAIN_MODE, CURRENT_MODE},
+    app::events::{CURRENT_IF_GAIN, CURRENT_MODE, RSSI_FAST_MODE, TARGET_IF_GAIN_MODE},
     main_board::{events::CURRENT_RSSI, modules::if_amplifier::IfAmplifier},
 };
 use common::error::error;
@@ -21,7 +21,7 @@ async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplif
     loop {
         match select4(
             CURRENT_IF_GAIN.wait(),
-            CURRENT_IF_GAIN_MODE.wait(),
+            TARGET_IF_GAIN_MODE.wait(),
             CURRENT_RSSI.wait(),
             CURRENT_MODE.wait(),
         )
@@ -64,7 +64,11 @@ async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) 
         let selected_rssi = select_rssi(rssi_data.rssi1, rssi_data.rssi2);
         CURRENT_RSSI.signal(selected_rssi);
 
-        embassy_time::Timer::after_millis(10).await;
+        if RSSI_FAST_MODE.signaled() {
+            embassy_futures::yield_now().await;
+        } else {
+            embassy_time::Timer::after_millis(10).await;
+        }
     }
 }
 

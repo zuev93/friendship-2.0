@@ -1,14 +1,12 @@
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
-use crate::{
-    app::types::{ClarifierMode, ClarifierValue, FilterType, IfGainMode},
-    consts::AUDIO_BUFFER_SIZE,
-};
+use crate::consts::AUDIO_BUFFER_SIZE;
 
 use super::types::{
-    Band, CouplerMetrics, Frequency, IfGain, Microphone, Mode, NbLevel, PaTemperatures,
-    RfGainMode, RfPower, Squelch, TransmitMode, Volume,
+    Band, ClarifierMode, ClarifierValue, CouplerMetrics, FilterType, Frequency, IfGain,
+    IfGainMode, Microphone, Mode, NbLevel, PaTemperatures, RfGainMode, RfPower, Squelch,
+    SweepRequest, TransmitMode, Volume, WaterfallLine,
 };
 
 pub static CURRENT_MODE: Signal<ThreadModeRawMutex, Mode> = Signal::new();
@@ -16,6 +14,11 @@ pub static CURRENT_MODE: Signal<ThreadModeRawMutex, Mode> = Signal::new();
 pub static CURRENT_FILTER: Signal<ThreadModeRawMutex, FilterType> = Signal::new();
 pub static CURRENT_BAND: Signal<ThreadModeRawMutex, Band> = Signal::new();
 pub static CURRENT_FREQUENCY: Signal<ThreadModeRawMutex, Frequency> = Signal::new();
+pub static TARGET_FREQUENCY: Signal<ThreadModeRawMutex, Frequency> = Signal::new();
+pub static SWEEP_REQUEST: Signal<ThreadModeRawMutex, SweepRequest> = Signal::new();
+pub static RSSI_FAST_MODE: Signal<ThreadModeRawMutex, bool> = Signal::new();
+pub static TARGET_IF_GAIN_MODE: Signal<ThreadModeRawMutex, IfGainMode> = Signal::new();
+pub static WATERFALL_LINE: Signal<ThreadModeRawMutex, WaterfallLine> = Signal::new();
 
 // Audio and RF control signals
 pub static CURRENT_VOLUME: Signal<ThreadModeRawMutex, Volume> = Signal::new();

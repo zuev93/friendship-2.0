@@ -2,8 +2,8 @@ use embassy_futures::select::{select5, Either5};
 
 use crate::{
     app::events::{
-        CURRENT_CLARIFIER_MODE, CURRENT_CLARIFIER_VALUE, CURRENT_FILTER, CURRENT_FREQUENCY,
-        CURRENT_MODE,
+        CURRENT_CLARIFIER_MODE, CURRENT_CLARIFIER_VALUE, CURRENT_FILTER, CURRENT_MODE,
+        TARGET_FREQUENCY,
     },
     main_board::modules::mixer::Mixer,
 };
@@ -13,7 +13,7 @@ use common::error::error;
 pub async fn mixer_tasks(mut mixer: Mixer) {
     loop {
         match select5(
-            CURRENT_FREQUENCY.wait(),
+            TARGET_FREQUENCY.wait(),
             CURRENT_CLARIFIER_MODE.wait(),
             CURRENT_MODE.wait(),
             CURRENT_CLARIFIER_VALUE.wait(),

@@ -4,5 +4,6 @@ pub mod events;
 pub mod tasks;
 pub mod tone_generator;
 pub mod types;
+pub mod waterfall;
 
 pub use app_subsystem::AppSubsystem;

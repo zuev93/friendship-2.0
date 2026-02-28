@@ -283,6 +283,12 @@ impl RfPowerPercent {
 
 pub type RfPower = RfPowerPercent;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SweepRequest {
+    SetFrequency(Frequency),
+    Done,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PaTemperatures {
     pub driver_raw: i16,
@@ -294,4 +300,41 @@ pub struct CouplerMetrics {
     pub forward_w: f32,
     pub reflected_w: f32,
     pub vswr: f32,
+}
+
+pub const WATERFALL_BINS: usize = 128;
+pub const WATERFALL_LINES: usize = 64;
+
+#[derive(Clone, Copy)]
+pub struct WaterfallLine {
+    pub bins: [i16; WATERFALL_BINS],
+    pub complete: bool,
+}
+
+impl WaterfallLine {
+    pub const fn new() -> Self {
+        Self {
+            bins: [0; WATERFALL_BINS],
+            complete: false,
+        }
+    }
+}
+
+pub struct WaterfallBuffer {
+    pub lines: [WaterfallLine; WATERFALL_LINES],
+    pub write_index: usize,
+}
+
+impl WaterfallBuffer {
+    pub const fn new() -> Self {
+        Self {
+            lines: [WaterfallLine::new(); WATERFALL_LINES],
+            write_index: 0,
+        }
+    }
+
+    pub fn push(&mut self, line: WaterfallLine) {
+        self.lines[self.write_index] = line;
+        self.write_index = (self.write_index + 1) % WATERFALL_LINES;
+    }
 }
