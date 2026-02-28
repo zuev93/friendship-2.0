@@ -11,7 +11,7 @@ use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
 use crate::control_board::modules::audio::Audio;
-use crate::control_board::tasks::{audio_tasks, ucpd_task};
+use crate::control_board::tasks::{audio_tasks, status_led, ucpd_task};
 use crate::control_board::{modules::power_control::PowerControl, tasks::power_tasks};
 use crate::i2c_map::ControlBoardI2cMap;
 
@@ -47,6 +47,8 @@ impl ControlBoardSybstem {
         ucpd_cc2: Peri<'static, PB14>,
         ucpd_rx_dma: Peri<'static, GPDMA1_CH6>,
         ucpd_tx_dma: Peri<'static, GPDMA1_CH7>,
+
+        status_led_pin: Peri<'static, impl Pin>,
     ) {
         static I2C_BUS: StaticCell<
             Mutex<ThreadModeRawMutex, I2c<'static, mode::Async, i2c_mode::Master>>,
@@ -72,6 +74,7 @@ impl ControlBoardSybstem {
             spi_peri, spi_txsd, spi_rxsd, spi_ws, spi_ck, spi_mck, spi_txdma, spi_rxdma,
         );
 
+        status_led::create_task(spawner, status_led_pin);
         power_tasks::create_tasks(spawner, power_control);
         audio_tasks::create_tasks(spawner, audio).await;
         ucpd_task::create_tasks(spawner, ucpd_peri, ucpd_cc1, ucpd_cc2, ucpd_rx_dma, ucpd_tx_dma);

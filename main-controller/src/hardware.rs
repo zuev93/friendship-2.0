@@ -110,6 +110,7 @@ impl Hardware {
             p.PB14,
             p.GPDMA1_CH6,
             p.GPDMA1_CH7,
+            p.PA15,
         )
         .await;
         PeripheralsSubsystem::init_subsystem(
