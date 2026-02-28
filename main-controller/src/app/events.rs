@@ -27,6 +27,7 @@ pub static CURRENT_CLARIFIER_MODE: Signal<ThreadModeRawMutex, ClarifierMode> = S
 pub static CURRENT_CLARIFIER_VALUE: Signal<ThreadModeRawMutex, ClarifierValue> = Signal::new();
 pub static CURRENT_SQUELCH: Signal<ThreadModeRawMutex, Squelch> = Signal::new();
 
+pub static TX_THERMAL_CONSTRAINT: Signal<ThreadModeRawMutex, i32> = Signal::new();
 pub static CURRENT_TRANSMIT_MODE: Signal<ThreadModeRawMutex, TransmitMode> = Signal::new();
 pub static CURRENT_RF_GAIN_MODE: Signal<ThreadModeRawMutex, RfGainMode> = Signal::new();
 pub static TONE_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();

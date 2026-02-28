@@ -20,6 +20,18 @@ pub struct PowerTelemetry {
     pub rail_3v3_power_mw: u32,
 }
 
+impl PowerTelemetry {
+    pub fn power_budget(&self, contract: &PdContract) -> i32 {
+        let max_current = contract.current_ma as i32;
+        if max_current <= 0 {
+            return -10000;
+        }
+        let current = self.vbus_current_ma.max(0) as i32;
+        let headroom = max_current - current;
+        (headroom * 10000 / max_current).clamp(-10000, 10000)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PdContract {
     pub voltage_mv: u32,

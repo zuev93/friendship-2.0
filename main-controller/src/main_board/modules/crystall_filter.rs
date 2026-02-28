@@ -1,4 +1,5 @@
 use crate::app::types::{FilterType, Mode, RfGainMode, RfPowerPercent};
+use crate::control_board::events::{PdContract, PowerTelemetry};
 use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 use common::drivers::mcp4725::MCP4725;
@@ -17,7 +18,10 @@ const IO_AMP_OFF_PIN: Pin = Pin::Pin5;
 pub struct CrystallFilter {
     dac: MCP4725<MainBoardI2C>,
     io: PCA9534<MainBoardI2C>,
-    desired_power: RfPowerPercent,
+    user_power: RfPowerPercent,
+    budget_cp: i32,
+    thermal_cp: i32,
+    last_contract: PdContract,
     mode: Mode,
     filter_type: FilterType,
     rf_gain_mode: RfGainMode,
@@ -34,7 +38,10 @@ impl CrystallFilter {
         Self {
             io,
             dac,
-            desired_power: RfPowerPercent::new(0),
+            user_power: RfPowerPercent::new(0),
+            budget_cp: 10000,
+            thermal_cp: 10000,
+            last_contract: PdContract::default(),
             mode: Mode::StandBy,
             filter_type: FilterType::Single,
             rf_gain_mode: RfGainMode::Attenuator,
@@ -42,8 +49,35 @@ impl CrystallFilter {
     }
 
     pub async fn set_power(&mut self, power: RfPowerPercent) -> Result<(), &'static str> {
-        self.desired_power = power;
+        self.user_power = power;
         self.update_state().await
+    }
+
+    pub async fn set_power_telemetry(
+        &mut self,
+        telemetry: PowerTelemetry,
+    ) -> Result<(), &'static str> {
+        self.budget_cp = telemetry.power_budget(&self.last_contract);
+        self.update_state().await
+    }
+
+    pub async fn set_pd_contract(&mut self, contract: PdContract) -> Result<(), &'static str> {
+        self.last_contract = contract;
+        self.update_state().await
+    }
+
+    pub async fn set_thermal_constraint(&mut self, thermal: i32) -> Result<(), &'static str> {
+        self.thermal_cp = thermal;
+        self.update_state().await
+    }
+
+    fn power_constraint(&self) -> i32 {
+        self.budget_cp.min(self.thermal_cp)
+    }
+
+    fn effective_power(&self) -> u16 {
+        let limit = self.power_constraint().max(0) as u16;
+        self.user_power.centipercent.min(limit)
     }
 
     pub async fn set_mode(&mut self, mode: Mode) -> Result<(), &'static str> {
@@ -94,9 +128,8 @@ impl CrystallFilter {
             .map_err(|_| "Failed to write filter IO")?;
 
         if self.mode == Mode::Tx {
-            // TODO check max voltage
             let dac_value =
-                ((self.desired_power.centipercent as u32 * DAC_12BIT_MAX) / CENTIPERCENT_MAX) as u16;
+                ((self.effective_power() as u32 * DAC_12BIT_MAX) / CENTIPERCENT_MAX) as u16;
             self.dac
                 .set_raw(dac_value)
                 .await

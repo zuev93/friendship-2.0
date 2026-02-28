@@ -14,7 +14,7 @@ use crate::{
 };
 use common::error::error;
 
-const TELEMETRY_PERIOD: Duration = Duration::from_millis(250);
+const TELEMETRY_PERIOD: Duration = Duration::from_millis(10);
 
 pub fn create_tasks(spawner: Spawner, power_control: PowerControl) {
     static POWER_CONTROL: StaticCell<Mutex<ThreadModeRawMutex, PowerControl>> = StaticCell::new();

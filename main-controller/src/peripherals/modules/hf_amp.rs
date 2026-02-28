@@ -1,6 +1,6 @@
 use embassy_time::{Duration, Instant, Timer};
 
-use crate::app::types::{Mode, PaTemperatures, RfPowerPercent};
+use crate::app::types::{Mode, PaTemperatures};
 use crate::control_board::events::{
     PdContract, PowerTelemetry, PA_CURRENT_READING, PA_CURRENT_REQUEST, PA_FAST_MODE,
     RAIL_50V_READY,
@@ -12,15 +12,16 @@ use common::drivers::mcp4725::MCP4725;
 
 const FINAL_TARGET_IDQ_MA: i32 = 150;
 const FINAL_TOLERANCE_MA: i32 = 20;
-const DRIVER_TARGET_IDQ_MA: i32 = 125;
-const DRIVER_TOLERANCE_MA: i32 = 25;
+const DRIVER_TARGET_IDQ_MA: i32 = 100;
+const DRIVER_TOLERANCE_MA: i32 = 20;
 const CALIBRATION_STALE_MS: u64 = 60_000;
 const CALIBRATION_TEMP_DRIFT: i16 = 12_000;
 const DAC_COARSE_STEP: u16 = 8;
 const DAC_FINE_STEP: u16 = 2;
 
 const THERMAL_DERATING_START: i16 = 20000;
-const THERMAL_SHUTDOWN: i16 = 30000;
+const THERMAL_AD8367_ZERO: i16 = 30000;
+const THERMAL_EMERGENCY: i16 = 32000;
 
 const RAIL_50V_TIMEOUT: Duration = Duration::from_millis(500);
 
@@ -50,10 +51,10 @@ pub struct HfAmp {
     adc: ADS1115<PeripherialI2c>,
     adc_initialized: bool,
     mode: Mode,
-    user_power: RfPowerPercent,
-    power_budget_limit: RfPowerPercent,
-    thermal_limit: RfPowerPercent,
     cal: CalibrationState,
+    budget_cp: i32,
+    thermal_cp: i32,
+    last_contract: PdContract,
 }
 
 impl HfAmp {
@@ -69,10 +70,10 @@ impl HfAmp {
             adc: ADS1115::new(adc_addr.into(), ADS1115Config::default(), i2c),
             adc_initialized: false,
             mode: Mode::StandBy,
-            user_power: RfPowerPercent::new(10000),
-            power_budget_limit: RfPowerPercent::new(10000),
-            thermal_limit: RfPowerPercent::new(10000),
             cal: CalibrationState::new(),
+            budget_cp: 10000,
+            thermal_cp: 10000,
+            last_contract: PdContract::default(),
         }
     }
 
@@ -116,7 +117,7 @@ impl HfAmp {
             self.calibrate().await?;
         }
 
-        self.update_bias().await?;
+        self.update_idq().await?;
 
         Timer::after_millis(50).await;
 
@@ -235,31 +236,55 @@ impl HfAmp {
         }
     }
 
-    pub async fn set_user_power(&mut self, power: RfPowerPercent) -> Result<(), &'static str> {
-        self.user_power = power;
-        self.update_bias().await
-    }
-
-    pub async fn set_power_budget(&mut self, limit: RfPowerPercent) -> Result<(), &'static str> {
-        self.power_budget_limit = limit;
-        self.update_bias().await
-    }
-
-    pub fn derive_power_budget(telemetry: &PowerTelemetry, contract: &PdContract) -> RfPowerPercent {
-        let max_current = contract.current_ma;
-        let current = telemetry.vbus_current_ma.max(0) as u32;
-        let headroom_ma = max_current.saturating_sub(current);
-        let centipercent = if max_current > 0 {
-            ((headroom_ma * 10000) / max_current) as u16
-        } else {
-            0
-        };
-        RfPowerPercent::new(centipercent)
-    }
-
-    pub async fn read_and_update_temperatures(
+    pub async fn set_power_telemetry(
         &mut self,
-    ) -> Result<PaTemperatures, &'static str> {
+        telemetry: PowerTelemetry,
+    ) -> Result<(), &'static str> {
+        self.budget_cp = telemetry.power_budget(&self.last_contract);
+        self.update_idq().await
+    }
+
+    pub async fn set_pd_contract(&mut self, contract: PdContract) -> Result<(), &'static str> {
+        self.last_contract = contract;
+        self.update_idq().await
+    }
+
+    pub async fn set_thermal_constraint(&mut self, thermal: i32) -> Result<(), &'static str> {
+        self.thermal_cp = thermal;
+        self.update_idq().await
+    }
+
+    fn idq_scale(&self) -> u16 {
+        let constraint = self.budget_cp.min(self.thermal_cp);
+        if constraint >= 0 {
+            10000
+        } else {
+            (10000 + constraint).max(0) as u16
+        }
+    }
+
+    async fn update_idq(&mut self) -> Result<(), &'static str> {
+        if self.mode != Mode::Tx {
+            return Ok(());
+        }
+
+        let scale = self.idq_scale().min(10000) as u32;
+        let driver_bias = (scale * self.cal.driver_dac_code as u32 / 10000) as u16;
+        let final_bias = (scale * self.cal.final_dac_code as u32 / 10000) as u16;
+
+        self.driver_dac
+            .set_raw(driver_bias)
+            .await
+            .map_err(|_| "HfAmp: driver DAC write failed")?;
+        self.final_dac
+            .set_raw(final_bias)
+            .await
+            .map_err(|_| "HfAmp: final DAC write failed")?;
+
+        Ok(())
+    }
+
+    pub async fn read_temperatures(&mut self) -> Result<PaTemperatures, &'static str> {
         if !self.adc_initialized {
             self.adc
                 .init()
@@ -280,28 +305,11 @@ impl HfAmp {
             .map_err(|_| "HfAmp: read final temp failed")?;
 
         let worst = driver_raw.max(final_raw);
-        let old_limit = self.thermal_limit;
-
-        self.thermal_limit = if worst >= THERMAL_SHUTDOWN {
-            RfPowerPercent::new(0)
-        } else if worst > THERMAL_DERATING_START {
-            let range = (THERMAL_SHUTDOWN - THERMAL_DERATING_START) as u32;
-            let above = (worst - THERMAL_DERATING_START) as u32;
-            let cp = ((range - above) * 10000) / range;
-            RfPowerPercent::new(cp as u16)
-        } else {
-            RfPowerPercent::new(10000)
-        };
-
         if self.cal.valid && self.cal.calibration_temp != 0 {
             let drift = (worst - self.cal.calibration_temp).abs();
             if drift > CALIBRATION_TEMP_DRIFT {
                 self.cal.valid = false;
             }
-        }
-
-        if self.thermal_limit != old_limit {
-            let _ = self.update_bias().await;
         }
 
         Ok(PaTemperatures {
@@ -311,7 +319,24 @@ impl HfAmp {
     }
 
     pub fn is_thermal_emergency(temps: &PaTemperatures) -> bool {
-        temps.driver_raw >= THERMAL_SHUTDOWN || temps.final_raw >= THERMAL_SHUTDOWN
+        temps.driver_raw >= THERMAL_EMERGENCY || temps.final_raw >= THERMAL_EMERGENCY
+    }
+
+    pub fn compute_thermal_constraint(temps: &PaTemperatures) -> i32 {
+        let worst = temps.driver_raw.max(temps.final_raw);
+        if worst >= THERMAL_EMERGENCY {
+            -10000
+        } else if worst >= THERMAL_AD8367_ZERO {
+            let range = (THERMAL_EMERGENCY - THERMAL_AD8367_ZERO) as i32;
+            let above = (worst - THERMAL_AD8367_ZERO) as i32;
+            -(above * 10000 / range)
+        } else if worst > THERMAL_DERATING_START {
+            let range = (THERMAL_AD8367_ZERO - THERMAL_DERATING_START) as i32;
+            let above = (worst - THERMAL_DERATING_START) as i32;
+            (range - above) * 10000 / range
+        } else {
+            10000
+        }
     }
 
     pub async fn emergency_off(&mut self) {
@@ -319,31 +344,5 @@ impl HfAmp {
         let _ = self.final_dac.set_raw(0).await;
         self.cal.valid = false;
         self.mode = Mode::StandBy;
-    }
-
-    async fn update_bias(&mut self) -> Result<(), &'static str> {
-        if self.mode != Mode::Tx {
-            return Ok(());
-        }
-
-        let effective = self
-            .user_power
-            .centipercent
-            .min(self.power_budget_limit.centipercent)
-            .min(self.thermal_limit.centipercent);
-
-        let driver_bias = ((effective as u32 * self.cal.driver_dac_code as u32) / 10000) as u16;
-        let final_bias = ((effective as u32 * self.cal.final_dac_code as u32) / 10000) as u16;
-
-        self.driver_dac
-            .set_raw(driver_bias)
-            .await
-            .map_err(|_| "HfAmp: driver DAC write failed")?;
-        self.final_dac
-            .set_raw(final_bias)
-            .await
-            .map_err(|_| "HfAmp: final DAC write failed")?;
-
-        Ok(())
     }
 }
