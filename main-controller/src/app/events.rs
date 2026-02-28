@@ -7,8 +7,8 @@ use crate::{
 };
 
 use super::types::{
-    Band, CouplerMetrics, Frequency, IfGain, Microphone, Mode, PaTemperatures, RfGainMode,
-    RfPower, Squelch, TransmitMode, Volume,
+    Band, CouplerMetrics, Frequency, IfGain, Microphone, Mode, NbLevel, PaTemperatures,
+    RfGainMode, RfPower, Squelch, TransmitMode, Volume,
 };
 
 pub static CURRENT_MODE: Signal<ThreadModeRawMutex, Mode> = Signal::new();
@@ -26,6 +26,9 @@ pub static CURRENT_IF_GAIN_MODE: Signal<ThreadModeRawMutex, IfGainMode> = Signal
 pub static CURRENT_CLARIFIER_MODE: Signal<ThreadModeRawMutex, ClarifierMode> = Signal::new();
 pub static CURRENT_CLARIFIER_VALUE: Signal<ThreadModeRawMutex, ClarifierValue> = Signal::new();
 pub static CURRENT_SQUELCH: Signal<ThreadModeRawMutex, Squelch> = Signal::new();
+pub static CURRENT_NB_ENABLED: Signal<ThreadModeRawMutex, bool> = Signal::new();
+pub static CURRENT_NB_LEVEL: Signal<ThreadModeRawMutex, NbLevel> = Signal::new();
+pub static NB_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
 
 pub static TX_THERMAL_CONSTRAINT: Signal<ThreadModeRawMutex, i32> = Signal::new();
 pub static CURRENT_TRANSMIT_MODE: Signal<ThreadModeRawMutex, TransmitMode> = Signal::new();

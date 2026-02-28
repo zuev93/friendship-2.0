@@ -1,7 +1,7 @@
 use crate::app::{
     events::{
-        CURRENT_CLARIFIER_MODE, CURRENT_IF_GAIN_MODE, CURRENT_MODE, CURRENT_RF_GAIN_MODE,
-        CURRENT_TRANSMIT_MODE, TONE_ACTIVE,
+        CURRENT_CLARIFIER_MODE, CURRENT_IF_GAIN_MODE, CURRENT_MODE, CURRENT_NB_ENABLED,
+        CURRENT_RF_GAIN_MODE, CURRENT_TRANSMIT_MODE, TONE_ACTIVE,
     },
     types::{ClarifierMode, IfGainMode, Mode, RfGainMode, TransmitMode},
 };
@@ -21,6 +21,7 @@ struct ButtonState {
     clarifier_mode: ClarifierMode,
     rf_gain_mode: RfGainMode,
     if_gain_mode: IfGainMode,
+    nb_enabled: bool,
     last_press_time: FnvIndexMap<ButtonFunction, Instant, 8>,
     last_release_time: FnvIndexMap<ButtonFunction, Instant, 8>,
 }
@@ -34,6 +35,7 @@ impl ButtonState {
             clarifier_mode: ClarifierMode::Off,
             rf_gain_mode: RfGainMode::Normal,
             if_gain_mode: IfGainMode::Manual,
+            nb_enabled: false,
             last_press_time: FnvIndexMap::new(),
             last_release_time: FnvIndexMap::new(),
         }
@@ -130,6 +132,10 @@ fn handle_button_press(function: ButtonFunction, state: &mut ButtonState) {
             state.if_gain_mode = state.if_gain_mode.toggle();
             CURRENT_IF_GAIN_MODE.signal(state.if_gain_mode);
         }
+        ButtonFunction::NoiseBlanker => {
+            state.nb_enabled = !state.nb_enabled;
+            CURRENT_NB_ENABLED.signal(state.nb_enabled);
+        }
         ButtonFunction::Cancel => {
             // TODO: Implement cancel/back functionality for UI navigation
         }
@@ -179,6 +185,9 @@ fn handle_button_release(function: ButtonFunction, state: &mut ButtonState) {
             // Handled on press
         }
         ButtonFunction::Agc => {
+            // Handled on press
+        }
+        ButtonFunction::NoiseBlanker => {
             // Handled on press
         }
         ButtonFunction::Cancel => {

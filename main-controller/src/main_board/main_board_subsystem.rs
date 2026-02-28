@@ -20,8 +20,8 @@ use crate::main_board::{
         if_amplifier::IfAmplifier, mixer::Mixer,
     },
     tasks::{
-        audio::audio_panel_task, crystall_filter::crystall_filter_task,
-        detector_tasks::detector_tasks, if_amplifier_tasks, mixer_tasks::mixer_tasks,
+        audio::audio_panel_task, crystall_filter, detector_tasks::detector_tasks,
+        if_amplifier_tasks, mixer_tasks::mixer_tasks,
     },
 };
 
@@ -90,11 +90,15 @@ impl MainBoardSubsystem {
             ),
         )
         .await;
-        spawner.must_spawn(crystall_filter_task(CrystallFilter::new(
-            i2c_mutex,
-            main_i2c_map.filter_mcp4725,
-            main_i2c_map.filter_pca9534,
-        )));
+        crystall_filter::spawn_tasks(
+            spawner,
+            CrystallFilter::new(
+                i2c_mutex,
+                main_i2c_map.filter_mcp4725,
+                main_i2c_map.filter_pca9534,
+                main_i2c_map.filter_nb_mcp4725,
+            ),
+        );
         spawner.must_spawn(detector_tasks(Detector::new(
             i2c_mutex,
             main_i2c_map.detector_sc18is602,

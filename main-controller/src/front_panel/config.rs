@@ -30,6 +30,8 @@ impl ButtonMapping {
         map.insert(10, ButtonFunction::Cancel).ok();
         map.insert(11, ButtonFunction::Ok).ok();
 
+        map.insert(12, ButtonFunction::NoiseBlanker).ok();
+
         Self { map }
     }
 
@@ -59,6 +61,7 @@ impl EncoderMapping {
         map.insert(6, EncoderFunction::Clarifier).ok();
         map.insert(7, EncoderFunction::Squelch).ok();
         map.insert(8, EncoderFunction::Menu).ok();
+        map.insert(9, EncoderFunction::NbLevel).ok();
 
         Self { map }
     }

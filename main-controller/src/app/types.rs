@@ -247,6 +247,19 @@ impl Squelch {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct NbLevel(i16);
+
+impl NbLevel {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
+
 /// RF Power level in hundredths of percent (0.00% - 100.00%)
 /// Provides intuitive control over transmitter power output with high precision
 /// Range: 0-10000 represents 0.00% to 100.00%

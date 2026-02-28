@@ -14,6 +14,7 @@ pub enum ButtonFunction {
     Agc,          // Button 6 - toggles AGC on/off
     IcomPtt,      // Button 7 - ICOM PTT
     IcomSql,      // Button 8 - ICOM Squelch
+    NoiseBlanker, // Noise blanker on/off
     IcomUpDown,   // Button 9 - ICOM Up/Down
     Cancel,       // Button 10 - Cancel/Back
     Ok,           // Button 11 - OK/Select
@@ -29,6 +30,7 @@ pub enum EncoderFunction {
     IfGain,
     Clarifier,
     Squelch,
+    NbLevel,
     Menu,
 }
 
