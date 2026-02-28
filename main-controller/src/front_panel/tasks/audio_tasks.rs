@@ -1,12 +1,12 @@
 use common::error::error;
 use embassy_executor::Spawner;
-use embassy_futures::select::{select, Either};
+use embassy_futures::select::{select3, Either3};
 use embassy_stm32::peripherals as stm_peripherals;
 use embassy_stm32::sai::Sai;
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{AUDIO_BUFFER_HEADPHONES, CURRENT_MODE, CURRENT_VOLUME},
+    app::events::{AUDIO_BUFFER_HEADPHONES, CURRENT_MICROPHONE, CURRENT_MODE, CURRENT_VOLUME},
     consts::AUDIO_BUFFER_SIZE,
     front_panel::{events::AUDIO_MIC_BUFFER, modules::audio::Audio},
 };
@@ -55,16 +55,22 @@ async fn audio_panel_sai_headphones_task(sai_tx: &'static mut SaiTx) {
 #[embassy_executor::task]
 async fn control_task(audio: &'static mut Audio) {
     loop {
-        match select(CURRENT_MODE.wait(), CURRENT_VOLUME.wait()).await {
-            Either::First(mode) => {
+        match select3(CURRENT_MODE.wait(), CURRENT_VOLUME.wait(), CURRENT_MICROPHONE.wait()).await {
+            Either3::First(mode) => {
                 if let Err(e) = audio.set_mode(mode).await {
                     error(e).await;
                 }
             }
-            Either::Second(volume) => {
+            Either3::Second(volume) => {
                 let percent = (volume.raw().max(0) as u32 * 100 / 1000) as u8;
                 if let Err(_) = audio.set_volume(percent).await {
                     error("Failed to set audio volume").await;
+                }
+            }
+            Either3::Third(mic) => {
+                let percent = (mic.raw().max(0) as u32 * 100 / 1000) as u8;
+                if let Err(_) = audio.set_mic_gain(percent).await {
+                    error("Failed to set mic gain").await;
                 }
             }
         }

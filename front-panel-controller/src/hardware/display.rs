@@ -12,6 +12,8 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
+const DISPLAY_SPI_FREQUENCY: Hertz = Hertz(10_000_000);
+
 pub struct Display {
     pub display: SSD1315<
         Spi<'static, mode::Async, spi::mode::Master>,
@@ -56,7 +58,7 @@ impl Displays {
         backlight_pin: Peri<'static, impl Pin>,
     ) -> Self {
         let mut spi_config = spi::Config::default();
-        spi_config.frequency = Hertz(10_000_000);
+        spi_config.frequency = DISPLAY_SPI_FREQUENCY;
 
         let spi2 = Spi::new_txonly(spi2, sck, mosi, tx_dma, spi_config);
 

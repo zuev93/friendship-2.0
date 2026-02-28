@@ -10,8 +10,8 @@ use crate::{
 use common::error::error;
 
 pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfAmplifier) {
-    static STATIC_CELL: StaticCell<Mutex<ThreadModeRawMutex, IfAmplifier>> = StaticCell::new();
-    let mutex = STATIC_CELL.init(Mutex::new(if_gain_control));
+    static IF_AMPLIFIER: StaticCell<Mutex<ThreadModeRawMutex, IfAmplifier>> = StaticCell::new();
+    let mutex = IF_AMPLIFIER.init(Mutex::new(if_gain_control));
     spawner.must_spawn(if_gain_control_task(mutex));
     spawner.must_spawn(rssi_task_read(mutex));
 }

@@ -13,8 +13,8 @@ use common::error::error;
 const COUPLER_SAMPLE_PERIOD: Duration = Duration::from_millis(200);
 
 pub fn create_tasks(spawner: Spawner, lpf: Lpf) {
-    static STATIC_CELL: StaticCell<Mutex<ThreadModeRawMutex, Lpf>> = StaticCell::new();
-    let mutex = STATIC_CELL.init(Mutex::new(lpf));
+    static LPF: StaticCell<Mutex<ThreadModeRawMutex, Lpf>> = StaticCell::new();
+    let mutex = LPF.init(Mutex::new(lpf));
 
     spawner.must_spawn(lpf_control_task(mutex));
     spawner.must_spawn(lpf_data_task(mutex));

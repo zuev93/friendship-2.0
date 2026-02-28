@@ -17,6 +17,8 @@ pub struct Audio {
     control_bus: ControlBusType,
     sai_tx: Option<&'static mut Sai<'static, stm_peripherals::SAI2, u16>>,
     sai_rx: Option<&'static mut Sai<'static, stm_peripherals::SAI2, u16>>,
+    volume_percent: u8,
+    mic_gain_percent: u8,
 }
 
 impl Audio {
@@ -81,17 +83,27 @@ impl Audio {
             control_bus,
             sai_tx: Some(sai_tx),
             sai_rx: Some(sai_rx),
+            volume_percent: 0,
+            mic_gain_percent: 0,
         }
     }
 
-    pub async fn set_volume(&self, volume_percent: u8) -> Result<(), ()> {
-        let volume = volume_percent.min(100);
+    pub async fn set_volume(&mut self, volume_percent: u8) -> Result<(), ()> {
+        self.volume_percent = volume_percent.min(100);
+        self.update_codec().await
+    }
 
+    pub async fn set_mic_gain(&mut self, mic_gain_percent: u8) -> Result<(), ()> {
+        self.mic_gain_percent = mic_gain_percent.min(100);
+        self.update_codec().await
+    }
+
+    async fn update_codec(&self) -> Result<(), ()> {
         let wm8940_cmd = Wm8940Command {
-            dac_volume_left: volume,
-            dac_volume_right: volume,
-            adc_volume_left: 0,
-            adc_volume_right: 0,
+            dac_volume_left: self.volume_percent,
+            dac_volume_right: self.volume_percent,
+            adc_volume_left: self.mic_gain_percent,
+            adc_volume_right: self.mic_gain_percent,
             enable: true,
         };
 

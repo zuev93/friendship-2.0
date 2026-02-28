@@ -39,6 +39,7 @@ bind_interrupts!(struct ExtiIrqs {
     EXTI9 => exti::InterruptHandler<irqs::EXTI9>;
     EXTI10 => exti::InterruptHandler<irqs::EXTI10>;
     EXTI11 => exti::InterruptHandler<irqs::EXTI11>;
+    EXTI12 => exti::InterruptHandler<irqs::EXTI12>;
 });
 
 pub struct Hardware {
@@ -47,7 +48,7 @@ pub struct Hardware {
     pub buttons: Buttons,
     pub leds: Leds,
     pub s_meter: SMeter,
-    pub headphones_detect: Input<'static>,
+    pub headphones_detect: ExtiInput<'static>,
     pub wm8940: Wm8940<I2c<'static, mode::Async, i2c::Master>>,
     pub spi_link: SpiLink,
     pub displays: &'static Mutex<ThreadModeRawMutex, Displays>,
@@ -122,7 +123,7 @@ pub fn init() -> Hardware {
             ],
         },
         s_meter: SMeter::new(p.DAC1, p.PA4),
-        headphones_detect: Input::new(p.PE0, Pull::Up),
+        headphones_detect: ExtiInput::new(p.PE12, p.EXTI12, Pull::Up, ExtiIrqs),
         wm8940: wm8940::new_wm8940(p.I2C1, p.PB6, p.PB7, p.GPDMA1_CH0, p.GPDMA1_CH1),
         spi_link: SpiLink::new(p.SPI1, p.PA5, p.PB5, p.PA6, p.PA15, p.GPDMA1_CH3, p.GPDMA1_CH4, p.PB1),
         displays: Displays::new(

@@ -16,8 +16,8 @@ use common::error::error;
 const THERMAL_SAMPLE_PERIOD: Duration = Duration::from_millis(500);
 
 pub fn create_tasks(spawner: Spawner, hf_amp: HfAmp) {
-    static STATIC_CELL: StaticCell<Mutex<ThreadModeRawMutex, HfAmp>> = StaticCell::new();
-    let mutex = STATIC_CELL.init(Mutex::new(hf_amp));
+    static HF_AMP: StaticCell<Mutex<ThreadModeRawMutex, HfAmp>> = StaticCell::new();
+    let mutex = HF_AMP.init(Mutex::new(hf_amp));
 
     spawner.must_spawn(hf_amp_control_task(mutex));
     spawner.must_spawn(hf_amp_thermal_task(mutex));

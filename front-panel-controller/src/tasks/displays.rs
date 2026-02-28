@@ -8,6 +8,8 @@ use embassy_time::Timer;
 
 use crate::{hardware::Displays, state::input::DisplaySignal};
 
+const DISPLAY_RESET_DELAY_MS: u64 = 10;
+
 pub fn spawn_tasks(
     spawner: &Spawner,
     displays: &'static Mutex<ThreadModeRawMutex, Displays>,
@@ -34,9 +36,9 @@ async fn init_task(
             let mut d = displays.lock().await;
 
             d.reset.set_low();
-            Timer::after_millis(10).await;
+            Timer::after_millis(DISPLAY_RESET_DELAY_MS).await;
             d.reset.set_high();
-            Timer::after_millis(10).await;
+            Timer::after_millis(DISPLAY_RESET_DELAY_MS).await;
 
             for (i, display) in d.displays.iter_mut().enumerate() {
                 if let Err(_) = display.display.init().await {

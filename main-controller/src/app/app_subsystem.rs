@@ -13,9 +13,9 @@ pub struct AppSubsystem {}
 
 impl AppSubsystem {
     pub fn init_subsystem(spawner: Spawner) {
-        static STATIC_CELL: StaticCell<Mutex<ThreadModeRawMutex, ToneGenerator>> =
+        static TONE_GENERATOR: StaticCell<Mutex<ThreadModeRawMutex, ToneGenerator>> =
             StaticCell::new();
-        let mutex = STATIC_CELL.init(Mutex::new(ToneGenerator::new()));
+        let mutex = TONE_GENERATOR.init(Mutex::new(ToneGenerator::new()));
 
         spawner.must_spawn(buttons_task());
         spawner.must_spawn(encoder_task());

@@ -17,8 +17,8 @@ use common::error::error;
 const TELEMETRY_PERIOD: Duration = Duration::from_millis(250);
 
 pub fn create_tasks(spawner: Spawner, power_control: PowerControl) {
-    static STATIC_CELL: StaticCell<Mutex<ThreadModeRawMutex, PowerControl>> = StaticCell::new();
-    let mutex = STATIC_CELL.init(Mutex::new(power_control));
+    static POWER_CONTROL: StaticCell<Mutex<ThreadModeRawMutex, PowerControl>> = StaticCell::new();
+    let mutex = POWER_CONTROL.init(Mutex::new(power_control));
 
     spawner.must_spawn(power_control_task(mutex));
     spawner.must_spawn(power_monitor_task(mutex));

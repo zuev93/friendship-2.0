@@ -4,6 +4,9 @@ use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 use common::drivers::mcp4725::MCP4725;
 use common::drivers::pca9534::{Pin, PCA9534};
 
+const DAC_12BIT_MAX: u32 = 4095;
+const CENTIPERCENT_MAX: u32 = 10000;
+
 const IO_RX_PIN: Pin = Pin::Pin0;
 const IO_TX_PIN: Pin = Pin::Pin1;
 const IO_F1_PIN: Pin = Pin::Pin2;
@@ -92,7 +95,8 @@ impl CrystallFilter {
 
         if self.mode == Mode::Tx {
             // TODO check max voltage
-            let dac_value = ((self.desired_power.centipercent as u32 * 4095) / 10000) as u16;
+            let dac_value =
+                ((self.desired_power.centipercent as u32 * DAC_12BIT_MAX) / CENTIPERCENT_MAX) as u16;
             self.dac
                 .set_raw(dac_value)
                 .await
