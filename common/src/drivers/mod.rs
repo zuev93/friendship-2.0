@@ -7,5 +7,6 @@ pub mod pca9534;
 pub mod pcm3060;
 pub mod sc18is602;
 pub mod ssd1315;
+pub mod st7789;
 pub mod tca9555;
 pub mod wm8940;
