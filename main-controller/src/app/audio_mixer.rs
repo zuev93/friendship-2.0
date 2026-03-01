@@ -1,4 +1,7 @@
-use crate::{app::types::Volume, consts::AUDIO_BUFFER_SIZE};
+use crate::{
+    app::types::{Compression, Volume},
+    consts::AUDIO_BUFFER_SIZE,
+};
 
 const MAX_VOLUME_RAW: i16 = 1000;
 
@@ -21,6 +24,10 @@ const GAINS: Gains = Gains {
     gen_to_tx: 255,
 };
 
+const ATTACK_COEFF: u32 = 128;
+const RELEASE_COEFF: u32 = 8;
+const NOISE_FLOOR: u32 = 400;
+
 pub struct AudioMixer {
     rx: [u16; AUDIO_BUFFER_SIZE],
     generator: [u16; AUDIO_BUFFER_SIZE],
@@ -33,6 +40,9 @@ pub struct AudioMixer {
     squelch_open: bool,
     squelch_threshold_dbm: i8,
     gains: Gains,
+    compression_level: i16,
+    envelope: u32,
+    gain_reduction: u8,
 }
 
 impl AudioMixer {
@@ -49,6 +59,9 @@ impl AudioMixer {
             squelch_open: true,
             squelch_threshold_dbm: -120,
             gains: GAINS,
+            compression_level: 0,
+            envelope: 0,
+            gain_reduction: 0,
         }
     }
 
@@ -93,7 +106,66 @@ impl AudioMixer {
         self.squelch_open = rssi_dbm >= self.squelch_threshold_dbm;
     }
 
+    pub fn set_compression(&mut self, compression: Compression) {
+        self.compression_level = compression.raw();
+    }
+
+    pub fn gain_reduction(&self) -> u8 {
+        self.gain_reduction
+    }
+
+    fn compress_mic(&mut self) {
+        if self.compression_level == 0 {
+            self.gain_reduction = 0;
+            return;
+        }
+
+        let mut peak: u32 = 0;
+        for &sample in &self.mic {
+            let signed = (sample as i32) - 32768;
+            let abs = signed.unsigned_abs();
+            if abs > peak {
+                peak = abs;
+            }
+        }
+
+        let peak_scaled = peak * 256;
+        if peak_scaled > self.envelope {
+            self.envelope += ATTACK_COEFF * (peak_scaled - self.envelope) / 256;
+        } else {
+            self.envelope -= RELEASE_COEFF * (self.envelope - peak_scaled) / 256;
+        }
+
+        if self.envelope < NOISE_FLOOR * 256 {
+            self.gain_reduction = 0;
+            return;
+        }
+
+        let level = self.compression_level as u32;
+        let threshold = 16384 * 256 - (level * 15360 * 256 / 1000);
+        let ratio = 2 + (level * 6 / 1000);
+
+        let gain: u32;
+        if self.envelope <= threshold {
+            gain = 256;
+            self.gain_reduction = 0;
+        } else {
+            let excess = self.envelope - threshold;
+            let compressed_excess = excess / ratio;
+            let output = threshold + compressed_excess;
+            gain = output * 256 / self.envelope;
+            self.gain_reduction = (256 - gain).min(255) as u8;
+        }
+
+        for sample in &mut self.mic {
+            let signed = *sample as i32 - 32768;
+            let compressed = signed * gain as i32 / 256;
+            *sample = (compressed + 32768).clamp(0, 65535) as u16;
+        }
+    }
+
     pub fn mix(&mut self) {
+        self.compress_mic();
         let g = self.gains;
         let rx_gain = if self.squelch_open { 255 } else { 0u8 };
         for i in 0..AUDIO_BUFFER_SIZE {

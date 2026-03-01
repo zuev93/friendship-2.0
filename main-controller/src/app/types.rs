@@ -238,6 +238,19 @@ impl RfPowerPercent {
 
 pub type RfPower = RfPowerPercent;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Compression(i16);
+
+impl Compression {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SweepRequest {
     SetFrequency(Frequency),

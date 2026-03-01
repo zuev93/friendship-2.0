@@ -1,12 +1,15 @@
 use embassy_executor::Spawner;
-use embassy_futures::select::{select4, Either4};
+use embassy_futures::select::{select5, Either5};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::{
     app::{
         audio_mixer::AudioMixer,
-        events::{AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, SQUELCH, VOLUME},
+        events::{
+            AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, COMPRESSION,
+            COMPRESSION_METER, SQUELCH, VOLUME,
+        },
         tone_generator::ToneGenerator,
     },
     front_panel::events::{AUDIO_MIC_BUFFER, HEADPHONES_CONNECTED},
@@ -39,6 +42,7 @@ async fn audio_task(
         mixer.set_buffer_mic(mic);
 
         mixer.mix();
+        COMPRESSION_METER.signal(mixer.gain_reduction());
 
         AUDIO_BUFFER_TX.signal(mixer.get_buffer_tx());
         AUDIO_BUFFER_HEADPHONES.signal(mixer.get_buffer_headphones());
@@ -49,26 +53,30 @@ async fn audio_task(
 #[embassy_executor::task]
 async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     loop {
-        match select4(
+        match select5(
             VOLUME.wait(),
             HEADPHONES_CONNECTED.wait(),
             SQUELCH.wait(),
             CURRENT_RSSI.wait(),
+            COMPRESSION.wait(),
         )
         .await
         {
-            Either4::First(volume) => {
+            Either5::First(volume) => {
                 mutex.lock().await.set_volume(volume);
             }
-            Either4::Second(connected) => {
+            Either5::Second(connected) => {
                 mutex.lock().await.set_headphones_connected(connected);
             }
-            Either4::Third(squelch) => {
+            Either5::Third(squelch) => {
                 let dbm = squelch_to_dbm(squelch.raw());
                 mutex.lock().await.set_squelch_threshold(dbm);
             }
-            Either4::Fourth(rssi) => {
+            Either5::Fourth(rssi) => {
                 mutex.lock().await.update_squelch(rssi.dbm);
+            }
+            Either5::Fifth(compression) => {
+                mutex.lock().await.set_compression(compression);
             }
         }
     }

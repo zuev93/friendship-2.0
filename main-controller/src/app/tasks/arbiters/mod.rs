@@ -1,5 +1,6 @@
 pub mod clarifier_mode;
 pub mod clarifier_value;
+pub mod compression;
 pub mod filter;
 pub mod frequency;
 pub mod if_gain;

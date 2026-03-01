@@ -1,5 +1,6 @@
 use crate::app::tasks::arbiters::{
     clarifier_value::CLARIFIER_VALUE_CMD,
+    compression::COMPRESSION_CMD,
     frequency::{BandCommand, BAND_CMD, FREQUENCY_CMD},
     if_gain::IF_GAIN_CMD,
     microphone::MICROPHONE_CMD,
@@ -52,6 +53,9 @@ pub async fn encoder_task() {
             }
             EncoderFunction::NbLevel => {
                 NB_LEVEL_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::Compression => {
+                COMPRESSION_CMD.signal(event.delta as i16 * STEP_SIZE);
             }
             EncoderFunction::Menu => {}
         }

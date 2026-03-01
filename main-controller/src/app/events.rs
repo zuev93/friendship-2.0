@@ -4,8 +4,8 @@ use embassy_sync::signal::Signal;
 use crate::consts::AUDIO_BUFFER_SIZE;
 
 use super::types::{
-    Band, ClarifierMode, ClarifierValue, CouplerMetrics, FilterType, Frequency, IfGain,
-    IfGainMode, Microphone, Mode, NbLevel, PaTemperatures, RfGainMode, RfPower, Squelch,
+    Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics, FilterType, Frequency,
+    IfGain, IfGainMode, Microphone, Mode, NbLevel, PaTemperatures, RfGainMode, RfPower, Squelch,
     SweepRequest, TransmitMode, Volume, WaterfallLine,
 };
 
@@ -40,6 +40,9 @@ pub static BUTTON_BEEP: Signal<ThreadModeRawMutex, ()> = Signal::new();
 pub static ALC_CONSTRAINT: Signal<ThreadModeRawMutex, i32> = Signal::new();
 pub static COUPLER_METRICS: Signal<ThreadModeRawMutex, CouplerMetrics> = Signal::new();
 pub static PA_TEMPERATURES: Signal<ThreadModeRawMutex, PaTemperatures> = Signal::new();
+
+pub static COMPRESSION: Signal<ThreadModeRawMutex, Compression> = Signal::new();
+pub static COMPRESSION_METER: Signal<ThreadModeRawMutex, u8> = Signal::new();
 
 pub static AUDIO_BUFFER_HEADPHONES: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> =
     Signal::new();

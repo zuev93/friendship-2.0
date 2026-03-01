@@ -63,6 +63,7 @@ impl EncoderMapping {
         map.insert(7, EncoderFunction::Squelch).ok();
         map.insert(8, EncoderFunction::Menu).ok();
         map.insert(9, EncoderFunction::NbLevel).ok();
+        map.insert(10, EncoderFunction::Compression).ok();
 
         Self { map }
     }

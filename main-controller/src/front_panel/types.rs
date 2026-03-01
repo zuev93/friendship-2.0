@@ -32,6 +32,7 @@ pub enum EncoderFunction {
     Clarifier,
     Squelch,
     NbLevel,
+    Compression,
     Menu,
 }
 
