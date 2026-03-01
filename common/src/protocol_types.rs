@@ -349,6 +349,43 @@ impl PacketSerializable for RadioStateCommand {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum MenuCommand {
+    Ok,
+    Cancel,
+    Scroll(i8),
+}
+
+impl PacketSerializable for MenuCommand {
+    const PACKET_TYPE: PacketType = PacketType::MenuCommand;
+
+    fn write_payload(&self, payload: &mut [u8]) {
+        match self {
+            MenuCommand::Ok => {
+                payload[0] = 0;
+                payload[1] = 0;
+            }
+            MenuCommand::Cancel => {
+                payload[0] = 1;
+                payload[1] = 0;
+            }
+            MenuCommand::Scroll(delta) => {
+                payload[0] = 2;
+                payload[1] = *delta as u8;
+            }
+        }
+    }
+
+    fn read_payload(payload: &[u8]) -> Option<Self> {
+        match payload[0] {
+            0 => Some(MenuCommand::Ok),
+            1 => Some(MenuCommand::Cancel),
+            2 => Some(MenuCommand::Scroll(payload[1] as i8)),
+            _ => None,
+        }
+    }
+}
+
 pub const WATERFALL_BINS: usize = 240;
 const WATERFALL_CMD_SIZE: usize = 4 + 4 + 1 + WATERFALL_BINS;
 const _: () = assert!(WATERFALL_CMD_SIZE <= PACKET_SIZE - 3);

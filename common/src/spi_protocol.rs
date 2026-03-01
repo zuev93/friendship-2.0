@@ -11,6 +11,7 @@ pub enum PacketType {
     Wm8940Command = 0x12,
     RadioStateCommand = 0x15,
     WaterfallLineCommand = 0x16,
+    MenuCommand = 0x17,
 }
 
 impl PacketType {
@@ -24,6 +25,7 @@ impl PacketType {
             0x12 => Some(PacketType::Wm8940Command),
             0x15 => Some(PacketType::RadioStateCommand),
             0x16 => Some(PacketType::WaterfallLineCommand),
+            0x17 => Some(PacketType::MenuCommand),
             _ => None,
         }
     }

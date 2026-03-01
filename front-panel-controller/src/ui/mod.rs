@@ -1,5 +1,6 @@
 pub mod error_screen;
 pub mod main_screen;
+pub mod menu_screen;
 pub mod meter_bar;
 pub mod meter_screen;
 pub mod spectrum_screen;

@@ -1,5 +1,6 @@
 pub mod audio_tasks;
 mod button_leds;
+pub mod menu_sender;
 pub mod radio_state;
 pub mod spi_receiver;
 pub mod waterfall_sender;

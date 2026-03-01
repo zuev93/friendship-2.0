@@ -24,7 +24,9 @@ mod peripherals;
 // TODO Vox
 // TODO CW keyer
 // TODO Scan/search
-
+// TODO add selection/changes of UI elements
+// TODO add settings screen
+// TODO Add system settings screen
 
 use embassy_executor::Spawner;
 use embassy_time::Timer;

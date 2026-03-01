@@ -34,7 +34,8 @@ async fn main(spawner: Spawner) {
     tasks::spi_link::spawn_tasks(&spawner, hw.spi_link, input_state, hw_crc);
     tasks::render_meter::spawn_tasks(&spawner, hw.displays, &input_state.radio_state, 0);
     tasks::render_spectrum::spawn_tasks(&spawner, hw.displays, &input_state.waterfall_line, 1);
-    tasks::render_main::spawn_tasks(&spawner, hw.displays, &input_state.radio_state, 2);
+    tasks::menu::spawn_tasks(&spawner, &input_state.menu_screen);
+    tasks::render_main::spawn_tasks(&spawner, hw.displays, &input_state.radio_state, &input_state.menu_screen, 2);
     tasks::error_display::spawn_tasks(&spawner, hw.displays);
 
     loop {

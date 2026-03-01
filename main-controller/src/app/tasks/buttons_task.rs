@@ -14,9 +14,10 @@ use crate::app::{
     },
 };
 use crate::front_panel::{
-    events::{ButtonEvent, BUTTON_EVENTS},
+    events::{ButtonEvent, BUTTON_EVENTS, MENU_CMD_QUEUE},
     types::ButtonFunction,
 };
+use common::protocol_types::MenuCommand;
 use embassy_time::{Duration, Instant};
 use heapless::index_map::FnvIndexMap;
 
@@ -118,10 +119,13 @@ pub async fn buttons_task() {
             ButtonEvent::Release(ButtonFunction::IcomSql)
             | ButtonEvent::Release(ButtonFunction::IcomUpDown) => {}
 
-            // TODO: implement menu navigation buttons
-            ButtonEvent::Press(ButtonFunction::Cancel)
-            | ButtonEvent::Release(ButtonFunction::Cancel)
-            | ButtonEvent::Press(ButtonFunction::Ok)
+            ButtonEvent::Press(ButtonFunction::Ok) => {
+                MENU_CMD_QUEUE.send(MenuCommand::Ok).await;
+            }
+            ButtonEvent::Press(ButtonFunction::Cancel) => {
+                MENU_CMD_QUEUE.send(MenuCommand::Cancel).await;
+            }
+            ButtonEvent::Release(ButtonFunction::Cancel)
             | ButtonEvent::Release(ButtonFunction::Ok) => {}
         }
     }

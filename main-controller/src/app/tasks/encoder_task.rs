@@ -53,7 +53,6 @@ pub async fn encoder_task() {
             EncoderFunction::NbLevel => {
                 NB_LEVEL_CMD.signal(event.delta as i16 * STEP_SIZE);
             }
-            // TODO: implement menu encoder
             EncoderFunction::Menu => {}
         }
     }

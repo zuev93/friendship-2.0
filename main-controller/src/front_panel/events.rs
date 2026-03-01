@@ -1,3 +1,4 @@
+use common::protocol_types::MenuCommand;
 use embassy_sync::channel::Channel;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 
@@ -27,3 +28,5 @@ pub static ENCODER_EVENTS: Channel<ThreadModeRawMutex, EncoderEvent, 16> = Chann
 pub static MENU_ENCODER_EVENTS: Channel<ThreadModeRawMutex, i8, 16> = Channel::new();
 
 pub static AUDIO_MIC_BUFFER: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> = Signal::new();
+
+pub static MENU_CMD_QUEUE: Channel<ThreadModeRawMutex, MenuCommand, 8> = Channel::new();

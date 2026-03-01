@@ -1,6 +1,6 @@
 use druzhba_common::error;
 use druzhba_common::protocol_types::{
-    LedCommand, RadioStateCommand, WaterfallLineCommand, Wm8940Command,
+    LedCommand, MenuCommand, RadioStateCommand, WaterfallLineCommand, Wm8940Command,
 };
 use druzhba_common::spi_protocol::{Crc16, Packet, PacketSerializable, PacketType};
 use embassy_executor::Spawner;
@@ -13,6 +13,7 @@ use crate::constants::TX_QUEUE_SIZE;
 use crate::crc::HardwareCrc16Modbus;
 use crate::hardware::{SpiLink, SpiSlaveInstance};
 use crate::state::input::InputState;
+use crate::state::menu::MENU_EVENTS;
 use crate::state::output::OUTPUT_EVENTS;
 
 static TX_QUEUE: Channel<ThreadModeRawMutex, Packet, TX_QUEUE_SIZE> = Channel::new();
@@ -116,6 +117,8 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
             sweep_status: cmd.sweep_status,
             bins: cmd.bins,
         });
+    } else if let Some(cmd) = MenuCommand::deserialize(packet) {
+        let _ = MENU_EVENTS.try_send(cmd);
     }
 }
 

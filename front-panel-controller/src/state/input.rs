@@ -1,5 +1,7 @@
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 
+use super::menu::MenuScreenSignal;
+
 pub use druzhba_common::protocol_types::{
     IfGainMode, LedState, Mode, RfGainMode, SweepStatus, TransmitMode,
     Wm8940Command as Wm8940Config, WATERFALL_BINS,
@@ -52,6 +54,7 @@ pub struct InputState {
     pub wm8940: Wm8940Signal,
     pub radio_state: RadioStateSignal,
     pub waterfall_line: WaterfallLineSignal,
+    pub menu_screen: MenuScreenSignal,
 }
 
 impl InputState {
@@ -61,6 +64,7 @@ impl InputState {
             wm8940: Signal::new(),
             radio_state: Signal::new(),
             waterfall_line: Signal::new(),
+            menu_screen: Signal::new(),
         }
     }
 }
