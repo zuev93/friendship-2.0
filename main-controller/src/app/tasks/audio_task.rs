@@ -1,5 +1,7 @@
 use embassy_executor::Spawner;
-use embassy_futures::select::{select, select5, Either, Either5};
+use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
+use embassy_stm32::peripherals::{CORDIC, FMAC};
+use embassy_stm32::Peri;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
@@ -7,8 +9,11 @@ use crate::{
     app::{
         audio_mixer::AudioMixer,
         events::{
-            AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, COMPRESSION,
-            COMPRESSION_METER, NR_ENABLED, NR_LEVEL, SQUELCH, USB_AUDIO_TX, VOLUME,
+            ANF_ENABLED, AUDIO_AGC_MODE, AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS,
+            AUDIO_BUFFER_TX, COMPRESSION, COMPRESSION_METER, CW_PEAK_ENABLED, CW_PEAK_WIDTH,
+            CW_PITCH, DSP_BW, DSP_FILTER_ENABLED, DSP_PBT, NR_ENABLED, NR_LEVEL, RX_EQ_ENABLED,
+            RX_EQ_HIGH, RX_EQ_LOW, RX_EQ_MID, SQUELCH, TX_EQ_ENABLED, TX_EQ_HIGH, TX_EQ_LOW,
+            TX_EQ_MID, USB_AUDIO_TX, VOLUME,
         },
         tone_generator::ToneGenerator,
     },
@@ -19,11 +24,14 @@ use crate::{
 pub fn spawn_tasks(
     spawner: Spawner,
     tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>,
+    cordic_peri: Peri<'static, CORDIC>,
+    fmac_peri: Peri<'static, FMAC>,
 ) {
     static MIXER: StaticCell<Mutex<ThreadModeRawMutex, AudioMixer>> = StaticCell::new();
-    let mixer = MIXER.init(Mutex::new(AudioMixer::new()));
+    let mixer = MIXER.init(Mutex::new(AudioMixer::new(cordic_peri, fmac_peri)));
     spawner.must_spawn(audio_task(mixer, tone_generator));
     spawner.must_spawn(controls_task(mixer));
+    spawner.must_spawn(dsp_controls_task(mixer));
 }
 
 #[embassy_executor::task]
@@ -100,6 +108,110 @@ async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
             }
             Either::Second(Either::Second(level)) => {
                 mutex.lock().await.set_nr_level(level);
+            }
+        }
+    }
+}
+
+#[embassy_executor::task]
+async fn dsp_controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
+    let mut anf_rcv = ANF_ENABLED.receiver().unwrap();
+    let mut dsp_filter_rcv = DSP_FILTER_ENABLED.receiver().unwrap();
+    let mut dsp_bw_rcv = DSP_BW.receiver().unwrap();
+    let mut dsp_pbt_rcv = DSP_PBT.receiver().unwrap();
+    let mut cw_peak_rcv = CW_PEAK_ENABLED.receiver().unwrap();
+    let mut cw_peak_width_rcv = CW_PEAK_WIDTH.receiver().unwrap();
+    let mut cw_pitch_rcv = CW_PITCH.receiver().unwrap();
+    let mut agc_mode_rcv = AUDIO_AGC_MODE.receiver().unwrap();
+    let mut tx_eq_en_rcv = TX_EQ_ENABLED.receiver().unwrap();
+    let mut tx_eq_low_rcv = TX_EQ_LOW.receiver().unwrap();
+    let mut tx_eq_mid_rcv = TX_EQ_MID.receiver().unwrap();
+    let mut tx_eq_high_rcv = TX_EQ_HIGH.receiver().unwrap();
+    let mut rx_eq_en_rcv = RX_EQ_ENABLED.receiver().unwrap();
+    let mut rx_eq_low_rcv = RX_EQ_LOW.receiver().unwrap();
+    let mut rx_eq_mid_rcv = RX_EQ_MID.receiver().unwrap();
+    let mut rx_eq_high_rcv = RX_EQ_HIGH.receiver().unwrap();
+
+    loop {
+        match select(
+            select(
+                select4(
+                    anf_rcv.changed(),
+                    dsp_filter_rcv.changed(),
+                    dsp_bw_rcv.changed(),
+                    dsp_pbt_rcv.changed(),
+                ),
+                select4(
+                    cw_peak_rcv.changed(),
+                    cw_peak_width_rcv.changed(),
+                    cw_pitch_rcv.changed(),
+                    agc_mode_rcv.changed(),
+                ),
+            ),
+            select(
+                select4(
+                    tx_eq_en_rcv.changed(),
+                    tx_eq_low_rcv.changed(),
+                    tx_eq_mid_rcv.changed(),
+                    tx_eq_high_rcv.changed(),
+                ),
+                select4(
+                    rx_eq_en_rcv.changed(),
+                    rx_eq_low_rcv.changed(),
+                    rx_eq_mid_rcv.changed(),
+                    rx_eq_high_rcv.changed(),
+                ),
+            ),
+        )
+        .await
+        {
+            Either::First(Either::First(Either4::First(enabled))) => {
+                mutex.lock().await.set_anf_enabled(enabled);
+            }
+            Either::First(Either::First(Either4::Second(enabled))) => {
+                mutex.lock().await.set_dsp_filter_enabled(enabled);
+            }
+            Either::First(Either::First(Either4::Third(bw))) => {
+                mutex.lock().await.set_dsp_bandwidth(bw.raw());
+            }
+            Either::First(Either::First(Either4::Fourth(pbt))) => {
+                mutex.lock().await.set_dsp_shift(pbt.raw());
+            }
+            Either::First(Either::Second(Either4::First(enabled))) => {
+                mutex.lock().await.set_cw_peak_enabled(enabled);
+            }
+            Either::First(Either::Second(Either4::Second(width))) => {
+                mutex.lock().await.set_cw_peak_width(width.raw());
+            }
+            Either::First(Either::Second(Either4::Third(pitch))) => {
+                mutex.lock().await.set_cw_pitch(pitch.raw());
+            }
+            Either::First(Either::Second(Either4::Fourth(mode))) => {
+                mutex.lock().await.set_audio_agc_mode(mode);
+            }
+            Either::Second(Either::First(Either4::First(enabled))) => {
+                mutex.lock().await.set_tx_eq_enabled(enabled);
+            }
+            Either::Second(Either::First(Either4::Second(gain))) => {
+                mutex.lock().await.set_tx_eq_low(gain);
+            }
+            Either::Second(Either::First(Either4::Third(gain))) => {
+                mutex.lock().await.set_tx_eq_mid(gain);
+            }
+            Either::Second(Either::First(Either4::Fourth(gain))) => {
+                mutex.lock().await.set_tx_eq_high(gain);
+            }
+            Either::Second(Either::Second(Either4::First(enabled))) => {
+                mutex.lock().await.set_rx_eq_enabled(enabled);
+            }
+            Either::Second(Either::Second(Either4::Second(gain))) => {
+                mutex.lock().await.set_rx_eq_low(gain);
+            }
+            Either::Second(Either::Second(Either4::Third(gain))) => {
+                mutex.lock().await.set_rx_eq_mid(gain);
+            }
+            Either::Second(Either::Second(Either4::Fourth(gain))) => {
+                mutex.lock().await.set_rx_eq_high(gain);
             }
         }
     }

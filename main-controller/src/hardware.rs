@@ -129,6 +129,6 @@ impl Hardware {
             irqs,
         );
         UsbSubsystem::init_subsystem(spawner, p.USB, p.PA12, p.PA11, irqs);
-        AppSubsystem::init_subsystem(spawner);
+        AppSubsystem::init_subsystem(spawner, p.CORDIC, p.FMAC);
     }
 }

@@ -4,9 +4,10 @@ use embassy_sync::watch::Watch;
 use crate::consts::AUDIO_BUFFER_SIZE;
 
 use super::types::{
-    Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics, FilterType, Frequency,
-    IfGain, IfGainMode, Microphone, Mode, NbLevel, NrLevel, PaTemperatures, RfGainMode, RfPower,
-    Squelch, SweepRequest, TransmitMode, Volume, WaterfallLine,
+    AudioAgcMode, Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics, CwPeakWidth,
+    CwPitch, DspBandwidth, DspShift, EqGain, FilterType, Frequency, IfGain, IfGainMode,
+    Microphone, Mode, NbLevel, NrLevel, PaTemperatures, RfGainMode, RfPower, Squelch,
+    SweepRequest, TransmitMode, Volume, WaterfallLine,
 };
 
 pub static MODE: Watch<ThreadModeRawMutex, Mode, 16> = Watch::new();
@@ -45,6 +46,23 @@ pub static PA_TEMPERATURES: Watch<ThreadModeRawMutex, PaTemperatures, 2> = Watch
 
 pub static COMPRESSION: Watch<ThreadModeRawMutex, Compression, 2> = Watch::new();
 pub static COMPRESSION_METER: Watch<ThreadModeRawMutex, u8, 2> = Watch::new();
+
+pub static ANF_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static DSP_FILTER_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static DSP_BW: Watch<ThreadModeRawMutex, DspBandwidth, 2> = Watch::new();
+pub static DSP_PBT: Watch<ThreadModeRawMutex, DspShift, 2> = Watch::new();
+pub static CW_PEAK_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static CW_PEAK_WIDTH: Watch<ThreadModeRawMutex, CwPeakWidth, 2> = Watch::new();
+pub static CW_PITCH: Watch<ThreadModeRawMutex, CwPitch, 2> = Watch::new();
+pub static AUDIO_AGC_MODE: Watch<ThreadModeRawMutex, AudioAgcMode, 2> = Watch::new();
+pub static TX_EQ_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static TX_EQ_LOW: Watch<ThreadModeRawMutex, EqGain, 2> = Watch::new();
+pub static TX_EQ_MID: Watch<ThreadModeRawMutex, EqGain, 2> = Watch::new();
+pub static TX_EQ_HIGH: Watch<ThreadModeRawMutex, EqGain, 2> = Watch::new();
+pub static RX_EQ_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static RX_EQ_LOW: Watch<ThreadModeRawMutex, EqGain, 2> = Watch::new();
+pub static RX_EQ_MID: Watch<ThreadModeRawMutex, EqGain, 2> = Watch::new();
+pub static RX_EQ_HIGH: Watch<ThreadModeRawMutex, EqGain, 2> = Watch::new();
 
 pub static AUDIO_BUFFER_HEADPHONES: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> =
     Watch::new();

@@ -27,6 +27,7 @@ mod peripherals;
 //  TODO low battery
 // TODO RTC
 // TODO tests
+// EEPROM settings
 
 use embassy_executor::Spawner;
 use embassy_time::Timer;

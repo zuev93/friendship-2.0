@@ -1,7 +1,11 @@
 use crate::app::{
     events::BUTTON_BEEP,
     tasks::arbiters::{
+        anf::{AnfCommand, ANF_CMD},
+        audio_agc::{AudioAgcCommand, AUDIO_AGC_CMD},
         clarifier_mode::{ClarifierModeCommand, CLARIFIER_MODE_CMD},
+        cw_peak::{CwPeakCommand, CW_PEAK_CMD},
+        dsp_filter::{DspFilterCommand, DSP_FILTER_CMD},
         filter::{FilterCommand, FILTER_CMD},
         frequency::{BandCommand, BAND_CMD},
         if_gain_mode::{IfGainModeCommand, IF_GAIN_MODE_CMD},
@@ -9,9 +13,11 @@ use crate::app::{
         nb::{NbCommand, NB_CMD},
         nr::{NrCommand, NR_CMD},
         rf_gain_mode::{RfGainModeCommand, RF_GAIN_MODE_CMD},
+        rx_eq::{RxEqCommand, RX_EQ_CMD},
         squelch::{SquelchCommand, SQUELCH_CMD},
         tone::{ToneCommand, TONE_CMD},
         transmit_mode::{TransmitModeCommand, TRANSMIT_MODE_CMD},
+        tx_eq::{TxEqCommand, TX_EQ_CMD},
     },
 };
 use crate::front_panel::{
@@ -99,6 +105,25 @@ pub async fn buttons_task() {
                 NR_CMD.signal(NrCommand::Toggle);
             }
 
+            ButtonEvent::Press(ButtonFunction::AutoNotch) => {
+                ANF_CMD.signal(AnfCommand::Toggle);
+            }
+            ButtonEvent::Press(ButtonFunction::CwPeak) => {
+                CW_PEAK_CMD.signal(CwPeakCommand::Toggle);
+            }
+            ButtonEvent::Press(ButtonFunction::AudioAgc) => {
+                AUDIO_AGC_CMD.signal(AudioAgcCommand::Cycle);
+            }
+            ButtonEvent::Press(ButtonFunction::DspFilter) => {
+                DSP_FILTER_CMD.signal(DspFilterCommand::Toggle);
+            }
+            ButtonEvent::Press(ButtonFunction::TxEqualizer) => {
+                TX_EQ_CMD.signal(TxEqCommand::Toggle);
+            }
+            ButtonEvent::Press(ButtonFunction::RxEqualizer) => {
+                RX_EQ_CMD.signal(RxEqCommand::Toggle);
+            }
+
             ButtonEvent::Press(ButtonFunction::Power)
             | ButtonEvent::Release(ButtonFunction::TransmitMode)
             | ButtonEvent::Release(ButtonFunction::Filter)
@@ -106,7 +131,13 @@ pub async fn buttons_task() {
             | ButtonEvent::Release(ButtonFunction::RfGain)
             | ButtonEvent::Release(ButtonFunction::Agc)
             | ButtonEvent::Release(ButtonFunction::NoiseBlanker)
-            | ButtonEvent::Release(ButtonFunction::NoiseReduction) => {}
+            | ButtonEvent::Release(ButtonFunction::NoiseReduction)
+            | ButtonEvent::Release(ButtonFunction::AutoNotch)
+            | ButtonEvent::Release(ButtonFunction::CwPeak)
+            | ButtonEvent::Release(ButtonFunction::AudioAgc)
+            | ButtonEvent::Release(ButtonFunction::DspFilter)
+            | ButtonEvent::Release(ButtonFunction::TxEqualizer)
+            | ButtonEvent::Release(ButtonFunction::RxEqualizer) => {}
 
             ButtonEvent::Press(ButtonFunction::IcomPtt) => {
                 MODE_CMD.signal(ModeCommand::TransmitPress);

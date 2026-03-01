@@ -20,6 +20,12 @@ pub enum ButtonFunction {
     Filter,       // Cycles crystal filter: Single -> DoubleWide -> DoubleNarrow
     Cancel,       // Button 10 - Cancel/Back
     Ok,           // Button 11 - OK/Select
+    AutoNotch,
+    CwPeak,
+    AudioAgc,
+    DspFilter,
+    TxEqualizer,
+    RxEqualizer,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -36,6 +42,16 @@ pub enum EncoderFunction {
     NrLevel,
     Compression,
     Menu,
+    DspBandwidth,
+    DspShift,
+    CwPeakWidth,
+    CwPitch,
+    TxEqLow,
+    TxEqMid,
+    TxEqHigh,
+    RxEqLow,
+    RxEqMid,
+    RxEqHigh,
 }
 
 pub type ControlBusType = &'static Mutex<ThreadModeRawMutex, ControlBus>;

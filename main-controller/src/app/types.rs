@@ -252,6 +252,116 @@ impl RfPowerPercent {
 pub type RfPower = RfPowerPercent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AudioAgcMode {
+    Off,
+    Slow,
+    Med,
+    Fast,
+}
+
+impl AudioAgcMode {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Off => Self::Slow,
+            Self::Slow => Self::Med,
+            Self::Med => Self::Fast,
+            Self::Fast => Self::Off,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DspBandwidth(u16);
+
+impl DspBandwidth {
+    pub fn new(raw: u16) -> Self {
+        Self(raw.clamp(100, 3600))
+    }
+
+    pub fn raw(self) -> u16 {
+        self.0
+    }
+
+    pub fn add(self, delta: i16) -> Self {
+        let val = (self.0 as i32 + delta as i32).clamp(100, 3600) as u16;
+        Self(val)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DspShift(i16);
+
+impl DspShift {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(-1000, 1000))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+
+    pub fn add(self, delta: i16) -> Self {
+        let val = (self.0 as i32 + delta as i32).clamp(-1000, 1000) as i16;
+        Self(val)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CwPeakWidth(u16);
+
+impl CwPeakWidth {
+    pub fn new(raw: u16) -> Self {
+        Self(raw.clamp(50, 500))
+    }
+
+    pub fn raw(self) -> u16 {
+        self.0
+    }
+
+    pub fn add(self, delta: i16) -> Self {
+        let val = (self.0 as i32 + delta as i32).clamp(50, 500) as u16;
+        Self(val)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CwPitch(u16);
+
+impl CwPitch {
+    pub fn new(raw: u16) -> Self {
+        Self(raw.clamp(400, 1000))
+    }
+
+    pub fn raw(self) -> u16 {
+        self.0
+    }
+
+    pub fn add(self, delta: i16) -> Self {
+        let val = (self.0 as i32 + delta as i32).clamp(400, 1000) as u16;
+        Self(val)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EqGain(i8);
+
+impl EqGain {
+    pub fn new(raw: i8) -> Self {
+        Self(raw.clamp(-12, 12))
+    }
+
+    pub fn raw(self) -> i8 {
+        self.0
+    }
+
+    pub fn add(self, delta: i8) -> Self {
+        let val = (self.0 as i16 + delta as i16).clamp(-12, 12) as i8;
+        Self(val)
+    }
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Compression(i16);
 
 impl Compression {

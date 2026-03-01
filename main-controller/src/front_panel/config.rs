@@ -5,7 +5,7 @@ use crate::front_panel::types::{ButtonFunction, EncoderFunction};
 /// Button ID to Function mapping
 /// Maps physical button indices (0-11) to their logical functions
 pub struct ButtonMapping {
-    pub map: FnvIndexMap<u8, ButtonFunction, 16>,
+    pub map: FnvIndexMap<u8, ButtonFunction, 32>,
 }
 
 impl ButtonMapping {
@@ -33,6 +33,12 @@ impl ButtonMapping {
         map.insert(12, ButtonFunction::NoiseBlanker).ok();
         map.insert(13, ButtonFunction::Filter).ok();
         map.insert(14, ButtonFunction::NoiseReduction).ok();
+        map.insert(15, ButtonFunction::AutoNotch).ok();
+        map.insert(16, ButtonFunction::CwPeak).ok();
+        map.insert(17, ButtonFunction::AudioAgc).ok();
+        map.insert(18, ButtonFunction::DspFilter).ok();
+        map.insert(19, ButtonFunction::TxEqualizer).ok();
+        map.insert(20, ButtonFunction::RxEqualizer).ok();
 
         Self { map }
     }
@@ -47,7 +53,7 @@ pub fn default_button_mapping() -> ButtonMapping {
 }
 
 pub struct EncoderMapping {
-    map: FnvIndexMap<u8, EncoderFunction, 16>,
+    map: FnvIndexMap<u8, EncoderFunction, 32>,
 }
 
 impl EncoderMapping {
@@ -66,6 +72,16 @@ impl EncoderMapping {
         map.insert(9, EncoderFunction::NbLevel).ok();
         map.insert(10, EncoderFunction::Compression).ok();
         map.insert(11, EncoderFunction::NrLevel).ok();
+        map.insert(12, EncoderFunction::DspBandwidth).ok();
+        map.insert(13, EncoderFunction::DspShift).ok();
+        map.insert(14, EncoderFunction::CwPeakWidth).ok();
+        map.insert(15, EncoderFunction::CwPitch).ok();
+        map.insert(16, EncoderFunction::TxEqLow).ok();
+        map.insert(17, EncoderFunction::TxEqMid).ok();
+        map.insert(18, EncoderFunction::TxEqHigh).ok();
+        map.insert(19, EncoderFunction::RxEqLow).ok();
+        map.insert(20, EncoderFunction::RxEqMid).ok();
+        map.insert(21, EncoderFunction::RxEqHigh).ok();
 
         Self { map }
     }

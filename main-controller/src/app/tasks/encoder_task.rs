@@ -1,13 +1,19 @@
 use crate::app::tasks::arbiters::{
     clarifier_value::CLARIFIER_VALUE_CMD,
     compression::COMPRESSION_CMD,
+    cw_peak_width::CW_PEAK_WIDTH_CMD,
+    cw_pitch::CW_PITCH_CMD,
+    dsp_bandwidth::DSP_BANDWIDTH_CMD,
+    dsp_shift::DSP_SHIFT_CMD,
     frequency::{BandCommand, FrequencyCommand, BAND_CMD, FREQUENCY_CMD},
     if_gain::IF_GAIN_CMD,
     microphone::MICROPHONE_CMD,
     nb_level::NB_LEVEL_CMD,
     nr_level::NR_LEVEL_CMD,
     rf_power::RF_POWER_CMD,
+    rx_eq::{RxEqCommand, RX_EQ_CMD},
     squelch::{SquelchCommand, SQUELCH_CMD},
+    tx_eq::{TxEqCommand, TX_EQ_CMD},
     volume::VOLUME_CMD,
 };
 use crate::front_panel::events::ENCODER_EVENTS;
@@ -60,6 +66,36 @@ pub async fn encoder_task() {
             }
             EncoderFunction::Compression => {
                 COMPRESSION_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::DspBandwidth => {
+                DSP_BANDWIDTH_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::DspShift => {
+                DSP_SHIFT_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::CwPeakWidth => {
+                CW_PEAK_WIDTH_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::CwPitch => {
+                CW_PITCH_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::TxEqLow => {
+                TX_EQ_CMD.signal(TxEqCommand::SetLow(event.delta as i8));
+            }
+            EncoderFunction::TxEqMid => {
+                TX_EQ_CMD.signal(TxEqCommand::SetMid(event.delta as i8));
+            }
+            EncoderFunction::TxEqHigh => {
+                TX_EQ_CMD.signal(TxEqCommand::SetHigh(event.delta as i8));
+            }
+            EncoderFunction::RxEqLow => {
+                RX_EQ_CMD.signal(RxEqCommand::SetLow(event.delta as i8));
+            }
+            EncoderFunction::RxEqMid => {
+                RX_EQ_CMD.signal(RxEqCommand::SetMid(event.delta as i8));
+            }
+            EncoderFunction::RxEqHigh => {
+                RX_EQ_CMD.signal(RxEqCommand::SetHigh(event.delta as i8));
             }
             EncoderFunction::Menu => {}
         }
