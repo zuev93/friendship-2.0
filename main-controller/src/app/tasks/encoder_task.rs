@@ -12,6 +12,7 @@ use crate::app::tasks::arbiters::{
     nr_level::NR_LEVEL_CMD,
     rf_power::RF_POWER_CMD,
     rx_eq::{RxEqCommand, RX_EQ_CMD},
+    scan::{ScanCommand, SCAN_CMD},
     squelch::{SquelchCommand, SQUELCH_CMD},
     tx_eq::{TxEqCommand, TX_EQ_CMD},
     volume::VOLUME_CMD,
@@ -31,6 +32,7 @@ pub async fn encoder_task() {
 
         match event.function {
             EncoderFunction::Band => {
+                SCAN_CMD.signal(ScanCommand::Stop);
                 if event.delta > 0 {
                     BAND_CMD.signal(BandCommand::Up);
                 } else if event.delta < 0 {
@@ -38,6 +40,7 @@ pub async fn encoder_task() {
                 }
             }
             EncoderFunction::Vfo => {
+                SCAN_CMD.signal(ScanCommand::Stop);
                 let delta = event.delta as i32 * 1000;
                 FREQUENCY_CMD.signal(FrequencyCommand::Delta(delta));
             }
@@ -106,6 +109,12 @@ pub async fn encoder_task() {
             }
             EncoderFunction::VoxAntiTrip => {
                 VOX_CMD.signal(VoxCommand::AntiTripDelta(event.delta as i16 * STEP_SIZE));
+            }
+            EncoderFunction::ScanStep => {
+                SCAN_CMD.signal(ScanCommand::StepDelta(event.delta as i16 * STEP_SIZE));
+            }
+            EncoderFunction::ScanResume => {
+                SCAN_CMD.signal(ScanCommand::ResumeDelta(event.delta as i16));
             }
             EncoderFunction::Menu => {}
         }

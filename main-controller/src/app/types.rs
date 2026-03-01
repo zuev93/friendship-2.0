@@ -292,6 +292,41 @@ impl VoxAntiTrip {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScanStep(u16);
+
+impl ScanStep {
+    pub fn new(raw: u16) -> Self {
+        Self(raw.clamp(100, 10000))
+    }
+
+    pub fn hz(self) -> u32 {
+        self.0 as u32
+    }
+
+    pub fn add(self, delta: i16) -> Self {
+        let val = (self.0 as i32 + delta as i32).clamp(100, 10000) as u16;
+        Self(val)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScanResume(u8);
+
+impl ScanResume {
+    pub fn new(raw: u8) -> Self {
+        Self(raw.clamp(1, 10))
+    }
+
+    pub fn raw(self) -> u8 {
+        self.0
+    }
+
+    pub fn secs(self) -> u64 {
+        self.0 as u64
+    }
+}
+
 pub type RfPower = RfPowerPercent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

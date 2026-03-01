@@ -14,8 +14,6 @@ mod i2c_map;
 mod main_board;
 mod peripherals;
 
-// TODO CW keyer
-// TODO Scan/search
 // TODO add selection/changes of UI elements
 // TODO add settings screen
 // TODO Add system settings screen
@@ -27,6 +25,7 @@ mod peripherals;
 // TODO RTC
 // TODO tests
 // EEPROM settings
+// TODO Number of buttons and encoders/config is error prone.
 
 use embassy_executor::Spawner;
 use embassy_time::Timer;

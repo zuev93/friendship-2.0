@@ -14,6 +14,7 @@ use crate::app::{
         nr::{NrCommand, NR_CMD},
         rf_gain_mode::{RfGainModeCommand, RF_GAIN_MODE_CMD},
         rx_eq::{RxEqCommand, RX_EQ_CMD},
+        scan::{ScanCommand, SCAN_CMD},
         squelch::{SquelchCommand, SQUELCH_CMD},
         tone::{ToneCommand, TONE_CMD},
         transmit_mode::{TransmitModeCommand, TRANSMIT_MODE_CMD},
@@ -71,12 +72,14 @@ pub async fn buttons_task() {
                 MODE_CMD.signal(ModeCommand::PowerToggle);
             }
             ButtonEvent::Press(ButtonFunction::Transmit) => {
+                SCAN_CMD.signal(ScanCommand::Stop);
                 MODE_CMD.signal(ModeCommand::TransmitPress);
             }
             ButtonEvent::Release(ButtonFunction::Transmit) => {
                 MODE_CMD.signal(ModeCommand::TransmitRelease);
             }
             ButtonEvent::Press(ButtonFunction::Tone) => {
+                SCAN_CMD.signal(ScanCommand::Stop);
                 MODE_CMD.signal(ModeCommand::TonePress);
                 TONE_CMD.signal(ToneCommand::Press);
             }
@@ -129,6 +132,10 @@ pub async fn buttons_task() {
                 VOX_CMD.signal(VoxCommand::Toggle);
             }
 
+            ButtonEvent::Press(ButtonFunction::Scan) => {
+                SCAN_CMD.signal(ScanCommand::Toggle);
+            }
+
             ButtonEvent::Press(ButtonFunction::Power)
             | ButtonEvent::Release(ButtonFunction::TransmitMode)
             | ButtonEvent::Release(ButtonFunction::Filter)
@@ -143,9 +150,11 @@ pub async fn buttons_task() {
             | ButtonEvent::Release(ButtonFunction::DspFilter)
             | ButtonEvent::Release(ButtonFunction::TxEqualizer)
             | ButtonEvent::Release(ButtonFunction::RxEqualizer)
-            | ButtonEvent::Release(ButtonFunction::Vox) => {}
+            | ButtonEvent::Release(ButtonFunction::Vox)
+            | ButtonEvent::Release(ButtonFunction::Scan) => {}
 
             ButtonEvent::Press(ButtonFunction::IcomPtt) => {
+                SCAN_CMD.signal(ScanCommand::Stop);
                 MODE_CMD.signal(ModeCommand::TransmitPress);
             }
             ButtonEvent::Release(ButtonFunction::IcomPtt) => {

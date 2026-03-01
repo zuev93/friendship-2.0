@@ -16,7 +16,10 @@ use crate::{
             TX_EQ_LOW, TX_EQ_MID, USB_AUDIO_TX, VOLUME, VOX_ANTI_TRIP, VOX_DELAY, VOX_ENABLED,
             VOX_GAIN,
         },
-        tasks::arbiters::mode::{ModeCommand, MODE_CMD},
+        tasks::arbiters::{
+            mode::{ModeCommand, MODE_CMD},
+            scan::{ScanCommand, SCAN_CMD},
+        },
         tone_generator::ToneGenerator,
         types::TransmitMode,
     },
@@ -79,6 +82,7 @@ async fn audio_task(
         if let Some(activate) = vox_transition {
             if activate {
                 MODE_CMD.signal(ModeCommand::VoxActivate);
+                SCAN_CMD.signal(ScanCommand::Stop);
             } else {
                 MODE_CMD.signal(ModeCommand::VoxDeactivate);
             }

@@ -6,8 +6,8 @@ use crate::consts::AUDIO_BUFFER_SIZE;
 use super::types::{
     AudioAgcMode, Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics, CwPeakWidth,
     CwPitch, DspBandwidth, DspShift, EqGain, FilterType, Frequency, IfGain, IfGainMode,
-    Microphone, Mode, NbLevel, NrLevel, PaTemperatures, RfGainMode, RfPower, Squelch,
-    SweepRequest, TransmitMode, Volume, VoxAntiTrip, VoxDelay, VoxGain, WaterfallLine,
+    Microphone, Mode, NbLevel, NrLevel, PaTemperatures, RfGainMode, RfPower, ScanResume, ScanStep,
+    Squelch, SweepRequest, TransmitMode, Volume, VoxAntiTrip, VoxDelay, VoxGain, WaterfallLine,
 };
 
 pub static MODE: Watch<ThreadModeRawMutex, Mode, 16> = Watch::new();
@@ -75,3 +75,8 @@ pub static VOX_ENABLED: Watch<ThreadModeRawMutex, bool, 4> = Watch::new();
 pub static VOX_GAIN: Watch<ThreadModeRawMutex, VoxGain, 2> = Watch::new();
 pub static VOX_DELAY: Watch<ThreadModeRawMutex, VoxDelay, 2> = Watch::new();
 pub static VOX_ANTI_TRIP: Watch<ThreadModeRawMutex, VoxAntiTrip, 2> = Watch::new();
+
+pub static SCAN_ENABLED: Watch<ThreadModeRawMutex, bool, 4> = Watch::new();
+pub static SCAN_STEP: Watch<ThreadModeRawMutex, ScanStep, 2> = Watch::new();
+pub static SCAN_RESUME: Watch<ThreadModeRawMutex, ScanResume, 2> = Watch::new();
+pub static SCAN_ACTIVE: Watch<ThreadModeRawMutex, bool, 4> = Watch::new();

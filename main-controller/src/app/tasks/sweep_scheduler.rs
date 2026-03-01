@@ -1,7 +1,7 @@
 use embassy_time::{Duration, Instant, Timer};
 
 use crate::app::{
-    events::{FREQUENCY, SQUELCH, SWEEP_ACTIVE, SWEEP_REQUEST, WATERFALL_LINE},
+    events::{FREQUENCY, SCAN_ACTIVE, SQUELCH, SWEEP_ACTIVE, SWEEP_REQUEST, WATERFALL_LINE},
     types::{SweepRequest, WaterfallBuffer},
     waterfall::WaterfallSweeper,
 };
@@ -33,8 +33,17 @@ pub async fn sweep_scheduler_task() {
     let mut squelch_rcv = SQUELCH.anon_receiver();
     let mut rssi_anon_rcv = CURRENT_RSSI2.anon_receiver();
     let mut rssi_rcv = CURRENT_RSSI2.receiver().unwrap();
+    let mut scan_active_rcv = SCAN_ACTIVE.anon_receiver();
+    let mut scan_active = false;
 
     loop {
+        if let Some(active) = scan_active_rcv.try_changed() {
+            scan_active = active;
+        }
+        if scan_active {
+            Timer::after_millis(LISTENING_WINDOW_MS).await;
+            continue;
+        }
         if let Some(freq) = frequency_rcv.try_changed() {
             vfo_freq = freq;
         }

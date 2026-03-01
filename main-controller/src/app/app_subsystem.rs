@@ -20,12 +20,13 @@ use super::tasks::{
         mode::mode_arbiter_task, nb::nb_arbiter_task, nb_level::nb_level_arbiter_task,
         nr::nr_arbiter_task, nr_level::nr_level_arbiter_task,
         rf_gain_mode::rf_gain_mode_arbiter_task, rf_power::rf_power_arbiter_task,
-        rx_eq::rx_eq_arbiter_task, squelch::squelch_arbiter_task, tone::tone_arbiter_task,
-        transmit_mode::transmit_mode_arbiter_task, tx_eq::tx_eq_arbiter_task,
-        volume::volume_arbiter_task, vox::vox_arbiter_task,
+        rx_eq::rx_eq_arbiter_task, scan::scan_arbiter_task, squelch::squelch_arbiter_task,
+        tone::tone_arbiter_task, transmit_mode::transmit_mode_arbiter_task,
+        tx_eq::tx_eq_arbiter_task, volume::volume_arbiter_task, vox::vox_arbiter_task,
     },
     buttons_task::buttons_task,
     encoder_task::encoder_task,
+    scan_task::scan_task,
     sweep_scheduler::sweep_scheduler_task,
     tone_task,
 };
@@ -69,7 +70,9 @@ impl AppSubsystem {
         spawner.must_spawn(rx_eq_arbiter_task());
         spawner.must_spawn(compression_arbiter_task());
         spawner.must_spawn(vox_arbiter_task());
+        spawner.must_spawn(scan_arbiter_task());
 
+        spawner.must_spawn(scan_task());
         spawner.must_spawn(volume_arbiter_task());
         spawner.must_spawn(microphone_arbiter_task());
         spawner.must_spawn(rf_power_arbiter_task());
