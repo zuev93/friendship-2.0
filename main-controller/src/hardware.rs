@@ -11,7 +11,8 @@ use embassy_stm32::{
     Config as StmConfig,
 };
 
-use embassy_stm32::rcc::Hsi48Config;
+use embassy_stm32::rcc::{Hsi48Config, LsConfig};
+use embassy_stm32::rtc::{Rtc, RtcConfig};
 use embassy_stm32::wdg::IndependentWatchdog;
 
 use crate::{
@@ -40,8 +41,11 @@ impl Hardware {
         let mut config = StmConfig::default();
         config.enable_ucpd1_dead_battery = true;
         config.rcc.hsi48 = Some(Hsi48Config { sync_from_usb: true });
+        config.rcc.ls = LsConfig::default_lse();
         config.rcc.ls.enable_backup_sram = true;
         let p = embassy_stm32::init(config);
+
+        let (rtc, rtc_provider) = Rtc::new(p.RTC, RtcConfig::default());
 
         let wdg = IndependentWatchdog::new(p.IWDG, 4_000_000);
         let irqs = Irqs;
@@ -120,6 +124,8 @@ impl Hardware {
             p.GPDMA1_CH6,
             p.GPDMA1_CH7,
             p.PA15,
+            rtc,
+            rtc_provider,
         )
         .await;
         PeripheralsSubsystem::init_subsystem(

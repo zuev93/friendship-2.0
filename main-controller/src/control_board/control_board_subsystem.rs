@@ -4,6 +4,7 @@ use embassy_stm32::i2c::{ErrorInterruptHandler, EventInterruptHandler, RxDma as 
 use embassy_stm32::i2c::{self, mode as i2c_mode, I2c, SclPin, SdaPin};
 use embassy_stm32::mode;
 use embassy_stm32::peripherals::{GPDMA1_CH6, GPDMA1_CH7, PB13, PB14, UCPD1};
+use embassy_stm32::rtc::{Rtc, RtcTimeProvider};
 use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin};
 use embassy_stm32::{interrupt, Peri};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -49,7 +50,16 @@ impl ControlBoardSybstem {
         ucpd_tx_dma: Peri<'static, GPDMA1_CH7>,
 
         status_led_pin: Peri<'static, impl Pin>,
+
+        rtc: Rtc,
+        rtc_provider: RtcTimeProvider,
     ) {
+        static RTC_INSTANCE: StaticCell<Mutex<ThreadModeRawMutex, Rtc>> = StaticCell::new();
+        static RTC_PROVIDER: StaticCell<RtcTimeProvider> = StaticCell::new();
+
+        let _rtc_mutex = RTC_INSTANCE.init(Mutex::new(rtc));
+        let _provider = RTC_PROVIDER.init(rtc_provider);
+
         static I2C_BUS: StaticCell<
             Mutex<ThreadModeRawMutex, I2c<'static, mode::Async, i2c_mode::Master>>,
         > = StaticCell::new();
