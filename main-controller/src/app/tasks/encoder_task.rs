@@ -15,6 +15,7 @@ use crate::app::tasks::arbiters::{
     squelch::{SquelchCommand, SQUELCH_CMD},
     tx_eq::{TxEqCommand, TX_EQ_CMD},
     volume::VOLUME_CMD,
+    vox::{VoxCommand, VOX_CMD},
 };
 use crate::front_panel::events::ENCODER_EVENTS;
 use crate::front_panel::types::EncoderFunction;
@@ -96,6 +97,15 @@ pub async fn encoder_task() {
             }
             EncoderFunction::RxEqHigh => {
                 RX_EQ_CMD.signal(RxEqCommand::SetHigh(event.delta as i8));
+            }
+            EncoderFunction::VoxGain => {
+                VOX_CMD.signal(VoxCommand::GainDelta(event.delta as i16 * STEP_SIZE));
+            }
+            EncoderFunction::VoxDelay => {
+                VOX_CMD.signal(VoxCommand::DelayDelta(event.delta as i16 * STEP_SIZE));
+            }
+            EncoderFunction::VoxAntiTrip => {
+                VOX_CMD.signal(VoxCommand::AntiTripDelta(event.delta as i16 * STEP_SIZE));
             }
             EncoderFunction::Menu => {}
         }

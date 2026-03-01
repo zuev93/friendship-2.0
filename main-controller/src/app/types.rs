@@ -249,6 +249,49 @@ impl RfPowerPercent {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VoxGain(i16);
+
+impl VoxGain {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VoxDelay(i16);
+
+impl VoxDelay {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(100, 2000))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+
+    pub fn ms(self) -> u16 {
+        self.0 as u16
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct VoxAntiTrip(i16);
+
+impl VoxAntiTrip {
+    pub fn new(raw: i16) -> Self {
+        Self(raw.clamp(0, ACCUMULATOR_MAX))
+    }
+
+    pub fn raw(self) -> i16 {
+        self.0
+    }
+}
+
 pub type RfPower = RfPowerPercent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

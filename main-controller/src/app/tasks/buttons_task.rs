@@ -18,6 +18,7 @@ use crate::app::{
         tone::{ToneCommand, TONE_CMD},
         transmit_mode::{TransmitModeCommand, TRANSMIT_MODE_CMD},
         tx_eq::{TxEqCommand, TX_EQ_CMD},
+        vox::{VoxCommand, VOX_CMD},
     },
 };
 use crate::front_panel::{
@@ -124,6 +125,10 @@ pub async fn buttons_task() {
                 RX_EQ_CMD.signal(RxEqCommand::Toggle);
             }
 
+            ButtonEvent::Press(ButtonFunction::Vox) => {
+                VOX_CMD.signal(VoxCommand::Toggle);
+            }
+
             ButtonEvent::Press(ButtonFunction::Power)
             | ButtonEvent::Release(ButtonFunction::TransmitMode)
             | ButtonEvent::Release(ButtonFunction::Filter)
@@ -137,7 +142,8 @@ pub async fn buttons_task() {
             | ButtonEvent::Release(ButtonFunction::AudioAgc)
             | ButtonEvent::Release(ButtonFunction::DspFilter)
             | ButtonEvent::Release(ButtonFunction::TxEqualizer)
-            | ButtonEvent::Release(ButtonFunction::RxEqualizer) => {}
+            | ButtonEvent::Release(ButtonFunction::RxEqualizer)
+            | ButtonEvent::Release(ButtonFunction::Vox) => {}
 
             ButtonEvent::Press(ButtonFunction::IcomPtt) => {
                 MODE_CMD.signal(ModeCommand::TransmitPress);

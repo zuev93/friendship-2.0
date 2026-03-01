@@ -39,6 +39,7 @@ impl ButtonMapping {
         map.insert(18, ButtonFunction::DspFilter).ok();
         map.insert(19, ButtonFunction::TxEqualizer).ok();
         map.insert(20, ButtonFunction::RxEqualizer).ok();
+        map.insert(21, ButtonFunction::Vox).ok();
 
         Self { map }
     }
@@ -82,6 +83,9 @@ impl EncoderMapping {
         map.insert(19, EncoderFunction::RxEqLow).ok();
         map.insert(20, EncoderFunction::RxEqMid).ok();
         map.insert(21, EncoderFunction::RxEqHigh).ok();
+        map.insert(22, EncoderFunction::VoxGain).ok();
+        map.insert(23, EncoderFunction::VoxDelay).ok();
+        map.insert(24, EncoderFunction::VoxAntiTrip).ok();
 
         Self { map }
     }

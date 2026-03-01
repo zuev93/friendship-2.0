@@ -6,6 +6,7 @@ use crate::{
         cordic_math::CordicMath,
         fmac_fir::{FmacFir, FIR_TAPS},
         types::{AudioAgcMode, Compression, EqGain, NrLevel, Volume},
+        vox::VoxProcessor,
     },
     consts::AUDIO_BUFFER_SIZE,
 };
@@ -171,6 +172,7 @@ pub struct AudioMixer {
     cw_pitch_hz: u16,
     cordic: CordicMath,
     fmac: FmacFir,
+    vox: VoxProcessor,
 }
 
 impl AudioMixer {
@@ -224,6 +226,7 @@ impl AudioMixer {
             cw_pitch_hz: 700,
             cordic: CordicMath::new(cordic_peri),
             fmac: FmacFir::new(fmac_peri),
+            vox: VoxProcessor::new(),
         }
     }
 
@@ -420,6 +423,34 @@ impl AudioMixer {
         if self.rx_eq_enabled {
             self.recompute_rx_eq();
         }
+    }
+
+    pub fn process_vox(&mut self) -> Option<bool> {
+        let result = self.vox.process(&self.mic, &self.rx, self.usb_tx_active);
+        if self.vox.is_active() {
+            self.mic = result.delayed_mic;
+        }
+        result.transition
+    }
+
+    pub fn set_vox_enabled(&mut self, enabled: bool) {
+        self.vox.set_enabled(enabled);
+    }
+
+    pub fn set_vox_gain(&mut self, raw: u16) {
+        self.vox.set_gain(raw);
+    }
+
+    pub fn set_vox_delay(&mut self, ms: u16) {
+        self.vox.set_delay(ms);
+    }
+
+    pub fn set_vox_anti_trip(&mut self, raw: u16) {
+        self.vox.set_anti_trip(raw);
+    }
+
+    pub fn set_vox_voice_mode(&mut self, voice: bool) {
+        self.vox.set_voice_mode(voice);
     }
 
     fn compute_fir_bandpass(&mut self, bw_hz: u16, pbt_hz: i16, sr: f32) -> [f32; FIR_TAPS] {

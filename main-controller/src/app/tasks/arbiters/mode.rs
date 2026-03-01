@@ -10,6 +10,8 @@ pub enum ModeCommand {
     TransmitRelease,
     TonePress,
     ToneRelease,
+    VoxActivate,
+    VoxDeactivate,
 }
 
 pub static MODE_CMD: Signal<ThreadModeRawMutex, ModeCommand> = Signal::new();
@@ -17,6 +19,8 @@ pub static MODE_CMD: Signal<ThreadModeRawMutex, ModeCommand> = Signal::new();
 #[embassy_executor::task]
 pub async fn mode_arbiter_task() {
     let mut mode = Mode::StandBy;
+    let mut ptt_held = false;
+    let mut vox_active = false;
 
     loop {
         let cmd = MODE_CMD.wait().await;
@@ -29,6 +33,7 @@ pub async fn mode_arbiter_task() {
                 }
             }
             ModeCommand::TransmitPress => {
+                ptt_held = true;
                 if mode == Mode::Rx {
                     Mode::Tx
                 } else {
@@ -36,13 +41,15 @@ pub async fn mode_arbiter_task() {
                 }
             }
             ModeCommand::TransmitRelease => {
-                if mode == Mode::Tx {
+                ptt_held = false;
+                if mode == Mode::Tx && !vox_active {
                     Mode::Rx
                 } else {
                     continue;
                 }
             }
             ModeCommand::TonePress => {
+                ptt_held = true;
                 if mode == Mode::Rx {
                     Mode::Tx
                 } else {
@@ -50,7 +57,24 @@ pub async fn mode_arbiter_task() {
                 }
             }
             ModeCommand::ToneRelease => {
-                if mode == Mode::Tx {
+                ptt_held = false;
+                if mode == Mode::Tx && !vox_active {
+                    Mode::Rx
+                } else {
+                    continue;
+                }
+            }
+            ModeCommand::VoxActivate => {
+                vox_active = true;
+                if mode == Mode::Rx {
+                    Mode::Tx
+                } else {
+                    continue;
+                }
+            }
+            ModeCommand::VoxDeactivate => {
+                vox_active = false;
+                if mode == Mode::Tx && !ptt_held {
                     Mode::Rx
                 } else {
                     continue;

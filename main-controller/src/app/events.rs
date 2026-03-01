@@ -7,7 +7,7 @@ use super::types::{
     AudioAgcMode, Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics, CwPeakWidth,
     CwPitch, DspBandwidth, DspShift, EqGain, FilterType, Frequency, IfGain, IfGainMode,
     Microphone, Mode, NbLevel, NrLevel, PaTemperatures, RfGainMode, RfPower, Squelch,
-    SweepRequest, TransmitMode, Volume, WaterfallLine,
+    SweepRequest, TransmitMode, Volume, VoxAntiTrip, VoxDelay, VoxGain, WaterfallLine,
 };
 
 pub static MODE: Watch<ThreadModeRawMutex, Mode, 16> = Watch::new();
@@ -70,3 +70,8 @@ pub static AUDIO_BUFFER_SPEAKERS: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_S
     Watch::new();
 pub static AUDIO_BUFFER_TX: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();
 pub static USB_AUDIO_TX: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();
+
+pub static VOX_ENABLED: Watch<ThreadModeRawMutex, bool, 4> = Watch::new();
+pub static VOX_GAIN: Watch<ThreadModeRawMutex, VoxGain, 2> = Watch::new();
+pub static VOX_DELAY: Watch<ThreadModeRawMutex, VoxDelay, 2> = Watch::new();
+pub static VOX_ANTI_TRIP: Watch<ThreadModeRawMutex, VoxAntiTrip, 2> = Watch::new();

@@ -14,7 +14,6 @@ mod i2c_map;
 mod main_board;
 mod peripherals;
 
-// TODO Vox
 // TODO CW keyer
 // TODO Scan/search
 // TODO add selection/changes of UI elements

@@ -26,6 +26,7 @@ pub enum ButtonFunction {
     DspFilter,
     TxEqualizer,
     RxEqualizer,
+    Vox,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -52,6 +53,9 @@ pub enum EncoderFunction {
     RxEqLow,
     RxEqMid,
     RxEqHigh,
+    VoxGain,
+    VoxDelay,
+    VoxAntiTrip,
 }
 
 pub type ControlBusType = &'static Mutex<ThreadModeRawMutex, ControlBus>;

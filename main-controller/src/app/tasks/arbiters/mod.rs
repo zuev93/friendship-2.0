@@ -27,3 +27,4 @@ pub mod tone;
 pub mod transmit_mode;
 pub mod tx_eq;
 pub mod volume;
+pub mod vox;

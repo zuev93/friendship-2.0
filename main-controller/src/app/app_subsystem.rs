@@ -22,7 +22,7 @@ use super::tasks::{
         rf_gain_mode::rf_gain_mode_arbiter_task, rf_power::rf_power_arbiter_task,
         rx_eq::rx_eq_arbiter_task, squelch::squelch_arbiter_task, tone::tone_arbiter_task,
         transmit_mode::transmit_mode_arbiter_task, tx_eq::tx_eq_arbiter_task,
-        volume::volume_arbiter_task,
+        volume::volume_arbiter_task, vox::vox_arbiter_task,
     },
     buttons_task::buttons_task,
     encoder_task::encoder_task,
@@ -68,6 +68,7 @@ impl AppSubsystem {
         spawner.must_spawn(tx_eq_arbiter_task());
         spawner.must_spawn(rx_eq_arbiter_task());
         spawner.must_spawn(compression_arbiter_task());
+        spawner.must_spawn(vox_arbiter_task());
 
         spawner.must_spawn(volume_arbiter_task());
         spawner.must_spawn(microphone_arbiter_task());

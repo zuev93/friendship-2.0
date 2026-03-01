@@ -12,10 +12,13 @@ use crate::{
             ANF_ENABLED, AUDIO_AGC_MODE, AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS,
             AUDIO_BUFFER_TX, COMPRESSION, COMPRESSION_METER, CW_PEAK_ENABLED, CW_PEAK_WIDTH,
             CW_PITCH, DSP_BW, DSP_FILTER_ENABLED, DSP_PBT, NR_ENABLED, NR_LEVEL, RX_EQ_ENABLED,
-            RX_EQ_HIGH, RX_EQ_LOW, RX_EQ_MID, SQUELCH, TX_EQ_ENABLED, TX_EQ_HIGH, TX_EQ_LOW,
-            TX_EQ_MID, USB_AUDIO_TX, VOLUME,
+            RX_EQ_HIGH, RX_EQ_LOW, RX_EQ_MID, SQUELCH, TRANSMIT_MODE, TX_EQ_ENABLED, TX_EQ_HIGH,
+            TX_EQ_LOW, TX_EQ_MID, USB_AUDIO_TX, VOLUME, VOX_ANTI_TRIP, VOX_DELAY, VOX_ENABLED,
+            VOX_GAIN,
         },
+        tasks::arbiters::mode::{ModeCommand, MODE_CMD},
         tone_generator::ToneGenerator,
+        types::TransmitMode,
     },
     front_panel::events::{AUDIO_MIC_BUFFER, HEADPHONES_CONNECTED},
     main_board::events::{AUDIO_RX_BUFFER, CURRENT_RSSI2},
@@ -32,6 +35,7 @@ pub fn spawn_tasks(
     spawner.must_spawn(audio_task(mixer, tone_generator));
     spawner.must_spawn(controls_task(mixer));
     spawner.must_spawn(dsp_controls_task(mixer));
+    spawner.must_spawn(vox_controls_task(mixer));
 }
 
 #[embassy_executor::task]
@@ -47,21 +51,38 @@ async fn audio_task(
         let mic = mic_rcv.changed().await;
         let generator = tone_generator.lock().await.next_buffer();
 
-        let mut mixer = mutex.lock().await;
-        mixer.set_buffer_rx(audio_rx);
-        mixer.set_buffer_generator(generator);
-        mixer.set_buffer_mic(mic);
+        let vox_transition;
+        {
+            let mut mixer = mutex.lock().await;
+            mixer.set_buffer_rx(audio_rx);
+            mixer.set_buffer_generator(generator);
+            mixer.set_buffer_mic(mic);
 
-        if let Some(usb_audio) = usb_tx_rcv.try_changed() {
-            mixer.set_buffer_usb_tx(usb_audio);
+            if let Some(usb_audio) = usb_tx_rcv.try_changed() {
+                mixer.set_buffer_usb_tx(usb_audio);
+            }
+
+            vox_transition = mixer.process_vox();
+
+            mixer.mix();
+            COMPRESSION_METER.sender().send(mixer.gain_reduction());
+
+            AUDIO_BUFFER_TX.sender().send(mixer.get_buffer_tx());
+            AUDIO_BUFFER_HEADPHONES
+                .sender()
+                .send(mixer.get_buffer_headphones());
+            AUDIO_BUFFER_SPEAKERS
+                .sender()
+                .send(mixer.get_buffer_speakers());
         }
 
-        mixer.mix();
-        COMPRESSION_METER.sender().send(mixer.gain_reduction());
-
-        AUDIO_BUFFER_TX.sender().send(mixer.get_buffer_tx());
-        AUDIO_BUFFER_HEADPHONES.sender().send(mixer.get_buffer_headphones());
-        AUDIO_BUFFER_SPEAKERS.sender().send(mixer.get_buffer_speakers());
+        if let Some(activate) = vox_transition {
+            if activate {
+                MODE_CMD.signal(ModeCommand::VoxActivate);
+            } else {
+                MODE_CMD.signal(ModeCommand::VoxDeactivate);
+            }
+        }
     }
 }
 
@@ -212,6 +233,46 @@ async fn dsp_controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>
             }
             Either::Second(Either::Second(Either4::Fourth(gain))) => {
                 mutex.lock().await.set_rx_eq_high(gain);
+            }
+        }
+    }
+}
+
+#[embassy_executor::task]
+async fn vox_controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
+    let mut vox_enabled_rcv = VOX_ENABLED.receiver().unwrap();
+    let mut vox_gain_rcv = VOX_GAIN.receiver().unwrap();
+    let mut vox_delay_rcv = VOX_DELAY.receiver().unwrap();
+    let mut vox_anti_trip_rcv = VOX_ANTI_TRIP.receiver().unwrap();
+    let mut transmit_mode_rcv = TRANSMIT_MODE.receiver().unwrap();
+
+    loop {
+        match select(
+            select4(
+                vox_enabled_rcv.changed(),
+                vox_gain_rcv.changed(),
+                vox_delay_rcv.changed(),
+                vox_anti_trip_rcv.changed(),
+            ),
+            transmit_mode_rcv.changed(),
+        )
+        .await
+        {
+            Either::First(Either4::First(enabled)) => {
+                mutex.lock().await.set_vox_enabled(enabled);
+            }
+            Either::First(Either4::Second(gain)) => {
+                mutex.lock().await.set_vox_gain(gain.raw() as u16);
+            }
+            Either::First(Either4::Third(delay)) => {
+                mutex.lock().await.set_vox_delay(delay.ms());
+            }
+            Either::First(Either4::Fourth(anti_trip)) => {
+                mutex.lock().await.set_vox_anti_trip(anti_trip.raw() as u16);
+            }
+            Either::Second(mode) => {
+                let voice = matches!(mode, TransmitMode::Usb | TransmitMode::Lsb);
+                mutex.lock().await.set_vox_voice_mode(voice);
             }
         }
     }
