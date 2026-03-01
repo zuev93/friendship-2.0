@@ -5,7 +5,7 @@ use crate::app::{
     types::{SweepRequest, WaterfallBuffer},
     waterfall::WaterfallSweeper,
 };
-use crate::main_board::events::CURRENT_RSSI;
+use crate::main_board::events::CURRENT_RSSI2;
 
 const DEFAULT_SPAN_HZ: u32 = 100_000;
 const FULL_LINE_BUDGET_MS: u64 = 130;
@@ -31,8 +31,8 @@ pub async fn sweep_scheduler_task() {
     let mut squelch_closed_since: Option<Instant> = None;
     let mut frequency_rcv = FREQUENCY.anon_receiver();
     let mut squelch_rcv = SQUELCH.anon_receiver();
-    let mut rssi_anon_rcv = CURRENT_RSSI.anon_receiver();
-    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut rssi_anon_rcv = CURRENT_RSSI2.anon_receiver();
+    let mut rssi_rcv = CURRENT_RSSI2.receiver().unwrap();
 
     loop {
         if let Some(freq) = frequency_rcv.try_changed() {

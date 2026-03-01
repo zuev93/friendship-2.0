@@ -8,7 +8,7 @@ use crate::{
     },
     app::types::{Band, ClarifierMode, IfGainMode, Mode, RfGainMode, TransmitMode},
     front_panel::{tasks::spi_receiver::handle_response_packet, types::ControlBusType},
-    main_board::events::CURRENT_RSSI,
+    main_board::events::CURRENT_RSSI2,
 };
 use common::protocol_types::RadioStateCommand;
 
@@ -31,7 +31,7 @@ pub async fn radio_state_task(control_bus: ControlBusType) {
     let mut volume_raw: i16 = 500;
     let mut squelch_raw: i16 = 0;
 
-    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut rssi_rcv = CURRENT_RSSI2.receiver().unwrap();
     let mut coupler_rcv = COUPLER_METRICS.receiver().unwrap();
     let mut mode_rcv = MODE.receiver().unwrap();
     let mut transmit_mode_rcv = TRANSMIT_MODE.receiver().unwrap();

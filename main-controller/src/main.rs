@@ -14,7 +14,6 @@ mod i2c_map;
 mod main_board;
 mod peripherals;
 
-// TODO check used RSSI
 // TODO add usb connection
 // TODO noise reduction
 // TODO DSP

@@ -5,7 +5,7 @@ use static_cell::StaticCell;
 
 use crate::{
     app::events::{IF_GAIN, IF_GAIN_MODE, MODE, RSSI_FAST_MODE},
-    main_board::{events::CURRENT_RSSI, modules::if_amplifier::IfAmplifier},
+    main_board::{events::{CURRENT_RSSI1, CURRENT_RSSI2}, modules::if_amplifier::IfAmplifier},
 };
 use common::error::error;
 
@@ -20,7 +20,7 @@ pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfAmplifier) {
 async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
     let mut if_gain_rcv = IF_GAIN.receiver().unwrap();
     let mut if_gain_mode_rcv = IF_GAIN_MODE.receiver().unwrap();
-    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut rssi_rcv = CURRENT_RSSI2.receiver().unwrap();
     let mut mode_rcv = MODE.receiver().unwrap();
     loop {
         match select4(
@@ -66,8 +66,8 @@ async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) 
                 continue;
             }
         };
-        let selected_rssi = select_rssi(rssi_data.rssi1, rssi_data.rssi2);
-        CURRENT_RSSI.sender().send(selected_rssi);
+        CURRENT_RSSI1.sender().send(rssi_data.rssi1);
+        CURRENT_RSSI2.sender().send(rssi_data.rssi2);
 
         if rssi_fast_rcv.try_changed().is_some() {
             embassy_futures::yield_now().await;
@@ -77,9 +77,3 @@ async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) 
     }
 }
 
-fn select_rssi(
-    rssi1: crate::main_board::types::RssiDbm,
-    _rssi2: crate::main_board::types::RssiDbm,
-) -> crate::main_board::types::RssiDbm {
-    rssi1
-}

@@ -6,7 +6,7 @@ use static_cell::StaticCell;
 use crate::{
     app::events::{ALC_CONSTRAINT, FILTER, MODE, NB_ENABLED, NB_LEVEL, RF_GAIN_MODE, RF_POWER, NB_ACTIVE, TX_THERMAL_CONSTRAINT},
     control_board::events::{PD_CONTRACT, POWER_TELEMETRY},
-    main_board::{events::CURRENT_RSSI, modules::crystall_filter::CrystallFilter},
+    main_board::{events::CURRENT_RSSI1, modules::crystall_filter::CrystallFilter},
 };
 use common::error::error;
 
@@ -29,7 +29,7 @@ async fn crystall_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, Crystall
     let mut rf_gain_mode_rcv = RF_GAIN_MODE.receiver().unwrap();
     let mut nb_enabled_rcv = NB_ENABLED.receiver().unwrap();
     let mut nb_level_rcv = NB_LEVEL.receiver().unwrap();
-    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut rssi_rcv = CURRENT_RSSI1.receiver().unwrap();
     let mut alc_rcv = ALC_CONSTRAINT.receiver().unwrap();
     loop {
         match select(

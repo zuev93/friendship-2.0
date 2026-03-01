@@ -13,7 +13,7 @@ use crate::{
         tone_generator::ToneGenerator,
     },
     front_panel::events::{AUDIO_MIC_BUFFER, HEADPHONES_CONNECTED},
-    main_board::events::{AUDIO_RX_BUFFER, CURRENT_RSSI},
+    main_board::events::{AUDIO_RX_BUFFER, CURRENT_RSSI2},
 };
 
 pub fn spawn_tasks(
@@ -57,7 +57,7 @@ async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     let mut volume_rcv = VOLUME.receiver().unwrap();
     let mut hp_rcv = HEADPHONES_CONNECTED.receiver().unwrap();
     let mut squelch_rcv = SQUELCH.receiver().unwrap();
-    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut rssi_rcv = CURRENT_RSSI2.receiver().unwrap();
     let mut compression_rcv = COMPRESSION.receiver().unwrap();
     loop {
         match select5(
