@@ -5,7 +5,9 @@ use static_cell::StaticCell;
 use crate::{
     app::events::{AUDIO_BUFFER_SPEAKERS, MODE},
     control_board::modules::audio::Audio,
+    runtime_stats::TaskId,
 };
+use druzhba_macros::instrumented;
 
 static AUDIO_PANEL: StaticCell<Audio> = StaticCell::new();
 
@@ -15,6 +17,7 @@ pub async fn create_tasks(spawner: Spawner, audio: Audio) {
     spawner.must_spawn(control_task(audio_panel));
 }
 
+#[instrumented(TaskId::AudioI2sSpeakers)]
 #[embassy_executor::task]
 async fn audio_panel_i2s_speakers_task(audio: &'static Audio) {
     let mut spk_rcv = AUDIO_BUFFER_SPEAKERS.receiver().unwrap();
@@ -26,6 +29,7 @@ async fn audio_panel_i2s_speakers_task(audio: &'static Audio) {
     }
 }
 
+#[instrumented(TaskId::ControlBoardAudioControl)]
 #[embassy_executor::task]
 async fn control_task(audio: &'static Audio) {
     let mut mode_rcv = MODE.receiver().unwrap();

@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -13,6 +15,7 @@ pub enum ScanCommand {
 
 pub static SCAN_CMD: Signal<ThreadModeRawMutex, ScanCommand> = Signal::new();
 
+#[instrumented(TaskId::ScanArbiter)]
 #[embassy_executor::task]
 pub async fn scan_arbiter_task() {
     let mut enabled = false;

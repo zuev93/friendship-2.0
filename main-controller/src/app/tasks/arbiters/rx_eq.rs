@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -13,6 +15,7 @@ pub enum RxEqCommand {
 
 pub static RX_EQ_CMD: Signal<ThreadModeRawMutex, RxEqCommand> = Signal::new();
 
+#[instrumented(TaskId::RxEqArbiter)]
 #[embassy_executor::task]
 pub async fn rx_eq_arbiter_task() {
     let mut enabled = false;

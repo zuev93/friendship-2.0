@@ -1,3 +1,4 @@
+use druzhba_macros::instrumented;
 use embassy_time::{Duration, Instant, Timer};
 
 use crate::app::{
@@ -6,6 +7,7 @@ use crate::app::{
     waterfall::WaterfallSweeper,
 };
 use crate::main_board::events::CURRENT_RSSI2;
+use crate::runtime_stats::TaskId;
 
 const DEFAULT_SPAN_HZ: u32 = 100_000;
 const FULL_LINE_BUDGET_MS: u64 = 130;
@@ -22,6 +24,7 @@ fn squelch_to_dbm(raw: i16) -> i8 {
     (DBM_MIN + (raw as i32 * (DBM_MAX - DBM_MIN) / RAW_MAX)) as i8
 }
 
+#[instrumented(TaskId::SweepScheduler)]
 #[embassy_executor::task]
 pub async fn sweep_scheduler_task() {
     let mut sweeper = WaterfallSweeper::new(DEFAULT_SPAN_HZ);

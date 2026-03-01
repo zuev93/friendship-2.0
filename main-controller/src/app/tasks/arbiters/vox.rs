@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -13,6 +15,7 @@ pub enum VoxCommand {
 
 pub static VOX_CMD: Signal<ThreadModeRawMutex, VoxCommand> = Signal::new();
 
+#[instrumented(TaskId::VoxArbiter)]
 #[embassy_executor::task]
 pub async fn vox_arbiter_task() {
     let mut enabled = false;

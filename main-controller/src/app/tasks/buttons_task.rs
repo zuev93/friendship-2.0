@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+
 use crate::app::{
     events::BUTTON_BEEP,
     tasks::arbiters::{
@@ -27,6 +29,7 @@ use crate::front_panel::{
     events::{ButtonEvent, BUTTON_EVENTS, CursorCommand, CURSOR_CMD},
     types::ButtonFunction,
 };
+use crate::runtime_stats::TaskId;
 use embassy_time::{Duration, Instant};
 use heapless::index_map::FnvIndexMap;
 
@@ -50,6 +53,7 @@ fn debounce(
     true
 }
 
+#[instrumented(TaskId::Buttons)]
 #[embassy_executor::task]
 pub async fn buttons_task() {
     let button_rx = BUTTON_EVENTS.receiver();

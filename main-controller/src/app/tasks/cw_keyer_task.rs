@@ -1,3 +1,4 @@
+use druzhba_macros::instrumented;
 use embassy_stm32::gpio::Input;
 use embassy_time::Timer;
 
@@ -8,6 +9,7 @@ use crate::app::events::{
 };
 use crate::app::tasks::arbiters::mode::{ModeCommand, MODE_CMD};
 use crate::app::types::TransmitMode;
+use crate::runtime_stats::TaskId;
 
 struct PaddleDebounce {
     dit_count: u8,
@@ -48,6 +50,7 @@ impl PaddleDebounce {
     }
 }
 
+#[instrumented(TaskId::CwKeyer)]
 #[embassy_executor::task]
 pub async fn cw_keyer_task(dit_pin: Input<'static>, dah_pin: Input<'static>) {
     let mut keyer = CwKeyer::new();

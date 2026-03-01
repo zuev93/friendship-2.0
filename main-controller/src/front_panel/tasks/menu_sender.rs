@@ -6,7 +6,10 @@ use crate::front_panel::{
     tasks::spi_receiver::handle_response_packet,
     types::ControlBusType,
 };
+use crate::runtime_stats::TaskId;
+use druzhba_macros::instrumented;
 
+#[instrumented(TaskId::MenuSender)]
 #[embassy_executor::task]
 pub async fn menu_sender_task(control_bus: ControlBusType) {
     loop {

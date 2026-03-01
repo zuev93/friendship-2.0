@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_executor::Spawner;
 use embassy_futures::select::{select, select4, select5, Either, Either4, Either5};
 use embassy_stm32::peripherals::{CORDIC, FMAC};
@@ -41,6 +43,7 @@ pub fn spawn_tasks(
     spawner.must_spawn(vox_controls_task(mixer));
 }
 
+#[instrumented(TaskId::Audio)]
 #[embassy_executor::task]
 async fn audio_task(
     mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>,
@@ -90,6 +93,7 @@ async fn audio_task(
     }
 }
 
+#[instrumented(TaskId::Controls)]
 #[embassy_executor::task]
 async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     let mut volume_rcv = VOLUME.receiver().unwrap();
@@ -138,6 +142,7 @@ async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     }
 }
 
+#[instrumented(TaskId::DspControls)]
 #[embassy_executor::task]
 async fn dsp_controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     let mut anf_rcv = ANF_ENABLED.receiver().unwrap();
@@ -242,6 +247,7 @@ async fn dsp_controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>
     }
 }
 
+#[instrumented(TaskId::VoxControls)]
 #[embassy_executor::task]
 async fn vox_controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     let mut vox_enabled_rcv = VOX_ENABLED.receiver().unwrap();

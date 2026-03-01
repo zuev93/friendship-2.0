@@ -1,9 +1,12 @@
 use crate::app::events::{FREQUENCY, WATERFALL_LINE};
 use crate::front_panel::{tasks::spi_receiver::handle_response_packet, types::ControlBusType};
+use crate::runtime_stats::TaskId;
 use common::protocol_types::{SweepStatus, WaterfallLineCommand};
+use druzhba_macros::instrumented;
 
 const DEFAULT_SPAN_HZ: u32 = 100_000;
 
+#[instrumented(TaskId::WaterfallSender)]
 #[embassy_executor::task]
 pub async fn waterfall_sender_task(control_bus: ControlBusType) {
     let mut vfo_freq: u32 = 7_100_000;

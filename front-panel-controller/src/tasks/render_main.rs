@@ -44,7 +44,9 @@ async fn render_main_task(
                 let display = &mut d.displays[display_index];
                 ui::main_screen::render(&mut display.fb, &state);
                 let front = display.fb.swap();
-                let _ = display.driver.draw(front).await;
+                if display.driver.draw(front).await.is_ok() {
+            display.count_frame();
+        }
             }
             Either::Second(menu) => {
                 menu_active = menu.active;
@@ -58,7 +60,9 @@ async fn render_main_task(
                     continue;
                 }
                 let front = display.fb.swap();
-                let _ = display.driver.draw(front).await;
+                if display.driver.draw(front).await.is_ok() {
+            display.count_frame();
+        }
             }
         }
     }

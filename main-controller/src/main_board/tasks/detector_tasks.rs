@@ -3,9 +3,12 @@ use embassy_futures::select::{select3, Either3};
 use crate::{
     app::events::{FILTER, MODE, TRANSMIT_MODE},
     main_board::modules::detector::Detector,
+    runtime_stats::TaskId,
 };
 use common::error::error;
+use druzhba_macros::instrumented;
 
+#[instrumented(TaskId::DetectorTasks)]
 #[embassy_executor::task]
 pub async fn detector_tasks(mut detector: Detector) {
     let mut transmit_mode_rcv = TRANSMIT_MODE.receiver().unwrap();

@@ -9,7 +9,9 @@ use crate::control_board::modules::ucpd_policy::TransceiverPolicyManager;
 use crate::control_board::modules::ucpd_sink::UcpdSinkDriver;
 use crate::control_board::modules::ucpd_timer::EmbassySinkTimer;
 use crate::hardware::Irqs;
+use crate::runtime_stats::TaskId;
 use common::error::error;
+use druzhba_macros::instrumented;
 use usbpd::sink::policy_engine::Sink;
 
 const DEBOUNCE_MS: u64 = 100;
@@ -25,6 +27,7 @@ pub fn create_tasks(
     spawner.must_spawn(ucpd_task(ucpd, cc1, cc2, rx_dma, tx_dma));
 }
 
+#[instrumented(TaskId::UcpdTask)]
 #[embassy_executor::task]
 async fn ucpd_task(
     mut ucpd_peri: Peri<'static, UCPD1>,

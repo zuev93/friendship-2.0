@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -9,6 +11,7 @@ pub enum DspFilterCommand {
 
 pub static DSP_FILTER_CMD: Signal<ThreadModeRawMutex, DspFilterCommand> = Signal::new();
 
+#[instrumented(TaskId::DspFilterArbiter)]
 #[embassy_executor::task]
 pub async fn dsp_filter_arbiter_task() {
     let mut enabled = false;

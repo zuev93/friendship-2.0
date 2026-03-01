@@ -23,6 +23,7 @@ pub struct Display {
         Output<'static>,
     >,
     pub fb: BufferedDisplay,
+    index: usize,
 }
 
 impl Display {
@@ -32,11 +33,17 @@ impl Display {
             Output<'static>,
             Output<'static>,
         >,
+        index: usize,
     ) -> Self {
         Self {
             driver,
             fb: BufferedDisplay::new(),
+            index,
         }
+    }
+
+    pub fn count_frame(&self) {
+        crate::state::fps::increment(self.index);
     }
 }
 
@@ -94,19 +101,19 @@ impl Displays {
             dc_mutex,
             cs1,
             Rotation::Landscape90,
-        ));
+        ), 0);
         let display2 = Display::new(ST7789::new(
             spi2_mutex,
             dc_mutex,
             cs2,
             Rotation::Landscape90,
-        ));
+        ), 1);
         let display3 = Display::new(ST7789::new(
             spi2_mutex,
             dc_mutex,
             cs3,
             Rotation::Landscape90,
-        ));
+        ), 2);
 
         Self {
             displays: [display1, display2, display3],

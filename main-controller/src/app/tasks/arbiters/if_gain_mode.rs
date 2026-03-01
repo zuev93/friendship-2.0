@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_futures::select::{select, Either};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
@@ -12,6 +14,7 @@ pub enum IfGainModeCommand {
 
 pub static IF_GAIN_MODE_CMD: Signal<ThreadModeRawMutex, IfGainModeCommand> = Signal::new();
 
+#[instrumented(TaskId::IfGainModeArbiter)]
 #[embassy_executor::task]
 pub async fn if_gain_mode_arbiter_task() {
     let mut if_gain_mode = IfGainMode::Manual;

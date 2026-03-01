@@ -130,5 +130,6 @@ fn serialize_event(event: &crate::state::output::OutputEvent, packet: &mut Packe
         OutputEvent::Button(btn) => btn.serialize(packet, crc),
         OutputEvent::Encoder(enc) => enc.serialize(packet, crc),
         OutputEvent::Headphones(hp) => hp.serialize(packet, crc),
+        OutputEvent::DisplayFps(fps) => fps.serialize(packet, crc),
     }
 }

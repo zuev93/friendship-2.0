@@ -1,5 +1,31 @@
 pub use common::protocol_types::{IfGainMode, Mode, RfGainMode, TransmitMode};
 
+#[derive(Clone, Copy)]
+pub struct CpuPercent(u8);
+
+impl CpuPercent {
+    pub fn new(pct: u8) -> Self {
+        Self(pct)
+    }
+
+    pub fn raw(self) -> u8 {
+        self.0
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct DisplayFps([u16; 3]);
+
+impl DisplayFps {
+    pub fn new(fps: [u16; 3]) -> Self {
+        Self(fps)
+    }
+
+    pub fn raw(&self) -> &[u16; 3] {
+        &self.0
+    }
+}
+
 #[derive(Clone, Copy, PartialEq)]
 pub enum FilterType {
     None,

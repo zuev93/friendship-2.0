@@ -35,6 +35,8 @@ async fn render_meter_task(
         let display = &mut d.displays[display_index];
         ui::meter_screen::render(&mut display.fb, &state, peak_dbm);
         let front = display.fb.swap();
-        let _ = display.driver.draw(front).await;
+        if display.driver.draw(front).await.is_ok() {
+            display.count_frame();
+        }
     }
 }

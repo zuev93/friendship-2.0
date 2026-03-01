@@ -4,6 +4,8 @@ pub mod audio_task;
 pub mod buttons_task;
 pub mod cw_keyer_task;
 pub mod encoder_task;
+pub mod idle_counter_task;
 pub mod scan_task;
+pub mod stats_task;
 pub mod sweep_scheduler;
 pub mod tone_task;

@@ -465,3 +465,34 @@ impl PacketSerializable for WaterfallLineCommand {
         })
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct DisplayFpsEvent {
+    pub fps: [u16; 3],
+}
+
+impl PacketSerializable for DisplayFpsEvent {
+    const PACKET_TYPE: PacketType = PacketType::DisplayFpsEvent;
+
+    fn write_payload(&self, payload: &mut [u8]) {
+        let f0 = self.fps[0].to_be_bytes();
+        payload[0] = f0[0];
+        payload[1] = f0[1];
+        let f1 = self.fps[1].to_be_bytes();
+        payload[2] = f1[0];
+        payload[3] = f1[1];
+        let f2 = self.fps[2].to_be_bytes();
+        payload[4] = f2[0];
+        payload[5] = f2[1];
+    }
+
+    fn read_payload(payload: &[u8]) -> Option<Self> {
+        Some(Self {
+            fps: [
+                u16::from_be_bytes([payload[0], payload[1]]),
+                u16::from_be_bytes([payload[2], payload[3]]),
+                u16::from_be_bytes([payload[4], payload[5]]),
+            ],
+        })
+    }
+}

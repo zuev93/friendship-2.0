@@ -21,6 +21,8 @@ use crate::app::{
 use crate::front_panel::events::{
     CursorCommand, CursorState, CURSOR_CMD, CURSOR_STATE, MENU_CMD_QUEUE, MENU_ENCODER_EVENTS,
 };
+use crate::runtime_stats::TaskId;
+use druzhba_macros::instrumented;
 
 const ITEM_COUNT: u8 = 9;
 const LONG_PRESS_MS: u64 = 500;
@@ -43,6 +45,7 @@ enum SavedValue {
     Continuous,
 }
 
+#[instrumented(TaskId::CursorTask)]
 #[embassy_executor::task]
 pub async fn cursor_task() {
     let mut mode = CursorMode::Browsing;

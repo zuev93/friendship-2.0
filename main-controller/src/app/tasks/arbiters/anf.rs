@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -9,6 +11,7 @@ pub enum AnfCommand {
 
 pub static ANF_CMD: Signal<ThreadModeRawMutex, AnfCommand> = Signal::new();
 
+#[instrumented(TaskId::AnfArbiter)]
 #[embassy_executor::task]
 pub async fn anf_arbiter_task() {
     let mut anf_enabled = false;

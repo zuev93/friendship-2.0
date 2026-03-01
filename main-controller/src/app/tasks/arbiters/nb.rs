@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -10,6 +12,7 @@ pub enum NbCommand {
 
 pub static NB_CMD: Signal<ThreadModeRawMutex, NbCommand> = Signal::new();
 
+#[instrumented(TaskId::NbArbiter)]
 #[embassy_executor::task]
 pub async fn nb_arbiter_task() {
     let mut nb_enabled = false;

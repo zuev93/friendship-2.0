@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -11,6 +13,7 @@ pub enum SquelchCommand {
 
 pub static SQUELCH_CMD: Signal<ThreadModeRawMutex, SquelchCommand> = Signal::new();
 
+#[instrumented(TaskId::SquelchArbiter)]
 #[embassy_executor::task]
 pub async fn squelch_arbiter_task() {
     let mut squelch = Squelch::new(0);

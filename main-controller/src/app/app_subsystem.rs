@@ -8,6 +8,8 @@ use static_cell::StaticCell;
 use crate::app::{tasks::audio_task, tone_generator::ToneGenerator};
 
 use super::tasks::{
+    idle_counter_task::idle_counter_task,
+    stats_task::stats_task,
     alc::alc_task,
     arbiters::{
         anf::anf_arbiter_task, audio_agc::audio_agc_arbiter_task,
@@ -47,6 +49,8 @@ impl AppSubsystem {
             StaticCell::new();
         let mutex = TONE_GENERATOR.init(Mutex::new(ToneGenerator::new()));
 
+        spawner.must_spawn(idle_counter_task());
+        spawner.must_spawn(stats_task());
         spawner.must_spawn(alc_task());
         spawner.must_spawn(buttons_task());
         spawner.must_spawn(encoder_task());

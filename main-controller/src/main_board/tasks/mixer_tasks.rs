@@ -3,9 +3,12 @@ use embassy_futures::select::{select5, Either5};
 use crate::{
     app::events::{CLARIFIER_MODE, CLARIFIER_VALUE, FILTER, FREQUENCY, MODE},
     main_board::modules::mixer::Mixer,
+    runtime_stats::TaskId,
 };
 use common::error::error;
+use druzhba_macros::instrumented;
 
+#[instrumented(TaskId::MixerTasks)]
 #[embassy_executor::task]
 pub async fn mixer_tasks(mut mixer: Mixer) {
     let mut frequency_rcv = FREQUENCY.receiver().unwrap();

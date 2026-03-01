@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -9,6 +11,7 @@ pub enum CwPeakCommand {
 
 pub static CW_PEAK_CMD: Signal<ThreadModeRawMutex, CwPeakCommand> = Signal::new();
 
+#[instrumented(TaskId::CwPeakArbiter)]
 #[embassy_executor::task]
 pub async fn cw_peak_arbiter_task() {
     let mut enabled = false;

@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_futures::select::{select, Either};
 use embassy_time::{Duration, Instant, Timer, with_timeout};
 
@@ -26,6 +28,7 @@ fn squelch_to_dbm(raw: i16) -> i8 {
     (DBM_MIN + (raw as i32 * (DBM_MAX - DBM_MIN) / RAW_MAX)) as i8
 }
 
+#[instrumented(TaskId::Scan)]
 #[embassy_executor::task]
 pub async fn scan_task() {
     let mut scan_enabled_rcv = SCAN_ENABLED.receiver().unwrap();

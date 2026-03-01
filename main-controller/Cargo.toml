@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 # Common crate with shared drivers
 druzhba-common = { path = "../common" }
+druzhba-macros = { path = "../common/macros" }
 
 # Embassy async runtime
 embassy-executor = { workspace = true }

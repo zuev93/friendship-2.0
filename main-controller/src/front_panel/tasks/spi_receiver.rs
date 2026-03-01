@@ -8,9 +8,13 @@ use crate::front_panel::{
     },
     types::{ControlBusType, EncoderFunction},
 };
+use crate::runtime_stats::TaskId;
+use druzhba_macros::instrumented;
 
+use crate::app::events::DISPLAY_FPS;
+use crate::app::types::DisplayFps;
 use common::protocol_types::{
-    ButtonEvent as ProtocolButtonEvent, ButtonState, EncoderDirection,
+    ButtonEvent as ProtocolButtonEvent, ButtonState, DisplayFpsEvent, EncoderDirection,
     EncoderEvent as ProtocolEncoderEvent, HeadphonesEvent as ProtocolHeadphonesEvent,
 };
 use common::spi_protocol::{PacketSerializable, PacketType};
@@ -32,10 +36,16 @@ pub async fn handle_response_packet(packet: &common::spi_protocol::Packet) {
                 handle_headphones_event(event).await;
             }
         }
+        Some(PacketType::DisplayFpsEvent) => {
+            if let Some(event) = DisplayFpsEvent::deserialize(packet) {
+                DISPLAY_FPS.sender().send(DisplayFps::new(event.fps));
+            }
+        }
         _ => {}
     }
 }
 
+#[instrumented(TaskId::SpiReceiver)]
 #[embassy_executor::task]
 pub async fn spi_receiver_task(control_bus: ControlBusType, mut alert_pin: ExtiInput<'static>) {
     loop {

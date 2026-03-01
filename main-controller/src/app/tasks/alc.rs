@@ -1,7 +1,9 @@
+use druzhba_macros::instrumented;
 use embassy_futures::select::{select4, Either4};
 use embassy_time::Timer;
 
 use crate::app::events::{ALC_CONSTRAINT, COUPLER_METRICS, MODE, RF_POWER};
+use crate::runtime_stats::TaskId;
 use crate::app::types::{CouplerMetrics, Mode};
 
 const MAX_OUTPUT_W: f32 = 50.0;
@@ -76,6 +78,7 @@ fn run_alc(state: &mut AlcState, metrics: &CouplerMetrics) {
     }
 }
 
+#[instrumented(TaskId::Alc)]
 #[embassy_executor::task]
 pub async fn alc_task() {
     let mut state = AlcState::new();

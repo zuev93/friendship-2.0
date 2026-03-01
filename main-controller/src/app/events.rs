@@ -3,11 +3,13 @@ use embassy_sync::watch::Watch;
 
 use crate::consts::AUDIO_BUFFER_SIZE;
 
+use crate::runtime_stats::RamStats;
+
 use super::types::{
-    AudioAgcMode, Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics,
-    CwBreakInDelay, CwKeyMode, CwPeakWidth, CwPitch, CwWeight, CwWpm, DspBandwidth, DspShift,
-    EqGain, FilterType, Frequency, IfGain, IfGainMode, Microphone, Mode, NbLevel, NrLevel,
-    PaTemperatures, RfGainMode, RfPower, ScanResume, ScanStep, Squelch, SweepRequest,
+    AudioAgcMode, Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics, CpuPercent,
+    CwBreakInDelay, CwKeyMode, CwPeakWidth, CwPitch, CwWeight, CwWpm, DisplayFps, DspBandwidth,
+    DspShift, EqGain, FilterType, Frequency, IfGain, IfGainMode, Microphone, Mode, NbLevel,
+    NrLevel, PaTemperatures, RfGainMode, RfPower, ScanResume, ScanStep, Squelch, SweepRequest,
     TransmitMode, Volume, VoxAntiTrip, VoxDelay, VoxGain, WaterfallLine,
 };
 
@@ -88,3 +90,7 @@ pub static CW_WEIGHT: Watch<ThreadModeRawMutex, CwWeight, 2> = Watch::new();
 pub static CW_PADDLE_SWAP: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
 pub static CW_BREAK_IN_DELAY: Watch<ThreadModeRawMutex, CwBreakInDelay, 2> = Watch::new();
 pub static CW_SIDETONE_ACTIVE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+
+pub static CPU_PERCENT: Watch<ThreadModeRawMutex, CpuPercent, 2> = Watch::new();
+pub static RAM_STATS: Watch<ThreadModeRawMutex, RamStats, 2> = Watch::new();
+pub static DISPLAY_FPS: Watch<ThreadModeRawMutex, DisplayFps, 2> = Watch::new();

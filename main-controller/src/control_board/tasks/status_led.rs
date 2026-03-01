@@ -5,8 +5,10 @@ use embassy_stm32::Peri;
 use embassy_time::{Duration, Timer};
 
 use crate::app::events::MODE;
+use crate::runtime_stats::TaskId;
 use common::error::{BSOD, ERROR_MESSAGES};
 use common::protocol_types::Mode;
+use druzhba_macros::instrumented;
 
 const SLOW_BLINK: Duration = Duration::from_millis(500);
 const FAST_BLINK: Duration = Duration::from_millis(100);
@@ -23,6 +25,7 @@ pub fn create_task(spawner: Spawner, pin: Peri<'static, impl Pin>) {
     spawner.must_spawn(status_led_task(led));
 }
 
+#[instrumented(TaskId::StatusLed)]
 #[embassy_executor::task]
 async fn status_led_task(mut led: Output<'static>) {
     let mut state = LedState::Booting;

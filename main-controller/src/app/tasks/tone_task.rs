@@ -1,14 +1,17 @@
+use druzhba_macros::instrumented;
 use embassy_executor::Spawner;
 use embassy_futures::select::{select5, Either5};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 
 use crate::app::events::{BUTTON_BEEP, CW_PITCH, CW_SIDETONE_ACTIVE, MODE, TONE};
 use crate::app::tone_generator::ToneGenerator;
+use crate::runtime_stats::TaskId;
 
 pub fn spawn(spawner: Spawner, tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>) {
     spawner.must_spawn(tone_control_task(tone_generator));
 }
 
+#[instrumented(TaskId::ToneControl)]
 #[embassy_executor::task]
 async fn tone_control_task(tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>) {
     let mut mode_rcv = MODE.receiver().unwrap();

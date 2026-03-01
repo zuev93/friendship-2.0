@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -18,6 +20,7 @@ pub enum ModeCommand {
 
 pub static MODE_CMD: Signal<ThreadModeRawMutex, ModeCommand> = Signal::new();
 
+#[instrumented(TaskId::ModeArbiter)]
 #[embassy_executor::task]
 pub async fn mode_arbiter_task() {
     let mut mode = Mode::StandBy;

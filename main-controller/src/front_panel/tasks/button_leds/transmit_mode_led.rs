@@ -7,8 +7,12 @@ use crate::{
 };
 use common::protocol_types::{LedCommand, LedState};
 
+use crate::runtime_stats::TaskId;
+use druzhba_macros::instrumented;
+
 use super::find_button_id;
 
+#[instrumented(TaskId::TransmitModeLed)]
 #[embassy_executor::task]
 pub async fn transmit_mode_led_task(control_bus: ControlBusType) {
     let Some(led_id) = find_button_id(ButtonFunction::TransmitMode) else {

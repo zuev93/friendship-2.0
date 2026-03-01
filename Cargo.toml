@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "common",
+    "common/macros",
     "main-controller",
     "front-panel-controller",
 ]

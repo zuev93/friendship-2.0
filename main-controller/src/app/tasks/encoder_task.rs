@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+
 use crate::app::tasks::arbiters::{
     clarifier_value::CLARIFIER_VALUE_CMD,
     compression::COMPRESSION_CMD,
@@ -21,9 +23,11 @@ use crate::app::tasks::arbiters::{
 };
 use crate::front_panel::events::ENCODER_EVENTS;
 use crate::front_panel::types::EncoderFunction;
+use crate::runtime_stats::TaskId;
 
 const STEP_SIZE: i16 = 4;
 
+#[instrumented(TaskId::Encoder)]
 #[embassy_executor::task]
 pub async fn encoder_task() {
     let encoder_rx = ENCODER_EVENTS.receiver();

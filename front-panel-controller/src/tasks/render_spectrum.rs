@@ -39,6 +39,8 @@ async fn render_spectrum_task(
         let display = &mut d.displays[display_index];
         ui::spectrum_screen::render(&mut display.fb, &buf, stale);
         let front = display.fb.swap();
-        let _ = display.driver.draw(front).await;
+        if display.driver.draw(front).await.is_ok() {
+            display.count_frame();
+        }
     }
 }

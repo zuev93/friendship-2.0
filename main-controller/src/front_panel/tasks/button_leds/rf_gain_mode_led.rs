@@ -7,8 +7,12 @@ use crate::{
 };
 use common::protocol_types::{LedCommand, LedState};
 
+use crate::runtime_stats::TaskId;
+use druzhba_macros::instrumented;
+
 use super::find_button_id;
 
+#[instrumented(TaskId::RfGainModeLed)]
 #[embassy_executor::task]
 pub async fn rf_gain_mode_led_task(control_bus: ControlBusType) {
     let Some(led_id) = find_button_id(ButtonFunction::RfGain) else {

@@ -10,8 +10,10 @@ use crate::{
         EmergencyReason, EMERGENCY_SHUTDOWN, PD_CONTRACT, POWER_TELEMETRY,
     },
     peripherals::modules::hf_amp::HfAmp,
+    runtime_stats::TaskId,
 };
 use common::error::error;
+use druzhba_macros::instrumented;
 
 const THERMAL_SAMPLE_PERIOD: Duration = Duration::from_millis(500);
 
@@ -23,6 +25,7 @@ pub fn create_tasks(spawner: Spawner, hf_amp: HfAmp) {
     spawner.must_spawn(hf_amp_thermal_task(mutex));
 }
 
+#[instrumented(TaskId::HfAmpControl)]
 #[embassy_executor::task]
 async fn hf_amp_control_task(mutex: &'static Mutex<ThreadModeRawMutex, HfAmp>) {
     let mut mode_rcv = MODE.receiver().unwrap();
@@ -79,6 +82,7 @@ async fn hf_amp_control_task(mutex: &'static Mutex<ThreadModeRawMutex, HfAmp>) {
     }
 }
 
+#[instrumented(TaskId::HfAmpThermal)]
 #[embassy_executor::task]
 async fn hf_amp_thermal_task(mutex: &'static Mutex<ThreadModeRawMutex, HfAmp>) {
     loop {

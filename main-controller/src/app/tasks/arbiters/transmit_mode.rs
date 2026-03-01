@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -11,6 +13,7 @@ pub enum TransmitModeCommand {
 
 pub static TRANSMIT_MODE_CMD: Signal<ThreadModeRawMutex, TransmitModeCommand> = Signal::new();
 
+#[instrumented(TaskId::TransmitModeArbiter)]
 #[embassy_executor::task]
 pub async fn transmit_mode_arbiter_task() {
     let mut transmit_mode = TransmitMode::Usb;

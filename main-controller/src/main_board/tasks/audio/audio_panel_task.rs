@@ -8,7 +8,9 @@ use crate::{
     app::events::{AUDIO_BUFFER_TX, MODE},
     consts::AUDIO_BUFFER_SIZE,
     main_board::{events::AUDIO_RX_BUFFER, modules::audio_panel::AudioPanel},
+    runtime_stats::TaskId,
 };
+use druzhba_macros::instrumented;
 
 type SaiTx = Sai<'static, stm_peripherals::SAI1, u16>;
 type SaiRx = Sai<'static, stm_peripherals::SAI1, u16>;
@@ -39,6 +41,7 @@ async fn audio_panel_sai_rx_task(sai_rx: &'static mut SaiRx) {
     }
 }
 
+#[instrumented(TaskId::AudioPanelSaiTx)]
 #[embassy_executor::task]
 async fn audio_panel_sai_tx_task(sai_tx: &'static mut SaiTx) {
     let mut tx_rcv = AUDIO_BUFFER_TX.receiver().unwrap();
@@ -52,6 +55,7 @@ async fn audio_panel_sai_tx_task(sai_tx: &'static mut SaiTx) {
     }
 }
 
+#[instrumented(TaskId::AudioPanelControl)]
 #[embassy_executor::task]
 async fn control_task(audio_panel: &'static mut AudioPanel) {
     let mut mode_rcv = MODE.receiver().unwrap();

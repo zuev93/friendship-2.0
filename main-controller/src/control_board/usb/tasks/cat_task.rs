@@ -4,9 +4,12 @@ use embassy_usb::class::cdc_acm::CdcAcmClass;
 
 use crate::control_board::usb::cat::handler::CatHandler;
 use crate::control_board::usb::cat::parser::CatParser;
+use crate::runtime_stats::TaskId;
+use druzhba_macros::instrumented;
 
 type UsbDriver = Driver<'static, stm_peripherals::USB>;
 
+#[instrumented(TaskId::CatTask)]
 #[embassy_executor::task]
 pub async fn cat_task(mut cdc: CdcAcmClass<'static, UsbDriver>) {
     let mut parser = CatParser::new();

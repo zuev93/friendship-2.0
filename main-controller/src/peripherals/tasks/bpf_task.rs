@@ -3,9 +3,12 @@ use embassy_futures::select::{select3, Either3};
 use crate::{
     app::events::{FREQUENCY, MODE, RF_GAIN_MODE},
     peripherals::modules::bpf::Bpf,
+    runtime_stats::TaskId,
 };
 use common::error::error;
+use druzhba_macros::instrumented;
 
+#[instrumented(TaskId::BpfTask)]
 #[embassy_executor::task]
 pub async fn bpf_task(mut bpf: Bpf) {
     let mut rf_gain_mode_rcv = RF_GAIN_MODE.receiver().unwrap();

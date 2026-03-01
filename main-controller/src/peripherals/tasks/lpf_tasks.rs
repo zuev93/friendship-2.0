@@ -7,8 +7,10 @@ use static_cell::StaticCell;
 use crate::{
     app::events::{COUPLER_METRICS, FREQUENCY, MODE},
     peripherals::modules::lpf::Lpf,
+    runtime_stats::TaskId,
 };
 use common::error::error;
+use druzhba_macros::instrumented;
 
 const COUPLER_SAMPLE_PERIOD: Duration = Duration::from_millis(200);
 
@@ -20,6 +22,7 @@ pub fn create_tasks(spawner: Spawner, lpf: Lpf) {
     spawner.must_spawn(lpf_data_task(mutex));
 }
 
+#[instrumented(TaskId::LpfControl)]
 #[embassy_executor::task]
 async fn lpf_control_task(mutex: &'static Mutex<ThreadModeRawMutex, Lpf>) {
     let mut frequency_rcv = FREQUENCY.receiver().unwrap();
@@ -40,6 +43,7 @@ async fn lpf_control_task(mutex: &'static Mutex<ThreadModeRawMutex, Lpf>) {
     }
 }
 
+#[instrumented(TaskId::LpfData)]
 #[embassy_executor::task]
 async fn lpf_data_task(mutex: &'static Mutex<ThreadModeRawMutex, Lpf>) {
     loop {

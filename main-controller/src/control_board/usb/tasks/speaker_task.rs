@@ -4,11 +4,14 @@ use embassy_usb::class::uac1::speaker::{ControlMonitor, Feedback, Stream};
 
 use crate::app::events::USB_AUDIO_TX;
 use crate::consts::AUDIO_BUFFER_SIZE;
+use crate::runtime_stats::TaskId;
+use druzhba_macros::instrumented;
 
 type UsbDriver = Driver<'static, stm_peripherals::USB>;
 
 const FEEDBACK_48K: [u8; 3] = [0x00, 0x00, 0x0C];
 
+#[instrumented(TaskId::SpeakerTask)]
 #[embassy_executor::task]
 pub async fn speaker_task(
     mut stream: Stream<'static, UsbDriver>,

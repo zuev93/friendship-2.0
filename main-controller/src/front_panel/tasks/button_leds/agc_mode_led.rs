@@ -1,8 +1,11 @@
 use crate::app::{events::IF_GAIN_MODE, types::IfGainMode};
 use crate::front_panel::tasks::spi_receiver::handle_response_packet;
 use crate::front_panel::types::ControlBusType;
+use crate::runtime_stats::TaskId;
 use common::protocol_types::{LedCommand, LedState};
+use druzhba_macros::instrumented;
 
+#[instrumented(TaskId::AgcModeLed)]
 #[embassy_executor::task]
 pub async fn agc_mode_led_task(control_bus: ControlBusType) {
     const LED_ID: u8 = 6;

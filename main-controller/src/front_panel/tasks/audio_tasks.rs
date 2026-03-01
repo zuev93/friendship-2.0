@@ -9,7 +9,9 @@ use crate::{
     app::events::{AUDIO_BUFFER_HEADPHONES, MICROPHONE, MODE, VOLUME},
     consts::AUDIO_BUFFER_SIZE,
     front_panel::{events::AUDIO_MIC_BUFFER, modules::audio::Audio},
+    runtime_stats::TaskId,
 };
+use druzhba_macros::instrumented;
 
 type SaiTx = Sai<'static, stm_peripherals::SAI2, u16>;
 type SaiRx = Sai<'static, stm_peripherals::SAI2, u16>;
@@ -40,6 +42,7 @@ async fn audio_panel_sai_mic_task(sai_rx: &'static mut SaiRx) {
     }
 }
 
+#[instrumented(TaskId::FrontPanelAudioHeadphones)]
 #[embassy_executor::task]
 async fn audio_panel_sai_headphones_task(sai_tx: &'static mut SaiTx) {
     let mut hp_rcv = AUDIO_BUFFER_HEADPHONES.receiver().unwrap();
@@ -53,6 +56,7 @@ async fn audio_panel_sai_headphones_task(sai_tx: &'static mut SaiTx) {
     }
 }
 
+#[instrumented(TaskId::FrontPanelAudioControl)]
 #[embassy_executor::task]
 async fn control_task(audio: &'static mut Audio) {
     let mut mode_rcv = MODE.receiver().unwrap();

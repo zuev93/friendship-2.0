@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -10,6 +12,7 @@ pub enum ToneCommand {
 
 pub static TONE_CMD: Signal<ThreadModeRawMutex, ToneCommand> = Signal::new();
 
+#[instrumented(TaskId::ToneArbiter)]
 #[embassy_executor::task]
 pub async fn tone_arbiter_task() {
     loop {

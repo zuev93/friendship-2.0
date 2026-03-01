@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_futures::select::{select3, Either3};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
@@ -21,6 +23,7 @@ pub enum FrequencyCommand {
 pub static FREQUENCY_CMD: Signal<ThreadModeRawMutex, FrequencyCommand> = Signal::new();
 pub static BAND_CMD: Signal<ThreadModeRawMutex, BandCommand> = Signal::new();
 
+#[instrumented(TaskId::FrequencyArbiter)]
 #[embassy_executor::task]
 pub async fn frequency_arbiter_task() {
     let mut current_band = Band::Band20m;

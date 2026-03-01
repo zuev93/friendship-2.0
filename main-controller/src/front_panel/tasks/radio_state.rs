@@ -14,8 +14,11 @@ use crate::{
     },
     main_board::events::CURRENT_RSSI2,
 };
+use crate::runtime_stats::TaskId;
 use common::protocol_types::RadioStateCommand;
+use druzhba_macros::instrumented;
 
+#[instrumented(TaskId::RadioState)]
 #[embassy_executor::task]
 pub async fn radio_state_task(control_bus: ControlBusType) {
     let mut rssi_dbm: i8 = -120;

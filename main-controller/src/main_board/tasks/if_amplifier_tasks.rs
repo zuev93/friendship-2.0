@@ -6,8 +6,10 @@ use static_cell::StaticCell;
 use crate::{
     app::events::{IF_GAIN, IF_GAIN_MODE, MODE, RSSI_FAST_MODE},
     main_board::{events::{CURRENT_RSSI1, CURRENT_RSSI2}, modules::if_amplifier::IfAmplifier},
+    runtime_stats::TaskId,
 };
 use common::error::error;
+use druzhba_macros::instrumented;
 
 pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfAmplifier) {
     static IF_AMPLIFIER: StaticCell<Mutex<ThreadModeRawMutex, IfAmplifier>> = StaticCell::new();
@@ -16,6 +18,7 @@ pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfAmplifier) {
     spawner.must_spawn(rssi_task_read(mutex));
 }
 
+#[instrumented(TaskId::IfGainControl)]
 #[embassy_executor::task]
 async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
     let mut if_gain_rcv = IF_GAIN.receiver().unwrap();
@@ -55,6 +58,7 @@ async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplif
     }
 }
 
+#[instrumented(TaskId::RssiRead)]
 #[embassy_executor::task]
 async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
     let mut rssi_fast_rcv = RSSI_FAST_MODE.receiver().unwrap();

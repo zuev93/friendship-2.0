@@ -2,6 +2,7 @@ pub mod buttons;
 pub mod displays;
 pub mod encoders;
 pub mod error_display;
+pub mod fps_task;
 pub mod headphones_detect;
 pub mod leds;
 pub mod menu;

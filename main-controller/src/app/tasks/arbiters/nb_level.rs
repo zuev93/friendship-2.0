@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -6,6 +8,7 @@ use crate::app::types::NbLevel;
 
 pub static NB_LEVEL_CMD: Signal<ThreadModeRawMutex, i16> = Signal::new();
 
+#[instrumented(TaskId::NbLevelArbiter)]
 #[embassy_executor::task]
 pub async fn nb_level_arbiter_task() {
     let mut nb_level = NbLevel::new(0);

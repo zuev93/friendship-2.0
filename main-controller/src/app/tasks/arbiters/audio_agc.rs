@@ -1,3 +1,5 @@
+use druzhba_macros::instrumented;
+use crate::runtime_stats::TaskId;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::signal::Signal;
 
@@ -10,6 +12,7 @@ pub enum AudioAgcCommand {
 
 pub static AUDIO_AGC_CMD: Signal<ThreadModeRawMutex, AudioAgcCommand> = Signal::new();
 
+#[instrumented(TaskId::AudioAgcArbiter)]
 #[embassy_executor::task]
 pub async fn audio_agc_arbiter_task() {
     let mut mode = AudioAgcMode::Off;

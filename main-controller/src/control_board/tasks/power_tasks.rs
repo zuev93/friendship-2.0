@@ -11,8 +11,10 @@ use crate::{
         PA_FAST_MODE, PD_CONTRACT, POWER_TELEMETRY,
     },
     control_board::modules::power_control::PowerControl,
+    runtime_stats::TaskId,
 };
 use common::error::error;
+use druzhba_macros::instrumented;
 
 const TELEMETRY_PERIOD: Duration = Duration::from_millis(10);
 
@@ -24,6 +26,7 @@ pub fn create_tasks(spawner: Spawner, power_control: PowerControl) {
     spawner.must_spawn(power_monitor_task(mutex));
 }
 
+#[instrumented(TaskId::PowerControl)]
 #[embassy_executor::task]
 async fn power_control_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerControl>) {
     let mut mode_rcv = MODE.receiver().unwrap();
@@ -35,6 +38,7 @@ async fn power_control_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerContr
     }
 }
 
+#[instrumented(TaskId::PowerMonitor)]
 #[embassy_executor::task]
 async fn power_monitor_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerControl>) {
     let mut ticker = Ticker::every(TELEMETRY_PERIOD);
