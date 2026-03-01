@@ -4,7 +4,7 @@ use embassy_stm32::gpio::{Level, Output, Pin, Speed};
 use embassy_stm32::Peri;
 use embassy_time::{Duration, Timer};
 
-use crate::app::events::CURRENT_MODE;
+use crate::app::events::MODE;
 use common::error::{BSOD, ERROR_MESSAGES};
 use common::protocol_types::Mode;
 
@@ -35,7 +35,7 @@ async fn status_led_task(mut led: Output<'static>) {
                     Timer::after(SLOW_BLINK),
                     BSOD.wait(),
                     ERROR_MESSAGES.receive(),
-                    CURRENT_MODE.wait(),
+                    MODE.wait(),
                 )
                 .await
                 {
@@ -67,7 +67,7 @@ async fn status_led_task(mut led: Output<'static>) {
                 match embassy_futures::select::select3(
                     BSOD.wait(),
                     ERROR_MESSAGES.receive(),
-                    CURRENT_MODE.wait(),
+                    MODE.wait(),
                 )
                 .await
                 {

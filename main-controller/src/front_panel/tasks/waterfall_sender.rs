@@ -1,4 +1,4 @@
-use crate::app::events::{CURRENT_FREQUENCY, WATERFALL_LINE};
+use crate::app::events::{FREQUENCY, WATERFALL_LINE};
 use crate::front_panel::{tasks::spi_receiver::handle_response_packet, types::ControlBusType};
 use common::protocol_types::{SweepStatus, WaterfallLineCommand};
 
@@ -11,7 +11,7 @@ pub async fn waterfall_sender_task(control_bus: ControlBusType) {
     loop {
         let line = WATERFALL_LINE.wait().await;
 
-        if let Some(freq) = CURRENT_FREQUENCY.try_take() {
+        if let Some(freq) = FREQUENCY.try_take() {
             vfo_freq = freq;
         }
 

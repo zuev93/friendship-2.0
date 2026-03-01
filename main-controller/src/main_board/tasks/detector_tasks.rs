@@ -1,7 +1,7 @@
 use embassy_futures::select::{select3, Either3};
 
 use crate::{
-    app::events::{CURRENT_FILTER, CURRENT_MODE, CURRENT_TRANSMIT_MODE},
+    app::events::{FILTER, MODE, TRANSMIT_MODE},
     main_board::modules::detector::Detector,
 };
 use common::error::error;
@@ -10,9 +10,9 @@ use common::error::error;
 pub async fn detector_tasks(mut detector: Detector) {
     loop {
         match select3(
-            CURRENT_TRANSMIT_MODE.wait(),
-            CURRENT_MODE.wait(),
-            CURRENT_FILTER.wait(),
+            TRANSMIT_MODE.wait(),
+            MODE.wait(),
+            FILTER.wait(),
         )
         .await
         {

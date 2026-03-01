@@ -1,5 +1,5 @@
 use crate::{
-    app::{events::CURRENT_RF_GAIN_MODE, types::RfGainMode},
+    app::{events::RF_GAIN_MODE, types::RfGainMode},
     front_panel::{
         tasks::spi_receiver::handle_response_packet,
         types::{ButtonFunction, ControlBusType},
@@ -16,7 +16,7 @@ pub async fn rf_gain_mode_led_task(control_bus: ControlBusType) {
     };
 
     loop {
-        let rf_gain_mode = CURRENT_RF_GAIN_MODE.wait().await;
+        let rf_gain_mode = RF_GAIN_MODE.wait().await;
 
         let state = match rf_gain_mode {
             RfGainMode::Attenuator => LedState::Red,

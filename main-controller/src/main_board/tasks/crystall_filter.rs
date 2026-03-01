@@ -4,10 +4,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{
-        CURRENT_FILTER, CURRENT_MODE, CURRENT_NB_ENABLED, CURRENT_NB_LEVEL, CURRENT_RF_GAIN_MODE,
-        CURRENT_RF_POWER, NB_ACTIVE, TX_THERMAL_CONSTRAINT,
-    },
+    app::events::{FILTER, MODE, NB_ENABLED, NB_LEVEL, RF_GAIN_MODE, RF_POWER, NB_ACTIVE, TX_THERMAL_CONSTRAINT},
     control_board::events::{PD_CONTRACT, POWER_TELEMETRY},
     main_board::{events::CURRENT_RSSI, modules::crystall_filter::CrystallFilter},
 };
@@ -27,18 +24,18 @@ async fn crystall_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, Crystall
         match select(
             select(
                 select6(
-                    CURRENT_RF_POWER.wait(),
+                    RF_POWER.wait(),
                     POWER_TELEMETRY.wait(),
                     PD_CONTRACT.wait(),
                     TX_THERMAL_CONSTRAINT.wait(),
-                    CURRENT_MODE.wait(),
-                    CURRENT_FILTER.wait(),
+                    MODE.wait(),
+                    FILTER.wait(),
                 ),
-                CURRENT_RF_GAIN_MODE.wait(),
+                RF_GAIN_MODE.wait(),
             ),
             select4(
-                CURRENT_NB_ENABLED.wait(),
-                CURRENT_NB_LEVEL.wait(),
+                NB_ENABLED.wait(),
+                NB_LEVEL.wait(),
                 CURRENT_RSSI.wait(),
                 embassy_futures::yield_now(),
             ),

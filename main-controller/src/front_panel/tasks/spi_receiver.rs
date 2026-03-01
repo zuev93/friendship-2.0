@@ -3,9 +3,8 @@ use embassy_stm32::exti::ExtiInput;
 use crate::front_panel::{
     config::{default_button_mapping, default_encoder_mapping},
     events::{
-        BandEncoderRotateEvent, ButtonEvent, ControlEncoderEvent, VfoEncoderRotateEvent,
-        BAND_ENCODER_EVENTS, BUTTON_EVENTS, CONTROL_ENCODER_EVENTS, HEADPHONES_CONNECTED,
-        MENU_ENCODER_EVENTS, VFO_ENCODER_EVENTS,
+        ButtonEvent, EncoderEvent, BUTTON_EVENTS, ENCODER_EVENTS, HEADPHONES_CONNECTED,
+        MENU_ENCODER_EVENTS,
     },
     types::{ControlBusType, EncoderFunction},
 };
@@ -87,23 +86,13 @@ async fn handle_encoder_event(event: ProtocolEncoderEvent) {
     };
 
     match function {
-        EncoderFunction::Band => {
-            BAND_ENCODER_EVENTS
-                .send(BandEncoderRotateEvent { delta })
-                .await;
-        }
-        EncoderFunction::Vfo => {
-            VFO_ENCODER_EVENTS
-                .send(VfoEncoderRotateEvent { delta })
-                .await;
-        }
         EncoderFunction::Menu => {
             MENU_ENCODER_EVENTS.send(delta).await;
         }
-        func => {
-            CONTROL_ENCODER_EVENTS
-                .send(ControlEncoderEvent {
-                    function: func,
+        _ => {
+            ENCODER_EVENTS
+                .send(EncoderEvent {
+                    function,
                     delta,
                 })
                 .await;

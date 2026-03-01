@@ -1,9 +1,15 @@
 use crate::app::{
-    events::{
-        CURRENT_CLARIFIER_MODE, CURRENT_IF_GAIN_MODE, CURRENT_MODE, CURRENT_NB_ENABLED,
-        CURRENT_RF_GAIN_MODE, CURRENT_TRANSMIT_MODE, TONE_ACTIVE,
+    events::BUTTON_BEEP,
+    tasks::arbiters::{
+        clarifier_mode::{ClarifierModeCommand, CLARIFIER_MODE_CMD},
+        filter::{FilterCommand, FILTER_CMD},
+        if_gain_mode::{IfGainModeCommand, IF_GAIN_MODE_CMD},
+        mode::{ModeCommand, MODE_CMD},
+        nb::{NbCommand, NB_CMD},
+        rf_gain_mode::{RfGainModeCommand, RF_GAIN_MODE_CMD},
+        tone::{ToneCommand, TONE_CMD},
+        transmit_mode::{TransmitModeCommand, TRANSMIT_MODE_CMD},
     },
-    types::{ClarifierMode, IfGainMode, Mode, RfGainMode, TransmitMode},
 };
 use crate::front_panel::{
     events::{ButtonEvent, BUTTON_EVENTS},
@@ -12,198 +18,81 @@ use crate::front_panel::{
 use embassy_time::{Duration, Instant};
 use heapless::index_map::FnvIndexMap;
 
-// TODO move to settings
-const DEBOUNCE_MS: u64 = 50; // 50ms debounce time
+const DEBOUNCE_MS: u64 = 50;
 
-struct ButtonState {
-    mode: Mode,
-    transmit_mode: TransmitMode,
-    clarifier_mode: ClarifierMode,
-    rf_gain_mode: RfGainMode,
-    if_gain_mode: IfGainMode,
-    nb_enabled: bool,
-    last_press_time: FnvIndexMap<ButtonFunction, Instant, 8>,
-    last_release_time: FnvIndexMap<ButtonFunction, Instant, 8>,
-}
+fn debounce(
+    last_event_time: &mut FnvIndexMap<(ButtonFunction, bool), Instant, 16>,
+    function: ButtonFunction,
+    is_press: bool,
+) -> bool {
+    let now = Instant::now();
+    let key = (function, is_press);
 
-// TODO move to settings
-impl ButtonState {
-    fn new() -> Self {
-        Self {
-            mode: Mode::StandBy,
-            transmit_mode: TransmitMode::Usb,
-            clarifier_mode: ClarifierMode::Off,
-            rf_gain_mode: RfGainMode::Normal,
-            if_gain_mode: IfGainMode::Manual,
-            nb_enabled: false,
-            last_press_time: FnvIndexMap::new(),
-            last_release_time: FnvIndexMap::new(),
+    if let Some(&last_time) = last_event_time.get(&key) {
+        if now.duration_since(last_time) < Duration::from_millis(DEBOUNCE_MS) {
+            return false;
         }
     }
 
-    fn should_process_press(&mut self, function: ButtonFunction) -> bool {
-        let now = Instant::now();
-
-        if let Some(&last_time) = self.last_press_time.get(&function) {
-            let elapsed = now.duration_since(last_time);
-            if elapsed < Duration::from_millis(DEBOUNCE_MS) {
-                return false;
-            }
-        }
-
-        self.last_press_time.insert(function, now).ok();
-        true
-    }
-
-    fn should_process_release(&mut self, function: ButtonFunction) -> bool {
-        let now = Instant::now();
-
-        if let Some(&last_time) = self.last_release_time.get(&function) {
-            let elapsed = now.duration_since(last_time);
-            if elapsed < Duration::from_millis(DEBOUNCE_MS) {
-                return false;
-            }
-        }
-
-        self.last_release_time.insert(function, now).ok();
-        true
-    }
+    last_event_time.insert(key, now).ok();
+    true
 }
 
 #[embassy_executor::task]
 pub async fn buttons_task() {
     let button_rx = BUTTON_EVENTS.receiver();
-    let mut state = ButtonState::new();
+    let mut last_event_time: FnvIndexMap<(ButtonFunction, bool), Instant, 16> =
+        FnvIndexMap::new();
 
     loop {
-        let button_event = button_rx.receive().await;
-
-        match button_event {
-            ButtonEvent::Press(function) => {
-                if !state.should_process_press(function) {
-                    continue;
-                }
-                crate::app::events::BUTTON_BEEP.signal(());
-                handle_button_press(function, &mut state);
+        let event = button_rx.receive().await;
+        let (function, is_press) = match &event {
+            ButtonEvent::Press(f) => (*f, true),
+            ButtonEvent::Release(f) => (*f, false),
+        };
+        if !debounce(&mut last_event_time, function, is_press) {
+            continue;
+        }
+        if is_press {
+            BUTTON_BEEP.signal(());
+        }
+        match event {
+            ButtonEvent::Release(ButtonFunction::Power) => {
+                MODE_CMD.signal(ModeCommand::PowerToggle);
             }
-            ButtonEvent::Release(function) => {
-                if !state.should_process_release(function) {
-                    continue;
-                }
-                handle_button_release(function, &mut state);
+            ButtonEvent::Press(ButtonFunction::Transmit) => {
+                MODE_CMD.signal(ModeCommand::TransmitPress);
             }
-        }
-    }
-}
-
-fn handle_button_press(function: ButtonFunction, state: &mut ButtonState) {
-    match function {
-        ButtonFunction::Power => {
-            // Power button is handled on release
-        }
-        ButtonFunction::Transmit => {
-            if state.mode == Mode::Rx {
-                CURRENT_MODE.signal(Mode::Tx);
+            ButtonEvent::Release(ButtonFunction::Transmit) => {
+                MODE_CMD.signal(ModeCommand::TransmitRelease);
             }
-        }
-        ButtonFunction::Tone => {
-            if state.mode == Mode::Rx {
-                CURRENT_MODE.signal(Mode::Tx);
-                TONE_ACTIVE.signal(true);
+            ButtonEvent::Press(ButtonFunction::Tone) => {
+                MODE_CMD.signal(ModeCommand::TonePress);
+                TONE_CMD.signal(ToneCommand::Press);
             }
-        }
-        ButtonFunction::TransmitMode => {
-            // Cycle through SSB -> CW -> AM
-            state.transmit_mode = state.transmit_mode.next();
-            CURRENT_TRANSMIT_MODE.signal(state.transmit_mode);
-        }
-        ButtonFunction::Rit => {
-            // Toggle RIT on/off
-            state.clarifier_mode = state.clarifier_mode.toggle();
-            CURRENT_CLARIFIER_MODE.signal(state.clarifier_mode);
-        }
-        ButtonFunction::RfGain => {
-            // Cycle through Attenuator -> Normal -> RF Amp
-            state.rf_gain_mode = state.rf_gain_mode.next();
-            CURRENT_RF_GAIN_MODE.signal(state.rf_gain_mode);
-        }
-        ButtonFunction::Agc => {
-            // Toggle AGC on/off
-            state.if_gain_mode = state.if_gain_mode.toggle();
-            CURRENT_IF_GAIN_MODE.signal(state.if_gain_mode);
-        }
-        ButtonFunction::NoiseBlanker => {
-            state.nb_enabled = !state.nb_enabled;
-            CURRENT_NB_ENABLED.signal(state.nb_enabled);
-        }
-        ButtonFunction::Cancel => {
-            // TODO: Implement cancel/back functionality for UI navigation
-        }
-        ButtonFunction::Ok => {
-            // TODO: Implement OK/select functionality for UI navigation
-        }
-        ButtonFunction::IcomPtt => {
-            // TODO: Implement ICOM PTT functionality
-        }
-        ButtonFunction::IcomSql => {
-            // TODO: Implement ICOM Squelch functionality
-        }
-        ButtonFunction::IcomUpDown => {
-            // TODO: Implement ICOM Up/Down functionality
-        }
-    }
-}
-
-fn handle_button_release(function: ButtonFunction, state: &mut ButtonState) {
-    match function {
-        ButtonFunction::Power => {
-            if state.mode == Mode::StandBy {
-                state.mode = Mode::WarmUp;
-            } else {
-                state.mode = Mode::StandBy;
+            ButtonEvent::Release(ButtonFunction::Tone) => {
+                MODE_CMD.signal(ModeCommand::ToneRelease);
+                TONE_CMD.signal(ToneCommand::Release);
             }
-            CURRENT_MODE.signal(state.mode);
-        }
-        ButtonFunction::Transmit => {
-            if state.mode == Mode::Tx {
-                CURRENT_MODE.signal(Mode::Rx);
+            ButtonEvent::Press(ButtonFunction::TransmitMode) => {
+                TRANSMIT_MODE_CMD.signal(TransmitModeCommand::Cycle);
             }
-        }
-        ButtonFunction::Tone => {
-            if state.mode == Mode::Tx {
-                CURRENT_MODE.signal(Mode::Rx);
-                TONE_ACTIVE.signal(false);
+            ButtonEvent::Press(ButtonFunction::Filter) => {
+                FILTER_CMD.signal(FilterCommand::Cycle);
             }
-        }
-        ButtonFunction::TransmitMode => {
-            // Handled on press
-        }
-        ButtonFunction::Rit => {
-            // Handled on press
-        }
-        ButtonFunction::RfGain => {
-            // Handled on press
-        }
-        ButtonFunction::Agc => {
-            // Handled on press
-        }
-        ButtonFunction::NoiseBlanker => {
-            // Handled on press
-        }
-        ButtonFunction::Cancel => {
-            // Handled on press
-        }
-        ButtonFunction::Ok => {
-            // Handled on press
-        }
-        ButtonFunction::IcomPtt => {
-            // Handled on press
-        }
-        ButtonFunction::IcomSql => {
-            // Handled on press
-        }
-        ButtonFunction::IcomUpDown => {
-            // Handled on press
+            ButtonEvent::Press(ButtonFunction::Rit) => {
+                CLARIFIER_MODE_CMD.signal(ClarifierModeCommand::Toggle);
+            }
+            ButtonEvent::Press(ButtonFunction::RfGain) => {
+                RF_GAIN_MODE_CMD.signal(RfGainModeCommand::Cycle);
+            }
+            ButtonEvent::Press(ButtonFunction::Agc) => {
+                IF_GAIN_MODE_CMD.signal(IfGainModeCommand::Toggle);
+            }
+            ButtonEvent::Press(ButtonFunction::NoiseBlanker) => {
+                NB_CMD.signal(NbCommand::Toggle);
+            }
+            _ => {}
         }
     }
 }

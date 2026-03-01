@@ -31,6 +31,7 @@ impl ButtonMapping {
         map.insert(11, ButtonFunction::Ok).ok();
 
         map.insert(12, ButtonFunction::NoiseBlanker).ok();
+        map.insert(13, ButtonFunction::Filter).ok();
 
         Self { map }
     }

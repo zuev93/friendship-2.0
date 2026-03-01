@@ -1,7 +1,7 @@
 use embassy_time::{Duration, Instant, Timer};
 
 use crate::app::{
-    events::{CURRENT_FREQUENCY, CURRENT_SQUELCH, SWEEP_REQUEST, WATERFALL_LINE},
+    events::{FREQUENCY, SQUELCH, SWEEP_ACTIVE, SWEEP_REQUEST, WATERFALL_LINE},
     types::{SweepRequest, WaterfallBuffer},
     waterfall::WaterfallSweeper,
 };
@@ -31,10 +31,10 @@ pub async fn sweep_scheduler_task() {
     let mut squelch_closed_since: Option<Instant> = None;
 
     loop {
-        if let Some(freq) = CURRENT_FREQUENCY.try_take() {
+        if let Some(freq) = FREQUENCY.try_take() {
             vfo_freq = freq;
         }
-        if let Some(squelch) = CURRENT_SQUELCH.try_take() {
+        if let Some(squelch) = SQUELCH.try_take() {
             squelch_threshold_dbm = squelch_to_dbm(squelch.raw());
         }
 
@@ -56,6 +56,8 @@ pub async fn sweep_scheduler_task() {
             continue;
         }
 
+        SWEEP_ACTIVE.signal(true);
+
         let deadline = Instant::now() + Duration::from_millis(FULL_LINE_BUDGET_MS);
 
         while !sweeper.is_line_complete() && Instant::now() < deadline {
@@ -66,6 +68,7 @@ pub async fn sweep_scheduler_task() {
         }
 
         SWEEP_REQUEST.signal(SweepRequest::Done);
+        SWEEP_ACTIVE.signal(false);
 
         if sweeper.is_line_complete() {
             let line = sweeper.take_line();

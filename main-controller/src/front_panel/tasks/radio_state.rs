@@ -3,10 +3,8 @@ use embassy_time::Timer;
 
 use crate::{
     app::events::{
-        COUPLER_METRICS, CURRENT_BAND, CURRENT_CLARIFIER_MODE, CURRENT_CLARIFIER_VALUE,
-        CURRENT_FILTER, CURRENT_FREQUENCY, CURRENT_IF_GAIN_MODE, CURRENT_MODE,
-        CURRENT_NB_ENABLED, CURRENT_RF_GAIN_MODE, CURRENT_RF_POWER, CURRENT_SQUELCH,
-        CURRENT_TRANSMIT_MODE, CURRENT_VOLUME,
+        BAND, CLARIFIER_MODE, CLARIFIER_VALUE, COUPLER_METRICS, FILTER, FREQUENCY, IF_GAIN_MODE,
+        MODE, NB_ENABLED, RF_GAIN_MODE, RF_POWER, SQUELCH, TRANSMIT_MODE, VOLUME,
     },
     app::types::{Band, ClarifierMode, IfGainMode, Mode, RfGainMode, TransmitMode},
     front_panel::{tasks::spi_receiver::handle_response_packet, types::ControlBusType},
@@ -38,27 +36,27 @@ pub async fn radio_state_task(control_bus: ControlBusType) {
             select4(
                 CURRENT_RSSI.wait(),
                 COUPLER_METRICS.wait(),
-                CURRENT_MODE.wait(),
-                CURRENT_TRANSMIT_MODE.wait(),
+                MODE.wait(),
+                TRANSMIT_MODE.wait(),
             ),
             select(
                 select4(
-                    CURRENT_IF_GAIN_MODE.wait(),
-                    CURRENT_RF_GAIN_MODE.wait(),
-                    CURRENT_FILTER.wait(),
-                    CURRENT_FREQUENCY.wait(),
+                    IF_GAIN_MODE.wait(),
+                    RF_GAIN_MODE.wait(),
+                    FILTER.wait(),
+                    FREQUENCY.wait(),
                 ),
                 select(
                     select4(
-                        CURRENT_BAND.wait(),
-                        CURRENT_NB_ENABLED.wait(),
-                        CURRENT_CLARIFIER_MODE.wait(),
-                        CURRENT_CLARIFIER_VALUE.wait(),
+                        BAND.wait(),
+                        NB_ENABLED.wait(),
+                        CLARIFIER_MODE.wait(),
+                        CLARIFIER_VALUE.wait(),
                     ),
                     select4(
-                        CURRENT_RF_POWER.wait(),
-                        CURRENT_VOLUME.wait(),
-                        CURRENT_SQUELCH.wait(),
+                        RF_POWER.wait(),
+                        VOLUME.wait(),
+                        SQUELCH.wait(),
                         Timer::after_millis(16),
                     ),
                 ),

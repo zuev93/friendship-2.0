@@ -14,6 +14,18 @@ mod i2c_map;
 mod main_board;
 mod peripherals;
 
+// TODO add ALC
+// TODO add compressor
+// TODO check squelch is added
+// TODO check used RSSI
+// TODO add usb connection
+// TODO noise reduction
+// TODO DSP
+// TODO Vox
+// TODO CW keyer
+// TODO Scan/search
+
+
 use embassy_executor::Spawner;
 use embassy_time::Timer;
 use panic_halt as _;

@@ -6,7 +6,7 @@ use embassy_stm32::sai::Sai;
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{AUDIO_BUFFER_HEADPHONES, CURRENT_MICROPHONE, CURRENT_MODE, CURRENT_VOLUME},
+    app::events::{AUDIO_BUFFER_HEADPHONES, MICROPHONE, MODE, VOLUME},
     consts::AUDIO_BUFFER_SIZE,
     front_panel::{events::AUDIO_MIC_BUFFER, modules::audio::Audio},
 };
@@ -55,7 +55,7 @@ async fn audio_panel_sai_headphones_task(sai_tx: &'static mut SaiTx) {
 #[embassy_executor::task]
 async fn control_task(audio: &'static mut Audio) {
     loop {
-        match select3(CURRENT_MODE.wait(), CURRENT_VOLUME.wait(), CURRENT_MICROPHONE.wait()).await {
+        match select3(MODE.wait(), VOLUME.wait(), MICROPHONE.wait()).await {
             Either3::First(mode) => {
                 if let Err(e) = audio.set_mode(mode).await {
                     error(e).await;

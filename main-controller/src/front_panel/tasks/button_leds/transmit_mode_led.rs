@@ -1,5 +1,5 @@
 use crate::{
-    app::{events::CURRENT_TRANSMIT_MODE, types::TransmitMode},
+    app::{events::TRANSMIT_MODE, types::TransmitMode},
     front_panel::{
         tasks::spi_receiver::handle_response_packet,
         types::{ButtonFunction, ControlBusType},
@@ -16,7 +16,7 @@ pub async fn transmit_mode_led_task(control_bus: ControlBusType) {
     };
 
     loop {
-        let transmit_mode = CURRENT_TRANSMIT_MODE.wait().await;
+        let transmit_mode = TRANSMIT_MODE.wait().await;
 
         let state = match transmit_mode {
             TransmitMode::Usb => LedState::Green,

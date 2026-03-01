@@ -1,4 +1,4 @@
-use crate::app::{events::CURRENT_IF_GAIN_MODE, types::IfGainMode};
+use crate::app::{events::IF_GAIN_MODE, types::IfGainMode};
 use crate::front_panel::tasks::spi_receiver::handle_response_packet;
 use crate::front_panel::types::ControlBusType;
 use common::protocol_types::{LedCommand, LedState};
@@ -8,7 +8,7 @@ pub async fn agc_mode_led_task(control_bus: ControlBusType) {
     const LED_ID: u8 = 6;
 
     loop {
-        let agc_mode = CURRENT_IF_GAIN_MODE.wait().await;
+        let agc_mode = IF_GAIN_MODE.wait().await;
 
         let state = match agc_mode {
             IfGainMode::Manual => LedState::Off,

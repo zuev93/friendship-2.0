@@ -1,5 +1,5 @@
 use crate::{
-    app::events::TONE_ACTIVE,
+    app::events::TONE,
     front_panel::{
         tasks::spi_receiver::handle_response_packet,
         types::{ButtonFunction, ControlBusType},
@@ -16,7 +16,7 @@ pub async fn tone_led_task(control_bus: ControlBusType) {
     };
 
     loop {
-        let tone_active = TONE_ACTIVE.wait().await;
+        let tone_active = TONE.wait().await;
 
         let state = if tone_active {
             LedState::Green

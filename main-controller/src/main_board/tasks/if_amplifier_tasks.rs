@@ -4,7 +4,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{CURRENT_IF_GAIN, CURRENT_MODE, RSSI_FAST_MODE, TARGET_IF_GAIN_MODE},
+    app::events::{IF_GAIN, IF_GAIN_MODE, MODE, RSSI_FAST_MODE},
     main_board::{events::CURRENT_RSSI, modules::if_amplifier::IfAmplifier},
 };
 use common::error::error;
@@ -20,10 +20,10 @@ pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfAmplifier) {
 async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
     loop {
         match select4(
-            CURRENT_IF_GAIN.wait(),
-            TARGET_IF_GAIN_MODE.wait(),
+            IF_GAIN.wait(),
+            IF_GAIN_MODE.wait(),
             CURRENT_RSSI.wait(),
-            CURRENT_MODE.wait(),
+            MODE.wait(),
         )
         .await
         {

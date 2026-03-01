@@ -1,7 +1,7 @@
 use embassy_futures::select::{select3, Either3};
 
 use crate::{
-    app::events::{CURRENT_FREQUENCY, CURRENT_MODE, CURRENT_RF_GAIN_MODE},
+    app::events::{FREQUENCY, MODE, RF_GAIN_MODE},
     peripherals::modules::bpf::Bpf,
 };
 use common::error::error;
@@ -10,9 +10,9 @@ use common::error::error;
 pub async fn bpf_task(mut bpf: Bpf) {
     loop {
         match select3(
-            CURRENT_RF_GAIN_MODE.wait(),
-            CURRENT_MODE.wait(),
-            CURRENT_FREQUENCY.wait(),
+            RF_GAIN_MODE.wait(),
+            MODE.wait(),
+            FREQUENCY.wait(),
         )
         .await
         {

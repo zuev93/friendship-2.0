@@ -15,31 +15,14 @@ pub enum ButtonEvent {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct BandEncoderRotateEvent {
-    pub delta: i8,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct VfoEncoderRotateEvent {
-    pub delta: i8,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ControlEncoderEvent {
+pub struct EncoderEvent {
     pub function: EncoderFunction,
     pub delta: i8,
 }
 
 pub static BUTTON_EVENTS: Channel<ThreadModeRawMutex, ButtonEvent, 16> = Channel::new();
 
-pub static BAND_ENCODER_EVENTS: Channel<ThreadModeRawMutex, BandEncoderRotateEvent, 16> =
-    Channel::new();
-
-pub static VFO_ENCODER_EVENTS: Channel<ThreadModeRawMutex, VfoEncoderRotateEvent, 16> =
-    Channel::new();
-
-pub static CONTROL_ENCODER_EVENTS: Channel<ThreadModeRawMutex, ControlEncoderEvent, 16> =
-    Channel::new();
+pub static ENCODER_EVENTS: Channel<ThreadModeRawMutex, EncoderEvent, 16> = Channel::new();
 
 pub static MENU_ENCODER_EVENTS: Channel<ThreadModeRawMutex, i8, 16> = Channel::new();
 

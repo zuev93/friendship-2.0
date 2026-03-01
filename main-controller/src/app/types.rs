@@ -1,7 +1,6 @@
 pub use common::protocol_types::{IfGainMode, Mode, RfGainMode, TransmitMode};
 
 #[derive(Clone, Copy, PartialEq)]
-#[allow(dead_code)]
 pub enum FilterType {
     None,
     Single,
@@ -25,6 +24,23 @@ impl FilterType {
             Self::DoubleWide => Self::WIDE_FILTER_BANDWIDTH_HZ,
             Self::Single => Self::SINGLE_FILTER_BANDWIDTH_HZ,
             Self::None => Self::SINGLE_FILTER_BANDWIDTH_HZ,
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            Self::None => Self::Single,
+            Self::Single => Self::DoubleWide,
+            Self::DoubleWide => Self::DoubleNarrow,
+            Self::DoubleNarrow => Self::Single,
+        }
+    }
+
+    pub fn default_for_mode(mode: TransmitMode) -> Self {
+        match mode {
+            TransmitMode::Usb | TransmitMode::Lsb => Self::DoubleWide,
+            TransmitMode::Cw => Self::DoubleNarrow,
+            TransmitMode::Am => Self::Single,
         }
     }
 }

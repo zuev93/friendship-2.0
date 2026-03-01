@@ -1,64 +1,59 @@
-use crate::app::events::{CURRENT_BAND, CURRENT_FREQUENCY};
-use crate::app::types::{Band, Frequency};
-use crate::front_panel::events::{BAND_ENCODER_EVENTS, VFO_ENCODER_EVENTS};
-use embassy_futures::select::{select, Either};
+use crate::app::tasks::arbiters::{
+    clarifier_value::CLARIFIER_VALUE_CMD,
+    frequency::{BandCommand, BAND_CMD, FREQUENCY_CMD},
+    if_gain::IF_GAIN_CMD,
+    microphone::MICROPHONE_CMD,
+    nb_level::NB_LEVEL_CMD,
+    rf_power::RF_POWER_CMD,
+    squelch::SQUELCH_CMD,
+    volume::VOLUME_CMD,
+};
+use crate::front_panel::events::ENCODER_EVENTS;
+use crate::front_panel::types::EncoderFunction;
+
+const STEP_SIZE: i16 = 4;
 
 #[embassy_executor::task]
 pub async fn encoder_task() {
-    let band_encoder_rx = BAND_ENCODER_EVENTS.receiver();
-    let vfo_encoder_rx = VFO_ENCODER_EVENTS.receiver();
-
-    let mut current_band = Band::Band20m;
-    // TODO store in settings
-    // TODO add step to config
-    let mut current_frequency: Frequency = 14_200_000; // 14.2 MHz
-    let step = 1000; // 1 kHz
-
-    let mut last_signaled_band = current_band;
-    let mut last_signaled_frequency = current_frequency;
+    let encoder_rx = ENCODER_EVENTS.receiver();
 
     loop {
-        match select(band_encoder_rx.receive(), vfo_encoder_rx.receive()).await {
-            Either::First(band_event) => {
-                if band_event.delta > 0 {
-                    current_band = current_band.next();
-                    current_frequency = current_band.lower_frequency();
-                } else if band_event.delta < 0 {
-                    current_band = current_band.prev();
-                    current_frequency = current_band.upper_frequency();
-                }
+        let event = encoder_rx.receive().await;
 
-                if current_band != last_signaled_band {
-                    CURRENT_BAND.signal(current_band);
-                    last_signaled_band = current_band;
-                }
-                if current_frequency != last_signaled_frequency {
-                    CURRENT_FREQUENCY.signal(current_frequency);
-                    last_signaled_frequency = current_frequency;
+        match event.function {
+            EncoderFunction::Band => {
+                if event.delta > 0 {
+                    BAND_CMD.signal(BandCommand::Up);
+                } else if event.delta < 0 {
+                    BAND_CMD.signal(BandCommand::Down);
                 }
             }
-
-            Either::Second(vfo_event) => {
-                let delta_frequency = (vfo_event.delta as i32) * step;
-                current_frequency = current_frequency.saturating_add_signed(delta_frequency);
-
-                if current_frequency > current_band.upper_frequency() {
-                    current_band = current_band.next();
-                    current_frequency = current_band.lower_frequency();
-                } else if current_frequency < current_band.lower_frequency() {
-                    current_band = current_band.prev();
-                    current_frequency = current_band.upper_frequency();
-                }
-
-                if current_band != last_signaled_band {
-                    CURRENT_BAND.signal(current_band);
-                    last_signaled_band = current_band;
-                }
-                if current_frequency != last_signaled_frequency {
-                    CURRENT_FREQUENCY.signal(current_frequency);
-                    last_signaled_frequency = current_frequency;
-                }
+            EncoderFunction::Vfo => {
+                let delta = event.delta as i32 * 1000;
+                FREQUENCY_CMD.signal(delta);
             }
+            EncoderFunction::Volume => {
+                VOLUME_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::Microphone => {
+                MICROPHONE_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::RfPower => {
+                RF_POWER_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::IfGain => {
+                IF_GAIN_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::Clarifier => {
+                CLARIFIER_VALUE_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::Squelch => {
+                SQUELCH_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::NbLevel => {
+                NB_LEVEL_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            _ => {}
         }
     }
 }

@@ -5,7 +5,7 @@ use embassy_time::{Duration, Timer};
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{COUPLER_METRICS, CURRENT_FREQUENCY, CURRENT_MODE},
+    app::events::{COUPLER_METRICS, FREQUENCY, MODE},
     peripherals::modules::lpf::Lpf,
 };
 use common::error::error;
@@ -23,7 +23,7 @@ pub fn create_tasks(spawner: Spawner, lpf: Lpf) {
 #[embassy_executor::task]
 async fn lpf_control_task(mutex: &'static Mutex<ThreadModeRawMutex, Lpf>) {
     loop {
-        match select(CURRENT_FREQUENCY.wait(), CURRENT_MODE.wait()).await {
+        match select(FREQUENCY.wait(), MODE.wait()).await {
             Either::First(frequency) => {
                 if let Err(e) = mutex.lock().await.set_frequency(frequency).await {
                     error(e).await;

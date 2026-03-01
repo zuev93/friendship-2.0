@@ -5,7 +5,7 @@ use embassy_stm32::sai::Sai;
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{AUDIO_BUFFER_TX, CURRENT_MODE},
+    app::events::{AUDIO_BUFFER_TX, MODE},
     consts::AUDIO_BUFFER_SIZE,
     main_board::{events::AUDIO_RX_BUFFER, modules::audio_panel::AudioPanel},
 };
@@ -54,7 +54,7 @@ async fn audio_panel_sai_tx_task(sai_tx: &'static mut SaiTx) {
 #[embassy_executor::task]
 async fn control_task(audio_panel: &'static mut AudioPanel) {
     loop {
-        let mode = CURRENT_MODE.wait().await;
+        let mode = MODE.wait().await;
 
         if let Err(e) = audio_panel.set_mode(mode).await {
             error(e).await;

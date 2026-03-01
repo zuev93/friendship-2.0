@@ -16,6 +16,7 @@ pub enum ButtonFunction {
     IcomSql,      // Button 8 - ICOM Squelch
     NoiseBlanker, // Noise blanker on/off
     IcomUpDown,   // Button 9 - ICOM Up/Down
+    Filter,       // Cycles crystal filter: Single -> DoubleWide -> DoubleNarrow
     Cancel,       // Button 10 - Cancel/Back
     Ok,           // Button 11 - OK/Select
 }

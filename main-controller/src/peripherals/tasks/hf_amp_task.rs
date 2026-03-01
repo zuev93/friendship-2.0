@@ -5,7 +5,7 @@ use embassy_time::{Duration, Timer};
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{CURRENT_MODE, PA_TEMPERATURES, TX_THERMAL_CONSTRAINT},
+    app::events::{MODE, PA_TEMPERATURES, TX_THERMAL_CONSTRAINT},
     control_board::events::{
         EmergencyReason, EMERGENCY_SHUTDOWN, PD_CONTRACT, POWER_TELEMETRY,
     },
@@ -27,7 +27,7 @@ pub fn create_tasks(spawner: Spawner, hf_amp: HfAmp) {
 async fn hf_amp_control_task(mutex: &'static Mutex<ThreadModeRawMutex, HfAmp>) {
     loop {
         let normal = select4(
-            CURRENT_MODE.wait(),
+            MODE.wait(),
             POWER_TELEMETRY.wait(),
             PD_CONTRACT.wait(),
             TX_THERMAL_CONSTRAINT.wait(),

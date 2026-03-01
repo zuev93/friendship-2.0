@@ -9,34 +9,31 @@ use super::types::{
     SweepRequest, TransmitMode, Volume, WaterfallLine,
 };
 
-pub static CURRENT_MODE: Signal<ThreadModeRawMutex, Mode> = Signal::new();
-// TODO trigger me
-pub static CURRENT_FILTER: Signal<ThreadModeRawMutex, FilterType> = Signal::new();
-pub static CURRENT_BAND: Signal<ThreadModeRawMutex, Band> = Signal::new();
-pub static CURRENT_FREQUENCY: Signal<ThreadModeRawMutex, Frequency> = Signal::new();
-pub static TARGET_FREQUENCY: Signal<ThreadModeRawMutex, Frequency> = Signal::new();
+pub static MODE: Signal<ThreadModeRawMutex, Mode> = Signal::new();
+pub static FILTER: Signal<ThreadModeRawMutex, FilterType> = Signal::new();
+pub static BAND: Signal<ThreadModeRawMutex, Band> = Signal::new();
+pub static FREQUENCY: Signal<ThreadModeRawMutex, Frequency> = Signal::new();
 pub static SWEEP_REQUEST: Signal<ThreadModeRawMutex, SweepRequest> = Signal::new();
+pub static SWEEP_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
 pub static RSSI_FAST_MODE: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static TARGET_IF_GAIN_MODE: Signal<ThreadModeRawMutex, IfGainMode> = Signal::new();
+pub static IF_GAIN_MODE: Signal<ThreadModeRawMutex, IfGainMode> = Signal::new();
 pub static WATERFALL_LINE: Signal<ThreadModeRawMutex, WaterfallLine> = Signal::new();
 
-// Audio and RF control signals
-pub static CURRENT_VOLUME: Signal<ThreadModeRawMutex, Volume> = Signal::new();
-pub static CURRENT_MICROPHONE: Signal<ThreadModeRawMutex, Microphone> = Signal::new();
-pub static CURRENT_RF_POWER: Signal<ThreadModeRawMutex, RfPower> = Signal::new();
-pub static CURRENT_IF_GAIN: Signal<ThreadModeRawMutex, IfGain> = Signal::new();
-pub static CURRENT_IF_GAIN_MODE: Signal<ThreadModeRawMutex, IfGainMode> = Signal::new();
-pub static CURRENT_CLARIFIER_MODE: Signal<ThreadModeRawMutex, ClarifierMode> = Signal::new();
-pub static CURRENT_CLARIFIER_VALUE: Signal<ThreadModeRawMutex, ClarifierValue> = Signal::new();
-pub static CURRENT_SQUELCH: Signal<ThreadModeRawMutex, Squelch> = Signal::new();
-pub static CURRENT_NB_ENABLED: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static CURRENT_NB_LEVEL: Signal<ThreadModeRawMutex, NbLevel> = Signal::new();
+pub static VOLUME: Signal<ThreadModeRawMutex, Volume> = Signal::new();
+pub static MICROPHONE: Signal<ThreadModeRawMutex, Microphone> = Signal::new();
+pub static RF_POWER: Signal<ThreadModeRawMutex, RfPower> = Signal::new();
+pub static IF_GAIN: Signal<ThreadModeRawMutex, IfGain> = Signal::new();
+pub static CLARIFIER_MODE: Signal<ThreadModeRawMutex, ClarifierMode> = Signal::new();
+pub static CLARIFIER_VALUE: Signal<ThreadModeRawMutex, ClarifierValue> = Signal::new();
+pub static SQUELCH: Signal<ThreadModeRawMutex, Squelch> = Signal::new();
+pub static NB_ENABLED: Signal<ThreadModeRawMutex, bool> = Signal::new();
+pub static NB_LEVEL: Signal<ThreadModeRawMutex, NbLevel> = Signal::new();
 pub static NB_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
 
 pub static TX_THERMAL_CONSTRAINT: Signal<ThreadModeRawMutex, i32> = Signal::new();
-pub static CURRENT_TRANSMIT_MODE: Signal<ThreadModeRawMutex, TransmitMode> = Signal::new();
-pub static CURRENT_RF_GAIN_MODE: Signal<ThreadModeRawMutex, RfGainMode> = Signal::new();
-pub static TONE_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
+pub static TRANSMIT_MODE: Signal<ThreadModeRawMutex, TransmitMode> = Signal::new();
+pub static RF_GAIN_MODE: Signal<ThreadModeRawMutex, RfGainMode> = Signal::new();
+pub static TONE: Signal<ThreadModeRawMutex, bool> = Signal::new();
 pub static BUTTON_BEEP: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
 pub static COUPLER_METRICS: Signal<ThreadModeRawMutex, CouplerMetrics> = Signal::new();

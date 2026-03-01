@@ -5,7 +5,7 @@ use embassy_time::{Duration, Ticker};
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::CURRENT_MODE,
+    app::events::MODE,
     control_board::events::{
         EmergencyReason, PdContract, EMERGENCY_SHUTDOWN, PA_CURRENT_READING, PA_CURRENT_REQUEST,
         PA_FAST_MODE, PD_CONTRACT, POWER_TELEMETRY,
@@ -27,7 +27,7 @@ pub fn create_tasks(spawner: Spawner, power_control: PowerControl) {
 #[embassy_executor::task]
 async fn power_control_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerControl>) {
     loop {
-        let mode = CURRENT_MODE.wait().await;
+        let mode = MODE.wait().await;
         if let Err(e) = mutex.lock().await.set_mode(mode).await {
             error(e).await;
         }

@@ -3,7 +3,7 @@ use embassy_executor::Spawner;
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{AUDIO_BUFFER_SPEAKERS, CURRENT_MODE},
+    app::events::{AUDIO_BUFFER_SPEAKERS, MODE},
     control_board::modules::audio::Audio,
 };
 
@@ -28,7 +28,7 @@ async fn audio_panel_i2s_speakers_task(audio: &'static Audio) {
 #[embassy_executor::task]
 async fn control_task(audio: &'static Audio) {
     loop {
-        let mode = CURRENT_MODE.wait().await;
+        let mode = MODE.wait().await;
         if let Err(e) = audio.set_mode(mode).await {
             error(e).await;
         }

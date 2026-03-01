@@ -6,10 +6,7 @@ use static_cell::StaticCell;
 use crate::{
     app::{
         audio_mixer::AudioMixer,
-        events::{
-            AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, CURRENT_SQUELCH,
-            CURRENT_VOLUME,
-        },
+        events::{AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, SQUELCH, VOLUME},
         tone_generator::ToneGenerator,
     },
     front_panel::events::{AUDIO_MIC_BUFFER, HEADPHONES_CONNECTED},
@@ -53,9 +50,9 @@ async fn audio_task(
 async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     loop {
         match select4(
-            CURRENT_VOLUME.wait(),
+            VOLUME.wait(),
             HEADPHONES_CONNECTED.wait(),
-            CURRENT_SQUELCH.wait(),
+            SQUELCH.wait(),
             CURRENT_RSSI.wait(),
         )
         .await

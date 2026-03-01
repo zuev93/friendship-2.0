@@ -1,5 +1,5 @@
 use crate::{
-    app::{events::CURRENT_CLARIFIER_MODE, types::ClarifierMode},
+    app::{events::CLARIFIER_MODE, types::ClarifierMode},
     front_panel::{
         tasks::spi_receiver::handle_response_packet,
         types::{ButtonFunction, ControlBusType},
@@ -16,7 +16,7 @@ pub async fn rit_mode_led_task(control_bus: ControlBusType) {
     };
 
     loop {
-        let clarifier_mode = CURRENT_CLARIFIER_MODE.wait().await;
+        let clarifier_mode = CLARIFIER_MODE.wait().await;
 
         let state = match clarifier_mode {
             ClarifierMode::Off => LedState::Off,
