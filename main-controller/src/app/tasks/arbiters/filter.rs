@@ -7,6 +7,7 @@ use crate::app::types::FilterType;
 
 pub enum FilterCommand {
     Cycle,
+    Set(FilterType),
 }
 
 pub static FILTER_CMD: Signal<ThreadModeRawMutex, FilterCommand> = Signal::new();
@@ -29,6 +30,11 @@ pub async fn filter_arbiter_task() {
             Either3::First(cmd) => match cmd {
                 FilterCommand::Cycle => {
                     filter = filter.next();
+                    user_filter = filter;
+                    FILTER.sender().send(filter);
+                }
+                FilterCommand::Set(f) => {
+                    filter = f;
                     user_filter = filter;
                     FILTER.sender().send(filter);
                 }

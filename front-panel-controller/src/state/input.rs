@@ -31,6 +31,8 @@ pub struct RadioState {
     pub rf_power_centipercent: u16,
     pub volume_raw: i16,
     pub squelch_raw: i16,
+    pub cursor_index: u8,
+    pub cursor_editing: bool,
 }
 
 pub type LedSignal = Signal<ThreadModeRawMutex, LedUpdate>;

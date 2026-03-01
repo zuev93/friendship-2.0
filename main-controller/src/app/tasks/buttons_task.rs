@@ -24,10 +24,9 @@ use crate::app::{
     },
 };
 use crate::front_panel::{
-    events::{ButtonEvent, BUTTON_EVENTS, MENU_CMD_QUEUE},
+    events::{ButtonEvent, BUTTON_EVENTS, CursorCommand, CURSOR_CMD},
     types::ButtonFunction,
 };
-use common::protocol_types::MenuCommand;
 use embassy_time::{Duration, Instant};
 use heapless::index_map::FnvIndexMap;
 
@@ -181,13 +180,15 @@ pub async fn buttons_task() {
             | ButtonEvent::Release(ButtonFunction::IcomUpDown) => {}
 
             ButtonEvent::Press(ButtonFunction::Ok) => {
-                MENU_CMD_QUEUE.send(MenuCommand::Ok).await;
+                CURSOR_CMD.send(CursorCommand::OkPress).await;
+            }
+            ButtonEvent::Release(ButtonFunction::Ok) => {
+                CURSOR_CMD.send(CursorCommand::OkRelease).await;
             }
             ButtonEvent::Press(ButtonFunction::Cancel) => {
-                MENU_CMD_QUEUE.send(MenuCommand::Cancel).await;
+                CURSOR_CMD.send(CursorCommand::Cancel).await;
             }
-            ButtonEvent::Release(ButtonFunction::Cancel)
-            | ButtonEvent::Release(ButtonFunction::Ok) => {}
+            ButtonEvent::Release(ButtonFunction::Cancel) => {}
         }
     }
 }

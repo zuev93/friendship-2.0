@@ -7,6 +7,7 @@ use crate::app::types::IfGainMode;
 
 pub enum IfGainModeCommand {
     Toggle,
+    Set(IfGainMode),
 }
 
 pub static IF_GAIN_MODE_CMD: Signal<ThreadModeRawMutex, IfGainModeCommand> = Signal::new();
@@ -22,6 +23,11 @@ pub async fn if_gain_mode_arbiter_task() {
             Either::First(cmd) => match cmd {
                 IfGainModeCommand::Toggle => {
                     if_gain_mode = if_gain_mode.toggle();
+                    user_mode = if_gain_mode;
+                    IF_GAIN_MODE.sender().send(if_gain_mode);
+                }
+                IfGainModeCommand::Set(mode) => {
+                    if_gain_mode = mode;
                     user_mode = if_gain_mode;
                     IF_GAIN_MODE.sender().send(if_gain_mode);
                 }

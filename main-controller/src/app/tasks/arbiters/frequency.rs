@@ -10,6 +10,7 @@ use crate::app::{
 pub enum BandCommand {
     Up,
     Down,
+    Set(Band),
 }
 
 pub enum FrequencyCommand {
@@ -81,6 +82,10 @@ pub async fn frequency_arbiter_task() {
                     BandCommand::Down => {
                         current_band = current_band.prev();
                         current_frequency = current_band.upper_frequency();
+                    }
+                    BandCommand::Set(band) => {
+                        current_band = band;
+                        current_frequency = current_band.lower_frequency();
                     }
                 }
 

@@ -12,6 +12,7 @@ use static_cell::StaticCell;
 
 use crate::front_panel::modules::audio::Audio;
 use crate::front_panel::modules::control_bus::ControlBus;
+use crate::front_panel::tasks::cursor::cursor_task;
 use crate::front_panel::tasks::menu_sender::menu_sender_task;
 use crate::front_panel::tasks::radio_state::radio_state_task;
 use crate::front_panel::tasks::spi_receiver::spi_receiver_task;
@@ -76,6 +77,7 @@ impl FrontPanelSubsystem {
         spawner.must_spawn(radio_state_task(bus));
         spawner.must_spawn(waterfall_sender_task(bus));
         spawner.must_spawn(menu_sender_task(bus));
+        spawner.must_spawn(cursor_task());
         audio_tasks::create_tasks(spawner, audio).await;
     }
 }

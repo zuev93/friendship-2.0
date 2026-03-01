@@ -14,7 +14,6 @@ mod i2c_map;
 mod main_board;
 mod peripherals;
 
-// TODO add selection/changes of UI elements
 // TODO add settings screen
 // TODO Add system settings screen
 // TODO Add FPS/UPS/RAM/CPU stats

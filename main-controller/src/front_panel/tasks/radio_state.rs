@@ -7,7 +7,11 @@ use crate::{
         MODE, NB_ENABLED, RF_GAIN_MODE, RF_POWER, SQUELCH, TRANSMIT_MODE, VOLUME,
     },
     app::types::{Band, ClarifierMode, IfGainMode, Mode, RfGainMode, TransmitMode},
-    front_panel::{tasks::spi_receiver::handle_response_packet, types::ControlBusType},
+    front_panel::{
+        events::CURSOR_STATE,
+        tasks::spi_receiver::handle_response_packet,
+        types::ControlBusType,
+    },
     main_board::events::CURRENT_RSSI2,
 };
 use common::protocol_types::RadioStateCommand;
@@ -30,6 +34,8 @@ pub async fn radio_state_task(control_bus: ControlBusType) {
     let mut rf_power_centipercent: u16 = 5000;
     let mut volume_raw: i16 = 500;
     let mut squelch_raw: i16 = 0;
+    let mut cursor_index: u8 = 0xFF;
+    let mut cursor_editing: bool = false;
 
     let mut rssi_rcv = CURRENT_RSSI2.receiver().unwrap();
     let mut coupler_rcv = COUPLER_METRICS.receiver().unwrap();
@@ -46,6 +52,7 @@ pub async fn radio_state_task(control_bus: ControlBusType) {
     let mut rf_power_rcv = RF_POWER.receiver().unwrap();
     let mut volume_rcv = VOLUME.receiver().unwrap();
     let mut squelch_rcv = SQUELCH.receiver().unwrap();
+    let mut cursor_state_rcv = CURSOR_STATE.receiver().unwrap();
 
     loop {
         match select(
@@ -141,6 +148,11 @@ pub async fn radio_state_task(control_bus: ControlBusType) {
             },
         }
 
+        if let Some(cs) = cursor_state_rcv.try_changed() {
+            cursor_index = cs.index;
+            cursor_editing = cs.editing;
+        }
+
         let band_u8 = match band {
             Band::Band160m => 0,
             Band::Band80m => 1,
@@ -176,6 +188,8 @@ pub async fn radio_state_task(control_bus: ControlBusType) {
             rf_power_centipercent,
             volume_raw,
             squelch_raw,
+            cursor_index,
+            cursor_editing,
         };
 
         let response = {

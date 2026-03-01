@@ -10,7 +10,7 @@ use embedded_graphics::{
 use heapless::String;
 
 use crate::state::input::{IfGainMode, Mode, RadioState, RfGainMode, TransmitMode};
-use crate::ui::{meter_bar, BLACK, BLUE, BRIGHT_GREEN, DARK_GRAY, DIM_WHITE, GRAY, GREEN, ORANGE, RED, WHITE, YELLOW};
+use crate::ui::{meter_bar, BLACK, BLUE, BRIGHT_GREEN, CYAN, DARK_GRAY, DIM_WHITE, GRAY, GREEN, ORANGE, RED, WHITE, YELLOW};
 
 const DBM_MIN: i8 = -120;
 const DBM_S9: i8 = -73;
@@ -47,6 +47,23 @@ fn s9_bar() -> u16 {
     dbm_to_bar(DBM_S9)
 }
 
+fn cursor_highlight_color(state: &RadioState, index: u8) -> Option<Rgb565> {
+    if state.cursor_index != index {
+        return None;
+    }
+    if state.cursor_editing {
+        Some(YELLOW)
+    } else {
+        Some(CYAN)
+    }
+}
+
+fn draw_cursor_outline(target: &mut impl DrawTarget<Color = Rgb565>, x: i32, y: i32, w: u32, h: u32, color: Rgb565) {
+    let _ = Rectangle::new(Point::new(x - 1, y), Size::new(w + 2, h))
+        .into_styled(PrimitiveStyle::with_stroke(color, 1))
+        .draw(target);
+}
+
 fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioState) {
     let _ = Rectangle::new(Point::new(0, 0), Size::new(240, 14))
         .into_styled(PrimitiveStyle::with_fill(DARK_GRAY))
@@ -61,14 +78,22 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
         TransmitMode::Cw => "CW",
         TransmitMode::Am => "AM",
     };
+    let tm_w = (tx_mode.len() as u32) * 6;
     Text::new(tx_mode, Point::new(2, 10), mode_style).draw(target).ok();
+    if let Some(color) = cursor_highlight_color(state, 1) {
+        draw_cursor_outline(target, 2, 0, tm_w, 14, color);
+    }
 
     let agc = match state.agc_mode {
         IfGainMode::Manual => "AGC:MAN",
         IfGainMode::AgcFast => "AGC:FAST",
         IfGainMode::AgcSlow => "AGC:SLOW",
     };
+    let agc_w = (agc.len() as u32) * 6;
     Text::new(agc, Point::new(30, 10), style).draw(target).ok();
+    if let Some(color) = cursor_highlight_color(state, 2) {
+        draw_cursor_outline(target, 30, 0, agc_w, 14, color);
+    }
 
     let mut bw_str: String<8> = String::new();
     if state.filter_bw_hz >= 1000 {
@@ -76,7 +101,11 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
     } else {
         let _ = write!(bw_str, "{}Hz", state.filter_bw_hz);
     }
+    let bw_w = (bw_str.len() as u32) * 6;
     Text::new(&bw_str, Point::new(96, 10), style).draw(target).ok();
+    if let Some(color) = cursor_highlight_color(state, 5) {
+        draw_cursor_outline(target, 96, 0, bw_w, 14, color);
+    }
 
     let rf = match state.rf_gain_mode {
         RfGainMode::Attenuator => "ATT",
@@ -85,7 +114,13 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
         RfGainMode::RfDouble => "PRE2",
     };
     if !rf.is_empty() {
+        let rf_w = (rf.len() as u32) * 6;
         Text::new(rf, Point::new(138, 10), style).draw(target).ok();
+        if let Some(color) = cursor_highlight_color(state, 3) {
+            draw_cursor_outline(target, 138, 0, rf_w, 14, color);
+        }
+    } else if let Some(color) = cursor_highlight_color(state, 3) {
+        draw_cursor_outline(target, 138, 0, 18, 14, color);
     }
 
     let (mode_label, mode_color) = match state.mode {

@@ -18,3 +18,4 @@ pub const YELLOW: Rgb565 = Rgb565::new(31, 63, 0);
 pub const RED: Rgb565 = Rgb565::new(31, 0, 0);
 pub const BLUE: Rgb565 = Rgb565::new(4, 16, 31);
 pub const ORANGE: Rgb565 = Rgb565::new(31, 32, 0);
+pub const CYAN: Rgb565 = Rgb565::new(0, 63, 31);

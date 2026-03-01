@@ -6,6 +6,7 @@ use crate::app::types::RfGainMode;
 
 pub enum RfGainModeCommand {
     Cycle,
+    Set(RfGainMode),
 }
 
 pub static RF_GAIN_MODE_CMD: Signal<ThreadModeRawMutex, RfGainModeCommand> = Signal::new();
@@ -19,6 +20,10 @@ pub async fn rf_gain_mode_arbiter_task() {
         match cmd {
             RfGainModeCommand::Cycle => {
                 rf_gain_mode = rf_gain_mode.next();
+                RF_GAIN_MODE.sender().send(rf_gain_mode);
+            }
+            RfGainModeCommand::Set(mode) => {
+                rf_gain_mode = mode;
                 RF_GAIN_MODE.sender().send(rf_gain_mode);
             }
         }

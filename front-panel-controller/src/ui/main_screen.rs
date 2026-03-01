@@ -10,7 +10,7 @@ use embedded_graphics::{
 use heapless::String;
 
 use crate::state::input::{IfGainMode, Mode, RadioState, RfGainMode, TransmitMode};
-use crate::ui::{meter_bar, BLACK, BLUE, BRIGHT_GREEN, DARK_GRAY, DIM_WHITE, GRAY, GREEN, ORANGE, RED, WHITE, YELLOW};
+use crate::ui::{meter_bar, BLACK, BLUE, BRIGHT_GREEN, CYAN, DARK_GRAY, DIM_WHITE, GRAY, GREEN, ORANGE, RED, WHITE, YELLOW};
 
 const DBM_MIN: i8 = -120;
 const DBM_S9: i8 = -73;
@@ -27,7 +27,7 @@ pub fn render(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioState) 
     draw_frequency(target, state.frequency);
     draw_info_line(target, state);
     draw_smeter(target, state.rssi_dbm);
-    draw_vol_sql(target, state.volume_raw, state.squelch_raw);
+    draw_vol_sql(target, state);
 }
 
 fn band_label(band: u8) -> &'static str {
@@ -45,6 +45,23 @@ fn band_label(band: u8) -> &'static str {
     }
 }
 
+fn cursor_highlight_color(state: &RadioState, index: u8) -> Option<Rgb565> {
+    if state.cursor_index != index {
+        return None;
+    }
+    if state.cursor_editing {
+        Some(YELLOW)
+    } else {
+        Some(CYAN)
+    }
+}
+
+fn draw_cursor_outline(target: &mut impl DrawTarget<Color = Rgb565>, x: i32, y: i32, w: u32, h: u32, color: Rgb565) {
+    let _ = Rectangle::new(Point::new(x - 1, y), Size::new(w + 2, h))
+        .into_styled(PrimitiveStyle::with_stroke(color, 1))
+        .draw(target);
+}
+
 fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioState) {
     let _ = Rectangle::new(Point::new(0, 0), Size::new(240, 14))
         .into_styled(PrimitiveStyle::with_fill(DARK_GRAY))
@@ -56,8 +73,13 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
     let mut x: i32 = 2;
 
     let bl = band_label(state.band);
+    let bl_x = x;
+    let bl_w = (bl.len() as u32) * 6;
     Text::new(bl, Point::new(x, 10), mode_style).draw(target).ok();
-    x += (bl.len() as i32) * 6 + 4;
+    if let Some(color) = cursor_highlight_color(state, 0) {
+        draw_cursor_outline(target, bl_x, 0, bl_w, 14, color);
+    }
+    x += bl_w as i32 + 4;
 
     let tx_mode = match state.transmit_mode {
         TransmitMode::Usb => "USB",
@@ -65,16 +87,26 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
         TransmitMode::Cw => "CW",
         TransmitMode::Am => "AM",
     };
+    let tm_x = x;
+    let tm_w = (tx_mode.len() as u32) * 6;
     Text::new(tx_mode, Point::new(x, 10), mode_style).draw(target).ok();
-    x += (tx_mode.len() as i32) * 6 + 4;
+    if let Some(color) = cursor_highlight_color(state, 1) {
+        draw_cursor_outline(target, tm_x, 0, tm_w, 14, color);
+    }
+    x += tm_w as i32 + 4;
 
     let agc = match state.agc_mode {
         IfGainMode::Manual => "AGC:M",
         IfGainMode::AgcFast => "AGC:F",
         IfGainMode::AgcSlow => "AGC:S",
     };
+    let agc_x = x;
+    let agc_w = (agc.len() as u32) * 6;
     Text::new(agc, Point::new(x, 10), style).draw(target).ok();
-    x += (agc.len() as i32) * 6 + 4;
+    if let Some(color) = cursor_highlight_color(state, 2) {
+        draw_cursor_outline(target, agc_x, 0, agc_w, 14, color);
+    }
+    x += agc_w as i32 + 4;
 
     let rf = match state.rf_gain_mode {
         RfGainMode::Attenuator => "ATT",
@@ -83,12 +115,28 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
         RfGainMode::RfDouble => "PRE2",
     };
     if !rf.is_empty() {
+        let rf_x = x;
+        let rf_w = (rf.len() as u32) * 6;
         Text::new(rf, Point::new(x, 10), style).draw(target).ok();
-        x += (rf.len() as i32) * 6 + 4;
+        if let Some(color) = cursor_highlight_color(state, 3) {
+            draw_cursor_outline(target, rf_x, 0, rf_w, 14, color);
+        }
+        x += rf_w as i32 + 4;
+    } else if let Some(color) = cursor_highlight_color(state, 3) {
+        let rf_w = 18u32;
+        draw_cursor_outline(target, x, 0, rf_w, 14, color);
+        x += rf_w as i32 + 4;
     }
 
     if state.nb_enabled {
+        let nb_x = x;
+        let nb_w = 12u32;
         Text::new("NB", Point::new(x, 10), style).draw(target).ok();
+        if let Some(color) = cursor_highlight_color(state, 4) {
+            draw_cursor_outline(target, nb_x, 0, nb_w, 14, color);
+        }
+    } else if let Some(color) = cursor_highlight_color(state, 4) {
+        draw_cursor_outline(target, x, 0, 12, 14, color);
     }
 
     let (mode_label, mode_color) = match state.mode {
@@ -146,13 +194,23 @@ fn draw_info_line(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSta
     } else {
         let _ = write!(bw_str, "BW:{}Hz", state.filter_bw_hz);
     }
+    let bw_x = x;
+    let bw_w = (bw_str.len() as u32) * 6;
     Text::new(&bw_str, Point::new(x, y), style).draw(target).ok();
-    x += (bw_str.len() as i32) * 6 + 6;
+    if let Some(color) = cursor_highlight_color(state, 5) {
+        draw_cursor_outline(target, bw_x, y - 10, bw_w, 14, color);
+    }
+    x += bw_w as i32 + 6;
 
     let pwr_percent = state.rf_power_centipercent / 100;
     let mut pwr_str: String<10> = String::new();
     let _ = write!(pwr_str, "PWR:{}%", pwr_percent);
+    let pwr_x = x;
+    let pwr_w = (pwr_str.len() as u32) * 6;
     Text::new(&pwr_str, Point::new(x, y), style).draw(target).ok();
+    if let Some(color) = cursor_highlight_color(state, 6) {
+        draw_cursor_outline(target, pwr_x, y - 10, pwr_w, 14, color);
+    }
 }
 
 fn dbm_to_bar(dbm: i8) -> u16 {
@@ -201,26 +259,32 @@ fn draw_smeter(target: &mut impl DrawTarget<Color = Rgb565>, dbm: i8) {
     Text::new(&s_str, Point::new(218, bar_y + 11), readout_style).draw(target).ok();
 }
 
-fn draw_vol_sql(target: &mut impl DrawTarget<Color = Rgb565>, volume_raw: i16, squelch_raw: i16) {
+fn draw_vol_sql(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioState) {
     let y: i32 = 108;
     let bar_height: u32 = 12;
     let label_style = MonoTextStyle::new(&FONT_6X10, DIM_WHITE);
 
     Text::new("VOL", Point::new(2, y + 10), label_style).draw(target).ok();
-    let vol_value = volume_raw.max(0) as u16;
+    let vol_value = state.volume_raw.max(0) as u16;
     meter_bar::draw_meter_bar(
         target,
         24, y, 88, bar_height,
         vol_value, ACCUMULATOR_MAX as u16,
         BLUE, DARK_GRAY,
     );
+    if let Some(color) = cursor_highlight_color(state, 7) {
+        draw_cursor_outline(target, 1, y, 112, bar_height + 2, color);
+    }
 
     Text::new("SQL", Point::new(120, y + 10), label_style).draw(target).ok();
-    let sql_value = squelch_raw.max(0) as u16;
+    let sql_value = state.squelch_raw.max(0) as u16;
     meter_bar::draw_meter_bar(
         target,
         142, y, 88, bar_height,
         sql_value, ACCUMULATOR_MAX as u16,
         GREEN, DARK_GRAY,
     );
+    if let Some(color) = cursor_highlight_color(state, 8) {
+        draw_cursor_outline(target, 119, y, 112, bar_height + 2, color);
+    }
 }

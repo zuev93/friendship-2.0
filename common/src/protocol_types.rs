@@ -239,6 +239,8 @@ pub struct RadioStateCommand {
     pub rf_power_centipercent: u16,
     pub volume_raw: i16,
     pub squelch_raw: i16,
+    pub cursor_index: u8,
+    pub cursor_editing: bool,
 }
 
 impl PacketSerializable for RadioStateCommand {
@@ -298,6 +300,8 @@ impl PacketSerializable for RadioStateCommand {
         let sql = self.squelch_raw.to_be_bytes();
         payload[24] = sql[0];
         payload[25] = sql[1];
+        payload[26] = self.cursor_index;
+        payload[27] = if self.cursor_editing { 1 } else { 0 };
     }
 
     fn read_payload(payload: &[u8]) -> Option<Self> {
@@ -345,6 +349,8 @@ impl PacketSerializable for RadioStateCommand {
             rf_power_centipercent: u16::from_be_bytes([payload[20], payload[21]]),
             volume_raw: i16::from_be_bytes([payload[22], payload[23]]),
             squelch_raw: i16::from_be_bytes([payload[24], payload[25]]),
+            cursor_index: payload[26],
+            cursor_editing: payload[27] != 0,
         })
     }
 }

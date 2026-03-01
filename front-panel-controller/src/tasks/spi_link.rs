@@ -109,6 +109,8 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
             rf_power_centipercent: cmd.rf_power_centipercent,
             volume_raw: cmd.volume_raw,
             squelch_raw: cmd.squelch_raw,
+            cursor_index: cmd.cursor_index,
+            cursor_editing: cmd.cursor_editing,
         });
     } else if let Some(cmd) = WaterfallLineCommand::deserialize(packet) {
         input_state.waterfall_line.signal(crate::state::input::WaterfallLineData {

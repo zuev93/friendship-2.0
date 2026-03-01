@@ -1,4 +1,3 @@
-use common::protocol_types::MenuCommand;
 use embassy_sync::channel::Channel;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, watch::Watch};
 
@@ -29,4 +28,22 @@ pub static MENU_ENCODER_EVENTS: Channel<ThreadModeRawMutex, i8, 16> = Channel::n
 
 pub static AUDIO_MIC_BUFFER: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();
 
-pub static MENU_CMD_QUEUE: Channel<ThreadModeRawMutex, MenuCommand, 8> = Channel::new();
+pub static MENU_CMD_QUEUE: Channel<ThreadModeRawMutex, common::protocol_types::MenuCommand, 8> =
+    Channel::new();
+
+#[derive(Debug, Clone, Copy)]
+pub enum CursorCommand {
+    OkPress,
+    OkRelease,
+    Cancel,
+}
+
+pub static CURSOR_CMD: Channel<ThreadModeRawMutex, CursorCommand, 8> = Channel::new();
+
+#[derive(Debug, Clone, Copy)]
+pub struct CursorState {
+    pub index: u8,
+    pub editing: bool,
+}
+
+pub static CURSOR_STATE: Watch<ThreadModeRawMutex, CursorState, 2> = Watch::new();
