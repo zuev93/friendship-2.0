@@ -41,6 +41,8 @@ impl ButtonMapping {
         map.insert(20, ButtonFunction::RxEqualizer).ok();
         map.insert(21, ButtonFunction::Vox).ok();
         map.insert(22, ButtonFunction::Scan).ok();
+        map.insert(23, ButtonFunction::CwKeyMode).ok();
+        map.insert(24, ButtonFunction::CwPaddleSwap).ok();
 
         Self { map }
     }
@@ -89,6 +91,9 @@ impl EncoderMapping {
         map.insert(24, EncoderFunction::VoxAntiTrip).ok();
         map.insert(25, EncoderFunction::ScanStep).ok();
         map.insert(26, EncoderFunction::ScanResume).ok();
+        map.insert(27, EncoderFunction::CwWpm).ok();
+        map.insert(28, EncoderFunction::CwWeight).ok();
+        map.insert(29, EncoderFunction::CwBreakInDelay).ok();
 
         Self { map }
     }

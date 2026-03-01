@@ -28,6 +28,8 @@ pub enum ButtonFunction {
     RxEqualizer,
     Vox,
     Scan,
+    CwKeyMode,
+    CwPaddleSwap,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -59,6 +61,9 @@ pub enum EncoderFunction {
     VoxAntiTrip,
     ScanStep,
     ScanResume,
+    CwWpm,
+    CwWeight,
+    CwBreakInDelay,
 }
 
 pub type ControlBusType = &'static Mutex<ThreadModeRawMutex, ControlBus>;

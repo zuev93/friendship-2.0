@@ -1,6 +1,7 @@
 mod app_subsystem;
 pub mod audio_mixer;
 pub mod cordic_math;
+pub mod cw_keyer;
 pub mod events;
 pub mod fmac_fir;
 pub mod tasks;

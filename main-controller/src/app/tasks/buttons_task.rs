@@ -20,6 +20,7 @@ use crate::app::{
         transmit_mode::{TransmitModeCommand, TRANSMIT_MODE_CMD},
         tx_eq::{TxEqCommand, TX_EQ_CMD},
         vox::{VoxCommand, VOX_CMD},
+        cw_keyer::{CwKeyerCommand, CW_KEYER_CMD},
     },
 };
 use crate::front_panel::{
@@ -136,6 +137,13 @@ pub async fn buttons_task() {
                 SCAN_CMD.signal(ScanCommand::Toggle);
             }
 
+            ButtonEvent::Press(ButtonFunction::CwKeyMode) => {
+                CW_KEYER_CMD.signal(CwKeyerCommand::CycleMode);
+            }
+            ButtonEvent::Press(ButtonFunction::CwPaddleSwap) => {
+                CW_KEYER_CMD.signal(CwKeyerCommand::ToggleSwap);
+            }
+
             ButtonEvent::Press(ButtonFunction::Power)
             | ButtonEvent::Release(ButtonFunction::TransmitMode)
             | ButtonEvent::Release(ButtonFunction::Filter)
@@ -151,7 +159,9 @@ pub async fn buttons_task() {
             | ButtonEvent::Release(ButtonFunction::TxEqualizer)
             | ButtonEvent::Release(ButtonFunction::RxEqualizer)
             | ButtonEvent::Release(ButtonFunction::Vox)
-            | ButtonEvent::Release(ButtonFunction::Scan) => {}
+            | ButtonEvent::Release(ButtonFunction::Scan)
+            | ButtonEvent::Release(ButtonFunction::CwKeyMode)
+            | ButtonEvent::Release(ButtonFunction::CwPaddleSwap) => {}
 
             ButtonEvent::Press(ButtonFunction::IcomPtt) => {
                 SCAN_CMD.signal(ScanCommand::Stop);

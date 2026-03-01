@@ -507,3 +507,74 @@ impl WaterfallBuffer {
         self.write_index = (self.write_index + 1) % WATERFALL_LINES;
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CwKeyMode {
+    Straight,
+    IambicA,
+    IambicB,
+}
+
+impl CwKeyMode {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Straight => Self::IambicA,
+            Self::IambicA => Self::IambicB,
+            Self::IambicB => Self::Straight,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CwWpm(u8);
+
+impl CwWpm {
+    pub fn new(raw: u8) -> Self {
+        Self(raw.clamp(5, 60))
+    }
+
+    pub fn raw(self) -> u8 {
+        self.0
+    }
+
+    pub fn add(self, delta: i8) -> Self {
+        let val = (self.0 as i16 + delta as i16).clamp(5, 60) as u8;
+        Self(val)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CwWeight(u8);
+
+impl CwWeight {
+    pub fn new(raw: u8) -> Self {
+        Self(raw.clamp(25, 75))
+    }
+
+    pub fn raw(self) -> u8 {
+        self.0
+    }
+
+    pub fn add(self, delta: i8) -> Self {
+        let val = (self.0 as i16 + delta as i16).clamp(25, 75) as u8;
+        Self(val)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CwBreakInDelay(u16);
+
+impl CwBreakInDelay {
+    pub fn new(raw: u16) -> Self {
+        Self(raw.clamp(100, 2000))
+    }
+
+    pub fn ms(self) -> u16 {
+        self.0
+    }
+
+    pub fn add(self, delta: i16) -> Self {
+        let val = (self.0 as i32 + delta as i32).clamp(100, 2000) as u16;
+        Self(val)
+    }
+}

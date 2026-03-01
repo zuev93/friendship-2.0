@@ -7,6 +7,7 @@ const SAMPLE_RATE_HZ: u32 = 48_000;
 const TONE_FREQ_HZ: u32 = 1000;
 const BEEP_FREQ_HZ: u32 = 1500;
 const BUTTON_BEEP_MS: u64 = 120;
+const SIDETONE_ENVELOPE_STEP: u16 = 455;
 
 const WARMUP_MELODY: &[(u32, u32)] = &[
     (659, 4),
@@ -26,6 +27,9 @@ pub struct ToneGenerator {
     tone_button: bool,
     beep_until: Option<Instant>,
     warmup: WarmupState,
+    sidetone_osc: ToneOsc,
+    sidetone_active: bool,
+    sidetone_envelope: u16,
 }
 
 impl ToneGenerator {
@@ -35,6 +39,9 @@ impl ToneGenerator {
             tone_button: false,
             beep_until: None,
             warmup: WarmupState::new(),
+            sidetone_osc: ToneOsc::new(700),
+            sidetone_active: false,
+            sidetone_envelope: 0,
         }
     }
 
@@ -54,6 +61,14 @@ impl ToneGenerator {
         self.beep_until = Some(Instant::now() + Duration::from_millis(BUTTON_BEEP_MS));
     }
 
+    pub fn set_sidetone_active(&mut self, active: bool) {
+        self.sidetone_active = active;
+    }
+
+    pub fn set_sidetone_freq(&mut self, freq: u16) {
+        self.sidetone_osc.set_freq(freq as u32);
+    }
+
     pub fn next_buffer(&mut self) -> [u16; AUDIO_BUFFER_SIZE] {
         let now = Instant::now();
         let mut freq = None;
@@ -67,10 +82,24 @@ impl ToneGenerator {
         }
 
         let mut buffer = [0u16; AUDIO_BUFFER_SIZE];
-        if let Some(f) = freq {
+
+        let sidetone_rendering = self.sidetone_active || self.sidetone_envelope > 0;
+
+        if freq.is_some() && !sidetone_rendering {
+            let f = freq.unwrap();
             self.osc.set_freq(f);
             for sample in buffer.iter_mut() {
                 *sample = self.osc.next_sample();
+            }
+        } else if sidetone_rendering {
+            for sample in buffer.iter_mut() {
+                if self.sidetone_active {
+                    self.sidetone_envelope = self.sidetone_envelope.saturating_add(SIDETONE_ENVELOPE_STEP).min(u16::MAX);
+                } else {
+                    self.sidetone_envelope = self.sidetone_envelope.saturating_sub(SIDETONE_ENVELOPE_STEP);
+                }
+                let raw = self.sidetone_osc.next_sample();
+                *sample = ((raw as u32 * self.sidetone_envelope as u32) >> 16) as u16;
             }
         }
 

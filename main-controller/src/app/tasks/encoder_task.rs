@@ -17,6 +17,7 @@ use crate::app::tasks::arbiters::{
     tx_eq::{TxEqCommand, TX_EQ_CMD},
     volume::VOLUME_CMD,
     vox::{VoxCommand, VOX_CMD},
+    cw_keyer::{CwKeyerCommand, CW_KEYER_CMD},
 };
 use crate::front_panel::events::ENCODER_EVENTS;
 use crate::front_panel::types::EncoderFunction;
@@ -115,6 +116,17 @@ pub async fn encoder_task() {
             }
             EncoderFunction::ScanResume => {
                 SCAN_CMD.signal(ScanCommand::ResumeDelta(event.delta as i16));
+            }
+            EncoderFunction::CwWpm => {
+                CW_KEYER_CMD.signal(CwKeyerCommand::WpmDelta(event.delta as i8));
+            }
+            EncoderFunction::CwWeight => {
+                CW_KEYER_CMD.signal(CwKeyerCommand::WeightDelta(event.delta as i8));
+            }
+            EncoderFunction::CwBreakInDelay => {
+                CW_KEYER_CMD.signal(CwKeyerCommand::BreakInDelayDelta(
+                    event.delta as i16 * STEP_SIZE,
+                ));
             }
             EncoderFunction::Menu => {}
         }

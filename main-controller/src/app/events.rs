@@ -4,10 +4,11 @@ use embassy_sync::watch::Watch;
 use crate::consts::AUDIO_BUFFER_SIZE;
 
 use super::types::{
-    AudioAgcMode, Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics, CwPeakWidth,
-    CwPitch, DspBandwidth, DspShift, EqGain, FilterType, Frequency, IfGain, IfGainMode,
-    Microphone, Mode, NbLevel, NrLevel, PaTemperatures, RfGainMode, RfPower, ScanResume, ScanStep,
-    Squelch, SweepRequest, TransmitMode, Volume, VoxAntiTrip, VoxDelay, VoxGain, WaterfallLine,
+    AudioAgcMode, Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics,
+    CwBreakInDelay, CwKeyMode, CwPeakWidth, CwPitch, CwWeight, CwWpm, DspBandwidth, DspShift,
+    EqGain, FilterType, Frequency, IfGain, IfGainMode, Microphone, Mode, NbLevel, NrLevel,
+    PaTemperatures, RfGainMode, RfPower, ScanResume, ScanStep, Squelch, SweepRequest,
+    TransmitMode, Volume, VoxAntiTrip, VoxDelay, VoxGain, WaterfallLine,
 };
 
 pub static MODE: Watch<ThreadModeRawMutex, Mode, 16> = Watch::new();
@@ -80,3 +81,10 @@ pub static SCAN_ENABLED: Watch<ThreadModeRawMutex, bool, 4> = Watch::new();
 pub static SCAN_STEP: Watch<ThreadModeRawMutex, ScanStep, 2> = Watch::new();
 pub static SCAN_RESUME: Watch<ThreadModeRawMutex, ScanResume, 2> = Watch::new();
 pub static SCAN_ACTIVE: Watch<ThreadModeRawMutex, bool, 4> = Watch::new();
+
+pub static CW_KEY_MODE: Watch<ThreadModeRawMutex, CwKeyMode, 2> = Watch::new();
+pub static CW_WPM: Watch<ThreadModeRawMutex, CwWpm, 2> = Watch::new();
+pub static CW_WEIGHT: Watch<ThreadModeRawMutex, CwWeight, 2> = Watch::new();
+pub static CW_PADDLE_SWAP: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static CW_BREAK_IN_DELAY: Watch<ThreadModeRawMutex, CwBreakInDelay, 2> = Watch::new();
+pub static CW_SIDETONE_ACTIVE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();

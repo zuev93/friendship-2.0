@@ -1,6 +1,6 @@
 use embassy_executor::Spawner;
 use embassy_stm32::exti::{self, ExtiInput};
-use embassy_stm32::gpio::Pull;
+use embassy_stm32::gpio::{Input, Pull};
 use embassy_stm32::sai;
 use embassy_stm32::{
     bind_interrupts,
@@ -129,6 +129,9 @@ impl Hardware {
             irqs,
         );
         UsbSubsystem::init_subsystem(spawner, p.USB, p.PA12, p.PA11, irqs);
-        AppSubsystem::init_subsystem(spawner, p.CORDIC, p.FMAC);
+
+        let dit_pin = Input::new(p.PD0, Pull::Up);
+        let dah_pin = Input::new(p.PD1, Pull::Up);
+        AppSubsystem::init_subsystem(spawner, p.CORDIC, p.FMAC, dit_pin, dah_pin);
     }
 }

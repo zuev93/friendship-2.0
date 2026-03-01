@@ -12,6 +12,8 @@ pub enum ModeCommand {
     ToneRelease,
     VoxActivate,
     VoxDeactivate,
+    CwKeyDown,
+    CwKeyUp,
 }
 
 pub static MODE_CMD: Signal<ThreadModeRawMutex, ModeCommand> = Signal::new();
@@ -21,6 +23,7 @@ pub async fn mode_arbiter_task() {
     let mut mode = Mode::StandBy;
     let mut ptt_held = false;
     let mut vox_active = false;
+    let mut cw_key_active = false;
 
     loop {
         let cmd = MODE_CMD.wait().await;
@@ -42,7 +45,7 @@ pub async fn mode_arbiter_task() {
             }
             ModeCommand::TransmitRelease => {
                 ptt_held = false;
-                if mode == Mode::Tx && !vox_active {
+                if mode == Mode::Tx && !vox_active && !cw_key_active {
                     Mode::Rx
                 } else {
                     continue;
@@ -58,7 +61,7 @@ pub async fn mode_arbiter_task() {
             }
             ModeCommand::ToneRelease => {
                 ptt_held = false;
-                if mode == Mode::Tx && !vox_active {
+                if mode == Mode::Tx && !vox_active && !cw_key_active {
                     Mode::Rx
                 } else {
                     continue;
@@ -74,7 +77,23 @@ pub async fn mode_arbiter_task() {
             }
             ModeCommand::VoxDeactivate => {
                 vox_active = false;
-                if mode == Mode::Tx && !ptt_held {
+                if mode == Mode::Tx && !ptt_held && !cw_key_active {
+                    Mode::Rx
+                } else {
+                    continue;
+                }
+            }
+            ModeCommand::CwKeyDown => {
+                cw_key_active = true;
+                if mode == Mode::Rx {
+                    Mode::Tx
+                } else {
+                    continue;
+                }
+            }
+            ModeCommand::CwKeyUp => {
+                cw_key_active = false;
+                if mode == Mode::Tx && !ptt_held && !vox_active {
                     Mode::Rx
                 } else {
                     continue;

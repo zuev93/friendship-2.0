@@ -3,6 +3,7 @@ pub mod audio_agc;
 pub mod clarifier_mode;
 pub mod clarifier_value;
 pub mod compression;
+pub mod cw_keyer;
 pub mod cw_peak;
 pub mod cw_peak_width;
 pub mod cw_pitch;
