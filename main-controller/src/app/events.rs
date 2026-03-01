@@ -26,6 +26,7 @@ pub static IF_GAIN: Signal<ThreadModeRawMutex, IfGain> = Signal::new();
 pub static CLARIFIER_MODE: Signal<ThreadModeRawMutex, ClarifierMode> = Signal::new();
 pub static CLARIFIER_VALUE: Signal<ThreadModeRawMutex, ClarifierValue> = Signal::new();
 pub static SQUELCH: Signal<ThreadModeRawMutex, Squelch> = Signal::new();
+pub static SQUELCH_ENABLED: Signal<ThreadModeRawMutex, bool> = Signal::new();
 pub static NB_ENABLED: Signal<ThreadModeRawMutex, bool> = Signal::new();
 pub static NB_LEVEL: Signal<ThreadModeRawMutex, NbLevel> = Signal::new();
 pub static NB_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();

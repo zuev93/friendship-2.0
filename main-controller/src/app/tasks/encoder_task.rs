@@ -5,7 +5,7 @@ use crate::app::tasks::arbiters::{
     microphone::MICROPHONE_CMD,
     nb_level::NB_LEVEL_CMD,
     rf_power::RF_POWER_CMD,
-    squelch::SQUELCH_CMD,
+    squelch::{SquelchCommand, SQUELCH_CMD},
     volume::VOLUME_CMD,
 };
 use crate::front_panel::events::ENCODER_EVENTS;
@@ -48,12 +48,13 @@ pub async fn encoder_task() {
                 CLARIFIER_VALUE_CMD.signal(event.delta as i16 * STEP_SIZE);
             }
             EncoderFunction::Squelch => {
-                SQUELCH_CMD.signal(event.delta as i16 * STEP_SIZE);
+                SQUELCH_CMD.signal(SquelchCommand::Delta(event.delta as i16 * STEP_SIZE));
             }
             EncoderFunction::NbLevel => {
                 NB_LEVEL_CMD.signal(event.delta as i16 * STEP_SIZE);
             }
-            _ => {}
+            // TODO: implement menu encoder
+            EncoderFunction::Menu => {}
         }
     }
 }

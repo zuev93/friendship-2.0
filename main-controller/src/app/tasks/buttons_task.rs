@@ -3,10 +3,12 @@ use crate::app::{
     tasks::arbiters::{
         clarifier_mode::{ClarifierModeCommand, CLARIFIER_MODE_CMD},
         filter::{FilterCommand, FILTER_CMD},
+        frequency::{BandCommand, BAND_CMD},
         if_gain_mode::{IfGainModeCommand, IF_GAIN_MODE_CMD},
         mode::{ModeCommand, MODE_CMD},
         nb::{NbCommand, NB_CMD},
         rf_gain_mode::{RfGainModeCommand, RF_GAIN_MODE_CMD},
+        squelch::{SquelchCommand, SQUELCH_CMD},
         tone::{ToneCommand, TONE_CMD},
         transmit_mode::{TransmitModeCommand, TRANSMIT_MODE_CMD},
     },
@@ -41,8 +43,7 @@ fn debounce(
 #[embassy_executor::task]
 pub async fn buttons_task() {
     let button_rx = BUTTON_EVENTS.receiver();
-    let mut last_event_time: FnvIndexMap<(ButtonFunction, bool), Instant, 16> =
-        FnvIndexMap::new();
+    let mut last_event_time: FnvIndexMap<(ButtonFunction, bool), Instant, 16> = FnvIndexMap::new();
 
     loop {
         let event = button_rx.receive().await;
@@ -92,7 +93,36 @@ pub async fn buttons_task() {
             ButtonEvent::Press(ButtonFunction::NoiseBlanker) => {
                 NB_CMD.signal(NbCommand::Toggle);
             }
-            _ => {}
+
+            ButtonEvent::Press(ButtonFunction::Power)
+            | ButtonEvent::Release(ButtonFunction::TransmitMode)
+            | ButtonEvent::Release(ButtonFunction::Filter)
+            | ButtonEvent::Release(ButtonFunction::Rit)
+            | ButtonEvent::Release(ButtonFunction::RfGain)
+            | ButtonEvent::Release(ButtonFunction::Agc)
+            | ButtonEvent::Release(ButtonFunction::NoiseBlanker) => {}
+
+            ButtonEvent::Press(ButtonFunction::IcomPtt) => {
+                MODE_CMD.signal(ModeCommand::TransmitPress);
+            }
+            ButtonEvent::Release(ButtonFunction::IcomPtt) => {
+                MODE_CMD.signal(ModeCommand::TransmitRelease);
+            }
+            ButtonEvent::Press(ButtonFunction::IcomSql) => {
+                SQUELCH_CMD.signal(SquelchCommand::Toggle);
+            }
+            ButtonEvent::Press(ButtonFunction::IcomUpDown) => {
+                BAND_CMD.signal(BandCommand::Up);
+            }
+
+            ButtonEvent::Release(ButtonFunction::IcomSql)
+            | ButtonEvent::Release(ButtonFunction::IcomUpDown) => {}
+
+            // TODO: implement menu navigation buttons
+            ButtonEvent::Press(ButtonFunction::Cancel)
+            | ButtonEvent::Release(ButtonFunction::Cancel)
+            | ButtonEvent::Press(ButtonFunction::Ok)
+            | ButtonEvent::Release(ButtonFunction::Ok) => {}
         }
     }
 }
