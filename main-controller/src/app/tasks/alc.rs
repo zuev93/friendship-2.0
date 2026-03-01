@@ -79,12 +79,15 @@ fn run_alc(state: &mut AlcState, metrics: &CouplerMetrics) {
 #[embassy_executor::task]
 pub async fn alc_task() {
     let mut state = AlcState::new();
+    let mut coupler_rcv = COUPLER_METRICS.receiver().unwrap();
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut rf_power_rcv = RF_POWER.receiver().unwrap();
 
     loop {
         match select4(
-            COUPLER_METRICS.wait(),
-            MODE.wait(),
-            RF_POWER.wait(),
+            coupler_rcv.changed(),
+            mode_rcv.changed(),
+            rf_power_rcv.changed(),
             Timer::after_millis(200),
         )
         .await
@@ -93,14 +96,14 @@ pub async fn alc_task() {
                 state.stale_ticks = 0;
                 if state.mode == Mode::Tx {
                     run_alc(&mut state, &metrics);
-                    ALC_CONSTRAINT.signal(state.alc_cp);
+                    ALC_CONSTRAINT.sender().send(state.alc_cp);
                 }
             }
             Either4::Second(mode) => {
                 state.mode = mode;
                 if mode != Mode::Tx {
                     state.reset();
-                    ALC_CONSTRAINT.signal(state.alc_cp);
+                    ALC_CONSTRAINT.sender().send(state.alc_cp);
                 }
             }
             Either4::Third(rf_power) => {
@@ -111,7 +114,7 @@ pub async fn alc_task() {
                     state.stale_ticks = state.stale_ticks.saturating_add(1);
                     if state.stale_ticks >= STALE_TICKS {
                         state.alc_cp = 0;
-                        ALC_CONSTRAINT.signal(state.alc_cp);
+                        ALC_CONSTRAINT.sender().send(state.alc_cp);
                     }
                 }
             }

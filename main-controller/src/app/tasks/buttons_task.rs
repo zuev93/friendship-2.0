@@ -56,7 +56,7 @@ pub async fn buttons_task() {
             continue;
         }
         if is_press {
-            BUTTON_BEEP.signal(());
+            BUTTON_BEEP.sender().send(());
         }
         match event {
             ButtonEvent::Release(ButtonFunction::Power) => {

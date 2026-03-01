@@ -11,8 +11,11 @@ pub fn spawn(spawner: Spawner, tone_generator: &'static Mutex<ThreadModeRawMutex
 
 #[embassy_executor::task]
 async fn tone_control_task(tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>) {
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut tone_rcv = TONE.receiver().unwrap();
+    let mut beep_rcv = BUTTON_BEEP.receiver().unwrap();
     loop {
-        match select3(MODE.wait(), TONE.wait(), BUTTON_BEEP.wait()).await {
+        match select3(mode_rcv.changed(), tone_rcv.changed(), beep_rcv.changed()).await {
             Either3::First(mode) => tone_generator.lock().await.set_mode(mode),
             Either3::Second(active) => tone_generator.lock().await.set_tone_active(active),
             Either3::Third(_) => tone_generator.lock().await.trigger_beep(),

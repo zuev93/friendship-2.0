@@ -19,7 +19,7 @@ pub async fn rf_gain_mode_arbiter_task() {
         match cmd {
             RfGainModeCommand::Cycle => {
                 rf_gain_mode = rf_gain_mode.next();
-                RF_GAIN_MODE.signal(rf_gain_mode);
+                RF_GAIN_MODE.sender().send(rf_gain_mode);
             }
         }
     }

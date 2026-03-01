@@ -19,7 +19,7 @@ pub async fn transmit_mode_arbiter_task() {
         match cmd {
             TransmitModeCommand::Cycle => {
                 transmit_mode = transmit_mode.next();
-                TRANSMIT_MODE.signal(transmit_mode);
+                TRANSMIT_MODE.sender().send(transmit_mode);
             }
         }
     }

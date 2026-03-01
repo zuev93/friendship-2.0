@@ -18,6 +18,6 @@ pub async fn tone_arbiter_task() {
             ToneCommand::Press => true,
             ToneCommand::Release => false,
         };
-        TONE.signal(active);
+        TONE.sender().send(active);
     }
 }

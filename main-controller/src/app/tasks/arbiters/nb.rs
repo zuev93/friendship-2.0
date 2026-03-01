@@ -18,7 +18,7 @@ pub async fn nb_arbiter_task() {
         match cmd {
             NbCommand::Toggle => {
                 nb_enabled = !nb_enabled;
-                NB_ENABLED.signal(nb_enabled);
+                NB_ENABLED.sender().send(nb_enabled);
             }
         }
     }

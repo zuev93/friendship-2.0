@@ -107,7 +107,8 @@ impl HfAmp {
     }
 
     async fn enter_tx(&mut self) -> Result<(), &'static str> {
-        match embassy_time::with_timeout(RAIL_50V_TIMEOUT, RAIL_50V_READY.wait()).await {
+        let mut rail_rcv = RAIL_50V_READY.receiver().unwrap();
+        match embassy_time::with_timeout(RAIL_50V_TIMEOUT, rail_rcv.changed()).await {
             Ok(true) => {}
             Ok(false) => return Err("HfAmp: 50V rail not ready"),
             Err(_) => return Err("HfAmp: 50V rail timeout"),
@@ -121,8 +122,9 @@ impl HfAmp {
 
         Timer::after_millis(50).await;
 
-        PA_CURRENT_REQUEST.signal(());
-        let total_idq = PA_CURRENT_READING.wait().await;
+        let mut pa_reading_rcv = PA_CURRENT_READING.receiver().unwrap();
+        PA_CURRENT_REQUEST.sender().send(());
+        let total_idq = pa_reading_rcv.changed().await;
         if total_idq < 50 || total_idq > 500 {
             self.driver_dac.set_raw(0).await.map_err(|_| "HfAmp: DAC zero failed")?;
             self.final_dac.set_raw(0).await.map_err(|_| "HfAmp: DAC zero failed")?;
@@ -148,7 +150,7 @@ impl HfAmp {
         self.final_dac.set_raw(0).await.map_err(|_| "HfAmp: final DAC zero failed")?;
         Timer::after_millis(10).await;
 
-        PA_FAST_MODE.signal(true);
+        PA_FAST_MODE.sender().send(true);
         Timer::after_millis(5).await;
 
         let final_code =
@@ -169,7 +171,7 @@ impl HfAmp {
             .await
             .map_err(|_| "HfAmp: final DAC restore failed")?;
 
-        PA_FAST_MODE.signal(false);
+        PA_FAST_MODE.sender().send(false);
 
         self.cal.driver_dac_code = driver_code;
         self.cal.final_dac_code = final_code;
@@ -214,8 +216,9 @@ impl HfAmp {
 
             Timer::after_millis(5).await;
 
-            PA_CURRENT_REQUEST.signal(());
-            let current = PA_CURRENT_READING.wait().await;
+            let mut pa_reading_rcv = PA_CURRENT_READING.receiver().unwrap();
+            PA_CURRENT_REQUEST.sender().send(());
+            let current = pa_reading_rcv.changed().await;
 
             let diff = current - target_ma;
 

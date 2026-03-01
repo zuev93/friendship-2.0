@@ -1,8 +1,8 @@
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::signal::Signal;
+use embassy_sync::watch::Watch;
 
 use crate::consts::AUDIO_BUFFER_SIZE;
 use crate::main_board::types::RssiDbm;
 
-pub static CURRENT_RSSI: Signal<ThreadModeRawMutex, RssiDbm> = Signal::new();
-pub static AUDIO_RX_BUFFER: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> = Signal::new();
+pub static CURRENT_RSSI: Watch<ThreadModeRawMutex, RssiDbm, 6> = Watch::new();
+pub static AUDIO_RX_BUFFER: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();

@@ -15,29 +15,37 @@ pub static FILTER_CMD: Signal<ThreadModeRawMutex, FilterCommand> = Signal::new()
 pub async fn filter_arbiter_task() {
     let mut filter = FilterType::Single;
     let mut user_filter = filter;
+    let mut transmit_mode_rcv = TRANSMIT_MODE.receiver().unwrap();
+    let mut sweep_active_rcv = SWEEP_ACTIVE.receiver().unwrap();
 
     loop {
-        match select3(FILTER_CMD.wait(), TRANSMIT_MODE.wait(), SWEEP_ACTIVE.wait()).await {
+        match select3(
+            FILTER_CMD.wait(),
+            transmit_mode_rcv.changed(),
+            sweep_active_rcv.changed(),
+        )
+        .await
+        {
             Either3::First(cmd) => match cmd {
                 FilterCommand::Cycle => {
                     filter = filter.next();
                     user_filter = filter;
-                    FILTER.signal(filter);
+                    FILTER.sender().send(filter);
                 }
             },
             Either3::Second(transmit_mode) => {
                 filter = FilterType::default_for_mode(transmit_mode);
                 user_filter = filter;
-                FILTER.signal(filter);
+                FILTER.sender().send(filter);
             }
             Either3::Third(active) => {
                 if active {
                     user_filter = filter;
                     filter = FilterType::Single;
-                    FILTER.signal(filter);
+                    FILTER.sender().send(filter);
                 } else {
                     filter = user_filter;
-                    FILTER.signal(filter);
+                    FILTER.sender().send(filter);
                 }
             }
         }

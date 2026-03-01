@@ -15,7 +15,7 @@ pub async fn rf_power_arbiter_task() {
         let new_raw = (rf_power_raw + delta).clamp(0, 1000);
         if new_raw != rf_power_raw {
             rf_power_raw = new_raw;
-            RF_POWER.signal(RfPowerPercent::from_accumulated(rf_power_raw));
+            RF_POWER.sender().send(RfPowerPercent::from_accumulated(rf_power_raw));
         }
     }
 }

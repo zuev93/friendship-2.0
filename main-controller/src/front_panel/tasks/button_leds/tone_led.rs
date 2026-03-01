@@ -15,8 +15,9 @@ pub async fn tone_led_task(control_bus: ControlBusType) {
         return;
     };
 
+    let mut tone_rcv = TONE.receiver().unwrap();
     loop {
-        let tone_active = TONE.wait().await;
+        let tone_active = tone_rcv.changed().await;
 
         let state = if tone_active {
             LedState::Green

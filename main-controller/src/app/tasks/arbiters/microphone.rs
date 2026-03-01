@@ -15,7 +15,7 @@ pub async fn microphone_arbiter_task() {
         let new_val = Microphone::new(microphone.raw() + delta);
         if new_val != microphone {
             microphone = new_val;
-            MICROPHONE.signal(microphone);
+            MICROPHONE.sender().send(microphone);
         }
     }
 }

@@ -34,15 +34,16 @@ async fn audio_panel_sai_rx_task(sai_rx: &'static mut SaiRx) {
                 error("Failed to read audio panel SAI stream").await;
                 continue;
             }
-            AUDIO_RX_BUFFER.signal(buffer);
+            AUDIO_RX_BUFFER.sender().send(buffer);
         }
     }
 }
 
 #[embassy_executor::task]
 async fn audio_panel_sai_tx_task(sai_tx: &'static mut SaiTx) {
+    let mut tx_rcv = AUDIO_BUFFER_TX.receiver().unwrap();
     loop {
-        let buffer = AUDIO_BUFFER_TX.wait().await;
+        let buffer = tx_rcv.changed().await;
         let result = sai_tx.write(&buffer).await;
         if let Err(_) = result {
             error("Failed to write audio panel SAI stream").await;
@@ -53,8 +54,9 @@ async fn audio_panel_sai_tx_task(sai_tx: &'static mut SaiTx) {
 
 #[embassy_executor::task]
 async fn control_task(audio_panel: &'static mut AudioPanel) {
+    let mut mode_rcv = MODE.receiver().unwrap();
     loop {
-        let mode = MODE.wait().await;
+        let mode = mode_rcv.changed().await;
 
         if let Err(e) = audio_panel.set_mode(mode).await {
             error(e).await;

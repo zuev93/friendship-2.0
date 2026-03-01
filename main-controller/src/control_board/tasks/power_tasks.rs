@@ -26,8 +26,9 @@ pub fn create_tasks(spawner: Spawner, power_control: PowerControl) {
 
 #[embassy_executor::task]
 async fn power_control_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerControl>) {
+    let mut mode_rcv = MODE.receiver().unwrap();
     loop {
-        let mode = MODE.wait().await;
+        let mode = mode_rcv.changed().await;
         if let Err(e) = mutex.lock().await.set_mode(mode).await {
             error(e).await;
         }
@@ -38,13 +39,16 @@ async fn power_control_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerContr
 async fn power_monitor_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerControl>) {
     let mut ticker = Ticker::every(TELEMETRY_PERIOD);
     let mut last_contract = PdContract::default();
+    let mut pa_current_req_rcv = PA_CURRENT_REQUEST.receiver().unwrap();
+    let mut pa_fast_mode_rcv = PA_FAST_MODE.receiver().unwrap();
+    let mut pd_contract_rcv = PD_CONTRACT.receiver().unwrap();
 
     loop {
         match select4(
             ticker.next(),
-            PA_CURRENT_REQUEST.wait(),
-            PA_FAST_MODE.wait(),
-            PD_CONTRACT.wait(),
+            pa_current_req_rcv.changed(),
+            pa_fast_mode_rcv.changed(),
+            pd_contract_rcv.changed(),
         )
         .await
         {
@@ -54,7 +58,7 @@ async fn power_monitor_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerContr
                     Ok(telemetry) => {
                         if let Some(reason) = pc.check_limits(&telemetry, &last_contract) {
                             pc.emergency_shutdown();
-                            EMERGENCY_SHUTDOWN.signal(reason);
+                            EMERGENCY_SHUTDOWN.sender().send(reason);
                             match reason {
                                 EmergencyReason::VbusOvercurrent => {
                                     error("Emergency: VBUS overcurrent").await;
@@ -67,7 +71,7 @@ async fn power_monitor_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerContr
                                 }
                             }
                         }
-                        POWER_TELEMETRY.signal(telemetry);
+                        POWER_TELEMETRY.sender().send(telemetry);
                     }
                     Err(e) => error(e).await,
                 }
@@ -75,10 +79,10 @@ async fn power_monitor_task(mutex: &'static Mutex<ThreadModeRawMutex, PowerContr
             Either4::Second(_) => {
                 let mut pc = mutex.lock().await;
                 match pc.read_pa_current_ma().await {
-                    Ok(current) => PA_CURRENT_READING.signal(current),
+                    Ok(current) => PA_CURRENT_READING.sender().send(current),
                     Err(e) => {
                         error(e).await;
-                        PA_CURRENT_READING.signal(0);
+                        PA_CURRENT_READING.sender().send(0);
                     }
                 }
             }

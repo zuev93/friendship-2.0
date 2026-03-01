@@ -23,12 +23,12 @@ pub async fn squelch_arbiter_task() {
                 let new_val = Squelch::new(squelch.raw() + delta);
                 if new_val != squelch {
                     squelch = new_val;
-                    SQUELCH.signal(squelch);
+                    SQUELCH.sender().send(squelch);
                 }
             }
             SquelchCommand::Toggle => {
                 enabled = !enabled;
-                SQUELCH_ENABLED.signal(enabled);
+                SQUELCH_ENABLED.sender().send(enabled);
             }
         }
     }

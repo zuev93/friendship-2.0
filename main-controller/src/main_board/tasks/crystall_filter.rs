@@ -20,24 +20,35 @@ pub fn spawn_tasks(spawner: Spawner, crystall_filter: CrystallFilter) {
 
 #[embassy_executor::task]
 async fn crystall_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, CrystallFilter>) {
+    let mut rf_power_rcv = RF_POWER.receiver().unwrap();
+    let mut power_telemetry_rcv = POWER_TELEMETRY.receiver().unwrap();
+    let mut pd_contract_rcv = PD_CONTRACT.receiver().unwrap();
+    let mut tx_thermal_rcv = TX_THERMAL_CONSTRAINT.receiver().unwrap();
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut filter_rcv = FILTER.receiver().unwrap();
+    let mut rf_gain_mode_rcv = RF_GAIN_MODE.receiver().unwrap();
+    let mut nb_enabled_rcv = NB_ENABLED.receiver().unwrap();
+    let mut nb_level_rcv = NB_LEVEL.receiver().unwrap();
+    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut alc_rcv = ALC_CONSTRAINT.receiver().unwrap();
     loop {
         match select(
             select(
                 select6(
-                    RF_POWER.wait(),
-                    POWER_TELEMETRY.wait(),
-                    PD_CONTRACT.wait(),
-                    TX_THERMAL_CONSTRAINT.wait(),
-                    MODE.wait(),
-                    FILTER.wait(),
+                    rf_power_rcv.changed(),
+                    power_telemetry_rcv.changed(),
+                    pd_contract_rcv.changed(),
+                    tx_thermal_rcv.changed(),
+                    mode_rcv.changed(),
+                    filter_rcv.changed(),
                 ),
-                RF_GAIN_MODE.wait(),
+                rf_gain_mode_rcv.changed(),
             ),
             select4(
-                NB_ENABLED.wait(),
-                NB_LEVEL.wait(),
-                CURRENT_RSSI.wait(),
-                ALC_CONSTRAINT.wait(),
+                nb_enabled_rcv.changed(),
+                nb_level_rcv.changed(),
+                rssi_rcv.changed(),
+                alc_rcv.changed(),
             ),
         )
         .await
@@ -112,7 +123,7 @@ async fn nb_activity_task(mutex: &'static Mutex<ThreadModeRawMutex, CrystallFilt
     loop {
         match mutex.lock().await.read_nb_activity().await {
             Ok(active) => {
-                NB_ACTIVE.signal(active);
+                NB_ACTIVE.sender().send(active);
             }
             Err(e) => {
                 error(e).await;

@@ -35,15 +35,16 @@ async fn audio_panel_sai_mic_task(sai_rx: &'static mut SaiRx) {
                 error("Failed to read audio panel SAI stream").await;
                 continue;
             }
-            AUDIO_MIC_BUFFER.signal(buffer);
+            AUDIO_MIC_BUFFER.sender().send(buffer);
         }
     }
 }
 
 #[embassy_executor::task]
 async fn audio_panel_sai_headphones_task(sai_tx: &'static mut SaiTx) {
+    let mut hp_rcv = AUDIO_BUFFER_HEADPHONES.receiver().unwrap();
     loop {
-        let buffer = AUDIO_BUFFER_HEADPHONES.wait().await;
+        let buffer = hp_rcv.changed().await;
         let result = sai_tx.write(&buffer).await;
         if let Err(_) = result {
             error("Failed to write audio panel SAI stream").await;
@@ -54,8 +55,11 @@ async fn audio_panel_sai_headphones_task(sai_tx: &'static mut SaiTx) {
 
 #[embassy_executor::task]
 async fn control_task(audio: &'static mut Audio) {
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut volume_rcv = VOLUME.receiver().unwrap();
+    let mut mic_rcv = MICROPHONE.receiver().unwrap();
     loop {
-        match select3(MODE.wait(), VOLUME.wait(), MICROPHONE.wait()).await {
+        match select3(mode_rcv.changed(), volume_rcv.changed(), mic_rcv.changed()).await {
             Either3::First(mode) => {
                 if let Err(e) = audio.set_mode(mode).await {
                     error(e).await;

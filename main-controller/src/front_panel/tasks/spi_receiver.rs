@@ -101,5 +101,5 @@ async fn handle_encoder_event(event: ProtocolEncoderEvent) {
 }
 
 async fn handle_headphones_event(event: ProtocolHeadphonesEvent) {
-    HEADPHONES_CONNECTED.signal(event.connected);
+    HEADPHONES_CONNECTED.sender().send(event.connected);
 }

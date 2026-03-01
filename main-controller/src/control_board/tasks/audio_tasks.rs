@@ -17,8 +17,9 @@ pub async fn create_tasks(spawner: Spawner, audio: Audio) {
 
 #[embassy_executor::task]
 async fn audio_panel_i2s_speakers_task(audio: &'static Audio) {
+    let mut spk_rcv = AUDIO_BUFFER_SPEAKERS.receiver().unwrap();
     loop {
-        let buffer = AUDIO_BUFFER_SPEAKERS.wait().await;
+        let buffer = spk_rcv.changed().await;
         if let Err(e) = audio.write(&buffer).await {
             error(e).await;
         }
@@ -27,8 +28,9 @@ async fn audio_panel_i2s_speakers_task(audio: &'static Audio) {
 
 #[embassy_executor::task]
 async fn control_task(audio: &'static Audio) {
+    let mut mode_rcv = MODE.receiver().unwrap();
     loop {
-        let mode = MODE.wait().await;
+        let mode = mode_rcv.changed().await;
         if let Err(e) = audio.set_mode(mode).await {
             error(e).await;
         }

@@ -15,8 +15,9 @@ pub async fn rf_gain_mode_led_task(control_bus: ControlBusType) {
         return;
     };
 
+    let mut rf_gain_mode_rcv = RF_GAIN_MODE.receiver().unwrap();
     loop {
-        let rf_gain_mode = RF_GAIN_MODE.wait().await;
+        let rf_gain_mode = rf_gain_mode_rcv.changed().await;
 
         let state = match rf_gain_mode {
             RfGainMode::Attenuator => LedState::Red,

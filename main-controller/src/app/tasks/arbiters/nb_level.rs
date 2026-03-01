@@ -15,7 +15,7 @@ pub async fn nb_level_arbiter_task() {
         let new_val = NbLevel::new(nb_level.raw() + delta);
         if new_val != nb_level {
             nb_level = new_val;
-            NB_LEVEL.signal(nb_level);
+            NB_LEVEL.sender().send(nb_level);
         }
     }
 }

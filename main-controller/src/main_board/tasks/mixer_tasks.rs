@@ -8,13 +8,18 @@ use common::error::error;
 
 #[embassy_executor::task]
 pub async fn mixer_tasks(mut mixer: Mixer) {
+    let mut frequency_rcv = FREQUENCY.receiver().unwrap();
+    let mut clarifier_mode_rcv = CLARIFIER_MODE.receiver().unwrap();
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut clarifier_value_rcv = CLARIFIER_VALUE.receiver().unwrap();
+    let mut filter_rcv = FILTER.receiver().unwrap();
     loop {
         match select5(
-            FREQUENCY.wait(),
-            CLARIFIER_MODE.wait(),
-            MODE.wait(),
-            CLARIFIER_VALUE.wait(),
-            FILTER.wait(),
+            frequency_rcv.changed(),
+            clarifier_mode_rcv.changed(),
+            mode_rcv.changed(),
+            clarifier_value_rcv.changed(),
+            filter_rcv.changed(),
         )
         .await
         {

@@ -15,7 +15,7 @@ pub async fn clarifier_value_arbiter_task() {
         let new_val = ClarifierValue::new(clarifier.raw() + delta);
         if new_val != clarifier {
             clarifier = new_val;
-            CLARIFIER_VALUE.signal(clarifier);
+            CLARIFIER_VALUE.sender().send(clarifier);
         }
     }
 }

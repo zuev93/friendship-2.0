@@ -23,9 +23,16 @@ pub async fn frequency_arbiter_task() {
     let mut sweep_active = false;
 
     let mut last_signaled_band = current_band;
+    let mut sweep_request_rcv = SWEEP_REQUEST.receiver().unwrap();
 
     loop {
-        match select3(FREQUENCY_CMD.wait(), BAND_CMD.wait(), SWEEP_REQUEST.wait()).await {
+        match select3(
+            FREQUENCY_CMD.wait(),
+            BAND_CMD.wait(),
+            sweep_request_rcv.changed(),
+        )
+        .await
+        {
             Either3::First(delta) => {
                 current_frequency = current_frequency.saturating_add_signed(delta);
 
@@ -38,12 +45,12 @@ pub async fn frequency_arbiter_task() {
                 }
 
                 if current_band != last_signaled_band {
-                    BAND.signal(current_band);
+                    BAND.sender().send(current_band);
                     last_signaled_band = current_band;
                 }
 
                 user_freq = current_frequency;
-                FREQUENCY.signal(current_frequency);
+                FREQUENCY.sender().send(current_frequency);
             }
             Either3::Second(cmd) => {
                 match cmd {
@@ -58,25 +65,25 @@ pub async fn frequency_arbiter_task() {
                 }
 
                 if current_band != last_signaled_band {
-                    BAND.signal(current_band);
+                    BAND.sender().send(current_band);
                     last_signaled_band = current_band;
                 }
 
                 user_freq = current_frequency;
-                FREQUENCY.signal(current_frequency);
+                FREQUENCY.sender().send(current_frequency);
             }
             Either3::Third(req) => match req {
                 SweepRequest::SetFrequency(freq) => {
                     if !sweep_active {
                         sweep_active = true;
-                        RSSI_FAST_MODE.signal(true);
+                        RSSI_FAST_MODE.sender().send(true);
                     }
-                    FREQUENCY.signal(freq);
+                    FREQUENCY.sender().send(freq);
                 }
                 SweepRequest::Done => {
                     sweep_active = false;
-                    RSSI_FAST_MODE.signal(false);
-                    FREQUENCY.signal(user_freq);
+                    RSSI_FAST_MODE.sender().send(false);
+                    FREQUENCY.sender().send(user_freq);
                 }
             },
         }

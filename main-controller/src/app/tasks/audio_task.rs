@@ -31,9 +31,11 @@ async fn audio_task(
     mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>,
     tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>,
 ) {
+    let mut rx_rcv = AUDIO_RX_BUFFER.receiver().unwrap();
+    let mut mic_rcv = AUDIO_MIC_BUFFER.receiver().unwrap();
     loop {
-        let audio_rx = AUDIO_RX_BUFFER.wait().await;
-        let mic = AUDIO_MIC_BUFFER.wait().await;
+        let audio_rx = rx_rcv.changed().await;
+        let mic = mic_rcv.changed().await;
         let generator = tone_generator.lock().await.next_buffer();
 
         let mut mixer = mutex.lock().await;
@@ -42,23 +44,28 @@ async fn audio_task(
         mixer.set_buffer_mic(mic);
 
         mixer.mix();
-        COMPRESSION_METER.signal(mixer.gain_reduction());
+        COMPRESSION_METER.sender().send(mixer.gain_reduction());
 
-        AUDIO_BUFFER_TX.signal(mixer.get_buffer_tx());
-        AUDIO_BUFFER_HEADPHONES.signal(mixer.get_buffer_headphones());
-        AUDIO_BUFFER_SPEAKERS.signal(mixer.get_buffer_speakers());
+        AUDIO_BUFFER_TX.sender().send(mixer.get_buffer_tx());
+        AUDIO_BUFFER_HEADPHONES.sender().send(mixer.get_buffer_headphones());
+        AUDIO_BUFFER_SPEAKERS.sender().send(mixer.get_buffer_speakers());
     }
 }
 
 #[embassy_executor::task]
 async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
+    let mut volume_rcv = VOLUME.receiver().unwrap();
+    let mut hp_rcv = HEADPHONES_CONNECTED.receiver().unwrap();
+    let mut squelch_rcv = SQUELCH.receiver().unwrap();
+    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut compression_rcv = COMPRESSION.receiver().unwrap();
     loop {
         match select5(
-            VOLUME.wait(),
-            HEADPHONES_CONNECTED.wait(),
-            SQUELCH.wait(),
-            CURRENT_RSSI.wait(),
-            COMPRESSION.wait(),
+            volume_rcv.changed(),
+            hp_rcv.changed(),
+            squelch_rcv.changed(),
+            rssi_rcv.changed(),
+            compression_rcv.changed(),
         )
         .await
         {

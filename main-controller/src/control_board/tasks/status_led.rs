@@ -27,6 +27,7 @@ pub fn create_task(spawner: Spawner, pin: Peri<'static, impl Pin>) {
 async fn status_led_task(mut led: Output<'static>) {
     let mut state = LedState::Booting;
     let mut led_on = true;
+    let mut mode_rcv = MODE.receiver().unwrap();
 
     loop {
         match state {
@@ -35,7 +36,7 @@ async fn status_led_task(mut led: Output<'static>) {
                     Timer::after(SLOW_BLINK),
                     BSOD.wait(),
                     ERROR_MESSAGES.receive(),
-                    MODE.wait(),
+                    mode_rcv.changed(),
                 )
                 .await
                 {
@@ -67,7 +68,7 @@ async fn status_led_task(mut led: Output<'static>) {
                 match embassy_futures::select::select3(
                     BSOD.wait(),
                     ERROR_MESSAGES.receive(),
-                    MODE.wait(),
+                    mode_rcv.changed(),
                 )
                 .await
                 {

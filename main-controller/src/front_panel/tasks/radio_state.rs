@@ -31,32 +31,48 @@ pub async fn radio_state_task(control_bus: ControlBusType) {
     let mut volume_raw: i16 = 500;
     let mut squelch_raw: i16 = 0;
 
+    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut coupler_rcv = COUPLER_METRICS.receiver().unwrap();
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut transmit_mode_rcv = TRANSMIT_MODE.receiver().unwrap();
+    let mut if_gain_mode_rcv = IF_GAIN_MODE.receiver().unwrap();
+    let mut rf_gain_mode_rcv = RF_GAIN_MODE.receiver().unwrap();
+    let mut filter_rcv = FILTER.receiver().unwrap();
+    let mut frequency_rcv = FREQUENCY.receiver().unwrap();
+    let mut band_rcv = BAND.receiver().unwrap();
+    let mut nb_enabled_rcv = NB_ENABLED.receiver().unwrap();
+    let mut clarifier_mode_rcv = CLARIFIER_MODE.receiver().unwrap();
+    let mut clarifier_value_rcv = CLARIFIER_VALUE.receiver().unwrap();
+    let mut rf_power_rcv = RF_POWER.receiver().unwrap();
+    let mut volume_rcv = VOLUME.receiver().unwrap();
+    let mut squelch_rcv = SQUELCH.receiver().unwrap();
+
     loop {
         match select(
             select4(
-                CURRENT_RSSI.wait(),
-                COUPLER_METRICS.wait(),
-                MODE.wait(),
-                TRANSMIT_MODE.wait(),
+                rssi_rcv.changed(),
+                coupler_rcv.changed(),
+                mode_rcv.changed(),
+                transmit_mode_rcv.changed(),
             ),
             select(
                 select4(
-                    IF_GAIN_MODE.wait(),
-                    RF_GAIN_MODE.wait(),
-                    FILTER.wait(),
-                    FREQUENCY.wait(),
+                    if_gain_mode_rcv.changed(),
+                    rf_gain_mode_rcv.changed(),
+                    filter_rcv.changed(),
+                    frequency_rcv.changed(),
                 ),
                 select(
                     select4(
-                        BAND.wait(),
-                        NB_ENABLED.wait(),
-                        CLARIFIER_MODE.wait(),
-                        CLARIFIER_VALUE.wait(),
+                        band_rcv.changed(),
+                        nb_enabled_rcv.changed(),
+                        clarifier_mode_rcv.changed(),
+                        clarifier_value_rcv.changed(),
                     ),
                     select4(
-                        RF_POWER.wait(),
-                        VOLUME.wait(),
-                        SQUELCH.wait(),
+                        rf_power_rcv.changed(),
+                        volume_rcv.changed(),
+                        squelch_rcv.changed(),
                         Timer::after_millis(16),
                     ),
                 ),

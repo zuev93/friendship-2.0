@@ -15,7 +15,7 @@ pub async fn volume_arbiter_task() {
         let new_val = Volume::new(volume.raw() + delta);
         if new_val != volume {
             volume = new_val;
-            VOLUME.signal(volume);
+            VOLUME.sender().send(volume);
         }
     }
 }

@@ -7,8 +7,9 @@ use common::protocol_types::{LedCommand, LedState};
 pub async fn agc_mode_led_task(control_bus: ControlBusType) {
     const LED_ID: u8 = 6;
 
+    let mut if_gain_mode_rcv = IF_GAIN_MODE.receiver().unwrap();
     loop {
-        let agc_mode = IF_GAIN_MODE.wait().await;
+        let agc_mode = if_gain_mode_rcv.changed().await;
 
         let state = match agc_mode {
             IfGainMode::Manual => LedState::Off,

@@ -61,18 +61,18 @@ impl PowerControl {
                 self.pin_50v_mode.set_low();
                 self.pin_50v_enabled.set_low();
                 self.pin_3v3_enabled.set_low();
-                RAIL_50V_READY.signal(false);
+                RAIL_50V_READY.sender().send(false);
             }
             Mode::WarmUp => {
                 self.pin_50v_mode.set_low();
                 self.pin_50v_enabled.set_low();
                 self.pin_3v3_enabled.set_high();
-                RAIL_50V_READY.signal(false);
+                RAIL_50V_READY.sender().send(false);
             }
             Mode::Rx => {
                 if prev == Mode::Tx {
                     self.pin_50v_mode.set_low();
-                    RAIL_50V_READY.signal(false);
+                    RAIL_50V_READY.sender().send(false);
                 }
                 self.pin_50v_enabled.set_high();
                 self.pin_3v3_enabled.set_high();
@@ -82,7 +82,7 @@ impl PowerControl {
                 self.pin_3v3_enabled.set_high();
                 self.pin_50v_mode.set_high();
                 Timer::after_millis(50).await;
-                RAIL_50V_READY.signal(true);
+                RAIL_50V_READY.sender().send(true);
             }
         }
 

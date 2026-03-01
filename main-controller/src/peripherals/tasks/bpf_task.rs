@@ -8,11 +8,14 @@ use common::error::error;
 
 #[embassy_executor::task]
 pub async fn bpf_task(mut bpf: Bpf) {
+    let mut rf_gain_mode_rcv = RF_GAIN_MODE.receiver().unwrap();
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut frequency_rcv = FREQUENCY.receiver().unwrap();
     loop {
         match select3(
-            RF_GAIN_MODE.wait(),
-            MODE.wait(),
-            FREQUENCY.wait(),
+            rf_gain_mode_rcv.changed(),
+            mode_rcv.changed(),
+            frequency_rcv.changed(),
         )
         .await
         {

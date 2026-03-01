@@ -8,11 +8,14 @@ use common::error::error;
 
 #[embassy_executor::task]
 pub async fn detector_tasks(mut detector: Detector) {
+    let mut transmit_mode_rcv = TRANSMIT_MODE.receiver().unwrap();
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut filter_rcv = FILTER.receiver().unwrap();
     loop {
         match select3(
-            TRANSMIT_MODE.wait(),
-            MODE.wait(),
-            FILTER.wait(),
+            transmit_mode_rcv.changed(),
+            mode_rcv.changed(),
+            filter_rcv.changed(),
         )
         .await
         {

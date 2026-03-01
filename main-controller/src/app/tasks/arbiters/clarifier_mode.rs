@@ -19,7 +19,7 @@ pub async fn clarifier_mode_arbiter_task() {
         match cmd {
             ClarifierModeCommand::Toggle => {
                 clarifier_mode = clarifier_mode.toggle();
-                CLARIFIER_MODE.signal(clarifier_mode);
+                CLARIFIER_MODE.sender().send(clarifier_mode);
             }
         }
     }

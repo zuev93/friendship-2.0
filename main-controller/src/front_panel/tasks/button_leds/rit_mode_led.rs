@@ -15,8 +15,9 @@ pub async fn rit_mode_led_task(control_bus: ControlBusType) {
         return;
     };
 
+    let mut clarifier_mode_rcv = CLARIFIER_MODE.receiver().unwrap();
     loop {
-        let clarifier_mode = CLARIFIER_MODE.wait().await;
+        let clarifier_mode = clarifier_mode_rcv.changed().await;
 
         let state = match clarifier_mode {
             ClarifierMode::Off => LedState::Off,

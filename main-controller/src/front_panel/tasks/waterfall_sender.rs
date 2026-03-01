@@ -7,11 +7,13 @@ const DEFAULT_SPAN_HZ: u32 = 100_000;
 #[embassy_executor::task]
 pub async fn waterfall_sender_task(control_bus: ControlBusType) {
     let mut vfo_freq: u32 = 7_100_000;
+    let mut waterfall_rcv = WATERFALL_LINE.receiver().unwrap();
+    let mut frequency_rcv = FREQUENCY.anon_receiver();
 
     loop {
-        let line = WATERFALL_LINE.wait().await;
+        let line = waterfall_rcv.changed().await;
 
-        if let Some(freq) = FREQUENCY.try_take() {
+        if let Some(freq) = frequency_rcv.try_changed() {
             vfo_freq = freq;
         }
 

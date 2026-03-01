@@ -1,5 +1,5 @@
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use embassy_sync::signal::Signal;
+use embassy_sync::watch::Watch;
 
 use crate::consts::AUDIO_BUFFER_SIZE;
 
@@ -9,43 +9,43 @@ use super::types::{
     SweepRequest, TransmitMode, Volume, WaterfallLine,
 };
 
-pub static MODE: Signal<ThreadModeRawMutex, Mode> = Signal::new();
-pub static FILTER: Signal<ThreadModeRawMutex, FilterType> = Signal::new();
-pub static BAND: Signal<ThreadModeRawMutex, Band> = Signal::new();
-pub static FREQUENCY: Signal<ThreadModeRawMutex, Frequency> = Signal::new();
-pub static SWEEP_REQUEST: Signal<ThreadModeRawMutex, SweepRequest> = Signal::new();
-pub static SWEEP_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static RSSI_FAST_MODE: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static IF_GAIN_MODE: Signal<ThreadModeRawMutex, IfGainMode> = Signal::new();
-pub static WATERFALL_LINE: Signal<ThreadModeRawMutex, WaterfallLine> = Signal::new();
+pub static MODE: Watch<ThreadModeRawMutex, Mode, 16> = Watch::new();
+pub static FILTER: Watch<ThreadModeRawMutex, FilterType, 4> = Watch::new();
+pub static BAND: Watch<ThreadModeRawMutex, Band, 2> = Watch::new();
+pub static FREQUENCY: Watch<ThreadModeRawMutex, Frequency, 6> = Watch::new();
+pub static SWEEP_REQUEST: Watch<ThreadModeRawMutex, SweepRequest, 2> = Watch::new();
+pub static SWEEP_ACTIVE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static RSSI_FAST_MODE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static IF_GAIN_MODE: Watch<ThreadModeRawMutex, IfGainMode, 4> = Watch::new();
+pub static WATERFALL_LINE: Watch<ThreadModeRawMutex, WaterfallLine, 2> = Watch::new();
 
-pub static VOLUME: Signal<ThreadModeRawMutex, Volume> = Signal::new();
-pub static MICROPHONE: Signal<ThreadModeRawMutex, Microphone> = Signal::new();
-pub static RF_POWER: Signal<ThreadModeRawMutex, RfPower> = Signal::new();
-pub static IF_GAIN: Signal<ThreadModeRawMutex, IfGain> = Signal::new();
-pub static CLARIFIER_MODE: Signal<ThreadModeRawMutex, ClarifierMode> = Signal::new();
-pub static CLARIFIER_VALUE: Signal<ThreadModeRawMutex, ClarifierValue> = Signal::new();
-pub static SQUELCH: Signal<ThreadModeRawMutex, Squelch> = Signal::new();
-pub static SQUELCH_ENABLED: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static NB_ENABLED: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static NB_LEVEL: Signal<ThreadModeRawMutex, NbLevel> = Signal::new();
-pub static NB_ACTIVE: Signal<ThreadModeRawMutex, bool> = Signal::new();
+pub static VOLUME: Watch<ThreadModeRawMutex, Volume, 4> = Watch::new();
+pub static MICROPHONE: Watch<ThreadModeRawMutex, Microphone, 2> = Watch::new();
+pub static RF_POWER: Watch<ThreadModeRawMutex, RfPower, 4> = Watch::new();
+pub static IF_GAIN: Watch<ThreadModeRawMutex, IfGain, 2> = Watch::new();
+pub static CLARIFIER_MODE: Watch<ThreadModeRawMutex, ClarifierMode, 4> = Watch::new();
+pub static CLARIFIER_VALUE: Watch<ThreadModeRawMutex, ClarifierValue, 2> = Watch::new();
+pub static SQUELCH: Watch<ThreadModeRawMutex, Squelch, 4> = Watch::new();
+pub static SQUELCH_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static NB_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static NB_LEVEL: Watch<ThreadModeRawMutex, NbLevel, 2> = Watch::new();
+pub static NB_ACTIVE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
 
-pub static TX_THERMAL_CONSTRAINT: Signal<ThreadModeRawMutex, i32> = Signal::new();
-pub static TRANSMIT_MODE: Signal<ThreadModeRawMutex, TransmitMode> = Signal::new();
-pub static RF_GAIN_MODE: Signal<ThreadModeRawMutex, RfGainMode> = Signal::new();
-pub static TONE: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static BUTTON_BEEP: Signal<ThreadModeRawMutex, ()> = Signal::new();
+pub static TX_THERMAL_CONSTRAINT: Watch<ThreadModeRawMutex, i32, 2> = Watch::new();
+pub static TRANSMIT_MODE: Watch<ThreadModeRawMutex, TransmitMode, 4> = Watch::new();
+pub static RF_GAIN_MODE: Watch<ThreadModeRawMutex, RfGainMode, 4> = Watch::new();
+pub static TONE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static BUTTON_BEEP: Watch<ThreadModeRawMutex, (), 2> = Watch::new();
 
-pub static ALC_CONSTRAINT: Signal<ThreadModeRawMutex, i32> = Signal::new();
-pub static COUPLER_METRICS: Signal<ThreadModeRawMutex, CouplerMetrics> = Signal::new();
-pub static PA_TEMPERATURES: Signal<ThreadModeRawMutex, PaTemperatures> = Signal::new();
+pub static ALC_CONSTRAINT: Watch<ThreadModeRawMutex, i32, 2> = Watch::new();
+pub static COUPLER_METRICS: Watch<ThreadModeRawMutex, CouplerMetrics, 2> = Watch::new();
+pub static PA_TEMPERATURES: Watch<ThreadModeRawMutex, PaTemperatures, 2> = Watch::new();
 
-pub static COMPRESSION: Signal<ThreadModeRawMutex, Compression> = Signal::new();
-pub static COMPRESSION_METER: Signal<ThreadModeRawMutex, u8> = Signal::new();
+pub static COMPRESSION: Watch<ThreadModeRawMutex, Compression, 2> = Watch::new();
+pub static COMPRESSION_METER: Watch<ThreadModeRawMutex, u8, 2> = Watch::new();
 
-pub static AUDIO_BUFFER_HEADPHONES: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> =
-    Signal::new();
-pub static AUDIO_BUFFER_SPEAKERS: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> =
-    Signal::new();
-pub static AUDIO_BUFFER_TX: Signal<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE]> = Signal::new();
+pub static AUDIO_BUFFER_HEADPHONES: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> =
+    Watch::new();
+pub static AUDIO_BUFFER_SPEAKERS: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> =
+    Watch::new();
+pub static AUDIO_BUFFER_TX: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();

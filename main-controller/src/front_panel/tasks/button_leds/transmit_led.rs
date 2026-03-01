@@ -7,8 +7,9 @@ use common::protocol_types::{LedCommand, LedState};
 pub async fn transmit_led_task(control_bus: ControlBusType) {
     const LED_ID: u8 = 1;
 
+    let mut mode_rcv = MODE.receiver().unwrap();
     loop {
-        let mode = MODE.wait().await;
+        let mode = mode_rcv.changed().await;
 
         let state = match mode {
             Mode::Tx => LedState::Green,

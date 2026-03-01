@@ -58,6 +58,6 @@ pub async fn mode_arbiter_task() {
             }
         };
         mode = new_mode;
-        MODE.signal(mode);
+        MODE.sender().send(mode);
     }
 }

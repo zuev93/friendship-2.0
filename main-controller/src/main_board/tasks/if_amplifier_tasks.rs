@@ -18,12 +18,16 @@ pub fn spawn_tasks(spawner: Spawner, if_gain_control: IfAmplifier) {
 
 #[embassy_executor::task]
 async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
+    let mut if_gain_rcv = IF_GAIN.receiver().unwrap();
+    let mut if_gain_mode_rcv = IF_GAIN_MODE.receiver().unwrap();
+    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
+    let mut mode_rcv = MODE.receiver().unwrap();
     loop {
         match select4(
-            IF_GAIN.wait(),
-            IF_GAIN_MODE.wait(),
-            CURRENT_RSSI.wait(),
-            MODE.wait(),
+            if_gain_rcv.changed(),
+            if_gain_mode_rcv.changed(),
+            rssi_rcv.changed(),
+            mode_rcv.changed(),
         )
         .await
         {
@@ -53,6 +57,7 @@ async fn if_gain_control_task(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplif
 
 #[embassy_executor::task]
 async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) {
+    let mut rssi_fast_rcv = RSSI_FAST_MODE.receiver().unwrap();
     loop {
         let rssi_data = match mutex.lock().await.read_rssi().await {
             Ok(data) => data,
@@ -62,9 +67,9 @@ async fn rssi_task_read(mutex: &'static Mutex<ThreadModeRawMutex, IfAmplifier>) 
             }
         };
         let selected_rssi = select_rssi(rssi_data.rssi1, rssi_data.rssi2);
-        CURRENT_RSSI.signal(selected_rssi);
+        CURRENT_RSSI.sender().send(selected_rssi);
 
-        if RSSI_FAST_MODE.signaled() {
+        if rssi_fast_rcv.try_changed().is_some() {
             embassy_futures::yield_now().await;
         } else {
             embassy_time::Timer::after_millis(10).await;

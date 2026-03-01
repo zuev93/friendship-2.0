@@ -29,16 +29,20 @@ pub async fn sweep_scheduler_task() {
     let mut vfo_freq: u32 = 7_100_000;
     let mut squelch_threshold_dbm: i8 = -128;
     let mut squelch_closed_since: Option<Instant> = None;
+    let mut frequency_rcv = FREQUENCY.anon_receiver();
+    let mut squelch_rcv = SQUELCH.anon_receiver();
+    let mut rssi_anon_rcv = CURRENT_RSSI.anon_receiver();
+    let mut rssi_rcv = CURRENT_RSSI.receiver().unwrap();
 
     loop {
-        if let Some(freq) = FREQUENCY.try_take() {
+        if let Some(freq) = frequency_rcv.try_changed() {
             vfo_freq = freq;
         }
-        if let Some(squelch) = SQUELCH.try_take() {
+        if let Some(squelch) = squelch_rcv.try_changed() {
             squelch_threshold_dbm = squelch_to_dbm(squelch.raw());
         }
 
-        if let Some(rssi) = CURRENT_RSSI.try_take() {
+        if let Some(rssi) = rssi_anon_rcv.try_changed() {
             let signal_above_squelch = rssi.dbm >= squelch_threshold_dbm;
             if signal_above_squelch {
                 squelch_closed_since = None;
@@ -56,24 +60,24 @@ pub async fn sweep_scheduler_task() {
             continue;
         }
 
-        SWEEP_ACTIVE.signal(true);
+        SWEEP_ACTIVE.sender().send(true);
 
         let deadline = Instant::now() + Duration::from_millis(FULL_LINE_BUDGET_MS);
 
         while !sweeper.is_line_complete() && Instant::now() < deadline {
             let freq = sweeper.next_bin_frequency(vfo_freq);
-            SWEEP_REQUEST.signal(SweepRequest::SetFrequency(freq));
-            let rssi = CURRENT_RSSI.wait().await;
+            SWEEP_REQUEST.sender().send(SweepRequest::SetFrequency(freq));
+            let rssi = rssi_rcv.changed().await;
             sweeper.store_rssi(rssi.dbm);
         }
 
-        SWEEP_REQUEST.signal(SweepRequest::Done);
-        SWEEP_ACTIVE.signal(false);
+        SWEEP_REQUEST.sender().send(SweepRequest::Done);
+        SWEEP_ACTIVE.sender().send(false);
 
         if sweeper.is_line_complete() {
             let line = sweeper.take_line();
             buffer.push(line);
-            WATERFALL_LINE.signal(line);
+            WATERFALL_LINE.sender().send(line);
         }
 
         Timer::after_millis(LISTENING_WINDOW_MS).await;

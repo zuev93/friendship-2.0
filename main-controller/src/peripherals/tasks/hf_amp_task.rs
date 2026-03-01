@@ -25,15 +25,20 @@ pub fn create_tasks(spawner: Spawner, hf_amp: HfAmp) {
 
 #[embassy_executor::task]
 async fn hf_amp_control_task(mutex: &'static Mutex<ThreadModeRawMutex, HfAmp>) {
+    let mut mode_rcv = MODE.receiver().unwrap();
+    let mut power_telemetry_rcv = POWER_TELEMETRY.receiver().unwrap();
+    let mut pd_contract_rcv = PD_CONTRACT.receiver().unwrap();
+    let mut tx_thermal_rcv = TX_THERMAL_CONSTRAINT.receiver().unwrap();
+    let mut emergency_rcv = EMERGENCY_SHUTDOWN.receiver().unwrap();
     loop {
         let normal = select4(
-            MODE.wait(),
-            POWER_TELEMETRY.wait(),
-            PD_CONTRACT.wait(),
-            TX_THERMAL_CONSTRAINT.wait(),
+            mode_rcv.changed(),
+            power_telemetry_rcv.changed(),
+            pd_contract_rcv.changed(),
+            tx_thermal_rcv.changed(),
         );
 
-        match select(normal, EMERGENCY_SHUTDOWN.wait()).await {
+        match select(normal, emergency_rcv.changed()).await {
             Either::First(normal_result) => match normal_result {
                 Either4::First(mode) => {
                     if let Err(e) = mutex.lock().await.set_mode(mode).await {
@@ -81,10 +86,10 @@ async fn hf_amp_thermal_task(mutex: &'static Mutex<ThreadModeRawMutex, HfAmp>) {
         match mutex.lock().await.read_temperatures().await {
             Ok(temps) => {
                 if HfAmp::is_thermal_emergency(&temps) {
-                    EMERGENCY_SHUTDOWN.signal(EmergencyReason::Thermal);
+                    EMERGENCY_SHUTDOWN.sender().send(EmergencyReason::Thermal);
                 }
-                TX_THERMAL_CONSTRAINT.signal(HfAmp::compute_thermal_constraint(&temps));
-                PA_TEMPERATURES.signal(temps);
+                TX_THERMAL_CONSTRAINT.sender().send(HfAmp::compute_thermal_constraint(&temps));
+                PA_TEMPERATURES.sender().send(temps);
             }
             Err(e) => error(e).await,
         }

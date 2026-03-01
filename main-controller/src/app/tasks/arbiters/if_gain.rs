@@ -15,7 +15,7 @@ pub async fn if_gain_arbiter_task() {
         let new_val = IfGain::new(if_gain.raw() + delta);
         if new_val != if_gain {
             if_gain = new_val;
-            IF_GAIN.signal(if_gain);
+            IF_GAIN.sender().send(if_gain);
         }
     }
 }

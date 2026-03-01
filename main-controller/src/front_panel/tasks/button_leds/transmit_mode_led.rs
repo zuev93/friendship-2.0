@@ -15,8 +15,9 @@ pub async fn transmit_mode_led_task(control_bus: ControlBusType) {
         return;
     };
 
+    let mut transmit_mode_rcv = TRANSMIT_MODE.receiver().unwrap();
     loop {
-        let transmit_mode = TRANSMIT_MODE.wait().await;
+        let transmit_mode = transmit_mode_rcv.changed().await;
 
         let state = match transmit_mode {
             TransmitMode::Usb => LedState::Green,

@@ -1,4 +1,4 @@
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, watch::Watch};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum EmergencyReason {
@@ -49,10 +49,10 @@ impl Default for PdContract {
     }
 }
 
-pub static POWER_TELEMETRY: Signal<ThreadModeRawMutex, PowerTelemetry> = Signal::new();
-pub static PD_CONTRACT: Signal<ThreadModeRawMutex, PdContract> = Signal::new();
-pub static PA_CURRENT_REQUEST: Signal<ThreadModeRawMutex, ()> = Signal::new();
-pub static PA_CURRENT_READING: Signal<ThreadModeRawMutex, i32> = Signal::new();
-pub static PA_FAST_MODE: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static RAIL_50V_READY: Signal<ThreadModeRawMutex, bool> = Signal::new();
-pub static EMERGENCY_SHUTDOWN: Signal<ThreadModeRawMutex, EmergencyReason> = Signal::new();
+pub static POWER_TELEMETRY: Watch<ThreadModeRawMutex, PowerTelemetry, 2> = Watch::new();
+pub static PD_CONTRACT: Watch<ThreadModeRawMutex, PdContract, 2> = Watch::new();
+pub static PA_CURRENT_REQUEST: Watch<ThreadModeRawMutex, (), 2> = Watch::new();
+pub static PA_CURRENT_READING: Watch<ThreadModeRawMutex, i32, 2> = Watch::new();
+pub static PA_FAST_MODE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static RAIL_50V_READY: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static EMERGENCY_SHUTDOWN: Watch<ThreadModeRawMutex, EmergencyReason, 2> = Watch::new();

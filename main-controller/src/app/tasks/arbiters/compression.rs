@@ -15,7 +15,7 @@ pub async fn compression_arbiter_task() {
         let new_val = Compression::new(compression.raw() + delta);
         if new_val != compression {
             compression = new_val;
-            COMPRESSION.signal(compression);
+            COMPRESSION.sender().send(compression);
         }
     }
 }

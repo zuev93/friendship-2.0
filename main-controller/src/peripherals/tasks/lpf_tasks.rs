@@ -22,8 +22,10 @@ pub fn create_tasks(spawner: Spawner, lpf: Lpf) {
 
 #[embassy_executor::task]
 async fn lpf_control_task(mutex: &'static Mutex<ThreadModeRawMutex, Lpf>) {
+    let mut frequency_rcv = FREQUENCY.receiver().unwrap();
+    let mut mode_rcv = MODE.receiver().unwrap();
     loop {
-        match select(FREQUENCY.wait(), MODE.wait()).await {
+        match select(frequency_rcv.changed(), mode_rcv.changed()).await {
             Either::First(frequency) => {
                 if let Err(e) = mutex.lock().await.set_frequency(frequency).await {
                     error(e).await;
@@ -43,7 +45,7 @@ async fn lpf_data_task(mutex: &'static Mutex<ThreadModeRawMutex, Lpf>) {
     loop {
         Timer::after(COUPLER_SAMPLE_PERIOD).await;
         match mutex.lock().await.read_coupler_metrics().await {
-            Ok(metrics) => COUPLER_METRICS.signal(metrics),
+            Ok(metrics) => COUPLER_METRICS.sender().send(metrics),
             Err(e) => error(e).await,
         }
     }

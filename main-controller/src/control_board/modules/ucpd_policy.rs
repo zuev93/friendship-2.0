@@ -58,12 +58,12 @@ impl device_policy_manager::DevicePolicyManager for TransceiverPolicyManager {
             }
             _ => PdContract::default(),
         };
-        PD_CONTRACT.signal(contract);
+        PD_CONTRACT.sender().send(contract);
     }
 
     async fn hard_reset(&mut self) {
         self.epr_entry_requested = false;
-        PD_CONTRACT.signal(PdContract::default());
+        PD_CONTRACT.sender().send(PdContract::default());
     }
 
     async fn get_event(&mut self, source_capabilities: &SourceCapabilities) -> Event {
