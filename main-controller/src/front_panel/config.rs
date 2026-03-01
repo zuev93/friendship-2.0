@@ -32,6 +32,7 @@ impl ButtonMapping {
 
         map.insert(12, ButtonFunction::NoiseBlanker).ok();
         map.insert(13, ButtonFunction::Filter).ok();
+        map.insert(14, ButtonFunction::NoiseReduction).ok();
 
         Self { map }
     }
@@ -64,6 +65,7 @@ impl EncoderMapping {
         map.insert(8, EncoderFunction::Menu).ok();
         map.insert(9, EncoderFunction::NbLevel).ok();
         map.insert(10, EncoderFunction::Compression).ok();
+        map.insert(11, EncoderFunction::NrLevel).ok();
 
         Self { map }
     }

@@ -7,6 +7,7 @@ use crate::app::{
         if_gain_mode::{IfGainModeCommand, IF_GAIN_MODE_CMD},
         mode::{ModeCommand, MODE_CMD},
         nb::{NbCommand, NB_CMD},
+        nr::{NrCommand, NR_CMD},
         rf_gain_mode::{RfGainModeCommand, RF_GAIN_MODE_CMD},
         squelch::{SquelchCommand, SQUELCH_CMD},
         tone::{ToneCommand, TONE_CMD},
@@ -94,6 +95,9 @@ pub async fn buttons_task() {
             ButtonEvent::Press(ButtonFunction::NoiseBlanker) => {
                 NB_CMD.signal(NbCommand::Toggle);
             }
+            ButtonEvent::Press(ButtonFunction::NoiseReduction) => {
+                NR_CMD.signal(NrCommand::Toggle);
+            }
 
             ButtonEvent::Press(ButtonFunction::Power)
             | ButtonEvent::Release(ButtonFunction::TransmitMode)
@@ -101,7 +105,8 @@ pub async fn buttons_task() {
             | ButtonEvent::Release(ButtonFunction::Rit)
             | ButtonEvent::Release(ButtonFunction::RfGain)
             | ButtonEvent::Release(ButtonFunction::Agc)
-            | ButtonEvent::Release(ButtonFunction::NoiseBlanker) => {}
+            | ButtonEvent::Release(ButtonFunction::NoiseBlanker)
+            | ButtonEvent::Release(ButtonFunction::NoiseReduction) => {}
 
             ButtonEvent::Press(ButtonFunction::IcomPtt) => {
                 MODE_CMD.signal(ModeCommand::TransmitPress);

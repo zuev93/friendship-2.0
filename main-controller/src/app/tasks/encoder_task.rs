@@ -5,6 +5,7 @@ use crate::app::tasks::arbiters::{
     if_gain::IF_GAIN_CMD,
     microphone::MICROPHONE_CMD,
     nb_level::NB_LEVEL_CMD,
+    nr_level::NR_LEVEL_CMD,
     rf_power::RF_POWER_CMD,
     squelch::{SquelchCommand, SQUELCH_CMD},
     volume::VOLUME_CMD,
@@ -53,6 +54,9 @@ pub async fn encoder_task() {
             }
             EncoderFunction::NbLevel => {
                 NB_LEVEL_CMD.signal(event.delta as i16 * STEP_SIZE);
+            }
+            EncoderFunction::NrLevel => {
+                NR_LEVEL_CMD.signal(event.delta as i16 * STEP_SIZE);
             }
             EncoderFunction::Compression => {
                 COMPRESSION_CMD.signal(event.delta as i16 * STEP_SIZE);

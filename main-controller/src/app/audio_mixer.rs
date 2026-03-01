@@ -1,7 +1,10 @@
 use crate::{
-    app::types::{Compression, Volume},
+    app::types::{Compression, NrLevel, Volume},
     consts::AUDIO_BUFFER_SIZE,
 };
+
+const NR_TAPS: usize = 64;
+const NR_DELAY: usize = 1;
 
 const MAX_VOLUME_RAW: i16 = 1000;
 
@@ -43,10 +46,15 @@ pub struct AudioMixer {
     compression_level: i16,
     envelope: u32,
     gain_reduction: u8,
+    nr_enabled: bool,
+    nr_mu: u16,
+    nr_weights: [i32; NR_TAPS],
+    nr_history: [i16; NR_TAPS + NR_DELAY],
+    nr_hist_idx: usize,
 }
 
 impl AudioMixer {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             rx: [0; AUDIO_BUFFER_SIZE],
             generator: [0; AUDIO_BUFFER_SIZE],
@@ -62,6 +70,11 @@ impl AudioMixer {
             compression_level: 0,
             envelope: 0,
             gain_reduction: 0,
+            nr_enabled: false,
+            nr_mu: 0,
+            nr_weights: [0; NR_TAPS],
+            nr_history: [0; NR_TAPS + NR_DELAY],
+            nr_hist_idx: 0,
         }
     }
 
@@ -110,8 +123,55 @@ impl AudioMixer {
         self.compression_level = compression.raw();
     }
 
+    pub fn set_nr_enabled(&mut self, enabled: bool) {
+        self.nr_enabled = enabled;
+        if !enabled {
+            self.nr_weights = [0; NR_TAPS];
+            self.nr_history = [0; NR_TAPS + NR_DELAY];
+            self.nr_hist_idx = 0;
+        }
+    }
+
+    pub fn set_nr_level(&mut self, level: NrLevel) {
+        self.nr_mu = level.raw() as u16;
+    }
+
     pub fn gain_reduction(&self) -> u8 {
         self.gain_reduction
+    }
+
+    fn denoise_rx(&mut self) {
+        if !self.nr_enabled {
+            return;
+        }
+        let mu = self.nr_mu as i32;
+        let hist_len = NR_TAPS + NR_DELAY;
+
+        for sample in &mut self.rx {
+            let x = *sample as i32 - 32768;
+
+            self.nr_history[self.nr_hist_idx] = x as i16;
+            self.nr_hist_idx = (self.nr_hist_idx + 1) % hist_len;
+
+            let mut y: i32 = 0;
+            for k in 0..NR_TAPS {
+                let delay_idx =
+                    (self.nr_hist_idx + hist_len - NR_DELAY - 1 - k) % hist_len;
+                let delayed = self.nr_history[delay_idx] as i32;
+                y += (self.nr_weights[k] * delayed) >> 15;
+            }
+
+            let error = x - y;
+
+            for k in 0..NR_TAPS {
+                let delay_idx =
+                    (self.nr_hist_idx + hist_len - NR_DELAY - 1 - k) % hist_len;
+                let delayed = self.nr_history[delay_idx] as i32;
+                self.nr_weights[k] += (mu * error * delayed) >> 25;
+            }
+
+            *sample = (error + 32768).clamp(0, 65535) as u16;
+        }
     }
 
     fn compress_mic(&mut self) {
@@ -166,6 +226,7 @@ impl AudioMixer {
 
     pub fn mix(&mut self) {
         self.compress_mic();
+        self.denoise_rx();
         let g = self.gains;
         let rx_gain = if self.squelch_open { 255 } else { 0u8 };
         for i in 0..AUDIO_BUFFER_SIZE {

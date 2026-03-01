@@ -9,6 +9,8 @@ pub mod microphone;
 pub mod mode;
 pub mod nb;
 pub mod nb_level;
+pub mod nr;
+pub mod nr_level;
 pub mod rf_gain_mode;
 pub mod rf_power;
 pub mod squelch;

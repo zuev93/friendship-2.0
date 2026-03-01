@@ -12,6 +12,7 @@ use super::tasks::{
         frequency::frequency_arbiter_task, if_gain::if_gain_arbiter_task,
         if_gain_mode::if_gain_mode_arbiter_task, microphone::microphone_arbiter_task,
         mode::mode_arbiter_task, nb::nb_arbiter_task, nb_level::nb_level_arbiter_task,
+        nr::nr_arbiter_task, nr_level::nr_level_arbiter_task,
         rf_gain_mode::rf_gain_mode_arbiter_task, rf_power::rf_power_arbiter_task,
         squelch::squelch_arbiter_task, tone::tone_arbiter_task,
         transmit_mode::transmit_mode_arbiter_task, volume::volume_arbiter_task,
@@ -44,6 +45,7 @@ impl AppSubsystem {
         spawner.must_spawn(rf_gain_mode_arbiter_task());
         spawner.must_spawn(clarifier_mode_arbiter_task());
         spawner.must_spawn(nb_arbiter_task());
+        spawner.must_spawn(nr_arbiter_task());
         spawner.must_spawn(compression_arbiter_task());
 
         spawner.must_spawn(volume_arbiter_task());
@@ -53,6 +55,7 @@ impl AppSubsystem {
         spawner.must_spawn(clarifier_value_arbiter_task());
         spawner.must_spawn(squelch_arbiter_task());
         spawner.must_spawn(nb_level_arbiter_task());
+        spawner.must_spawn(nr_level_arbiter_task());
 
         tone_task::spawn(spawner, mutex);
         audio_task::spawn_tasks(spawner, mutex);

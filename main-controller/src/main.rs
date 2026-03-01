@@ -15,7 +15,6 @@ mod main_board;
 mod peripherals;
 
 // TODO add usb connection
-// TODO noise reduction
 // TODO DSP
 // TODO Vox
 // TODO CW keyer
@@ -24,6 +23,7 @@ mod peripherals;
 // TODO add settings screen
 // TODO Add system settings screen
 // TODO Add FPS/UPS/RAM/CPU stats
+// TODO AM mode (and other modes)
 
 use embassy_executor::Spawner;
 use embassy_time::Timer;

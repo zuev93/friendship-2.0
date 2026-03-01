@@ -1,5 +1,5 @@
 use embassy_executor::Spawner;
-use embassy_futures::select::{select5, Either5};
+use embassy_futures::select::{select, select5, Either, Either5};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
@@ -8,7 +8,7 @@ use crate::{
         audio_mixer::AudioMixer,
         events::{
             AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, COMPRESSION,
-            COMPRESSION_METER, SQUELCH, VOLUME,
+            COMPRESSION_METER, NR_ENABLED, NR_LEVEL, SQUELCH, VOLUME,
         },
         tone_generator::ToneGenerator,
     },
@@ -59,31 +59,42 @@ async fn controls_task(mutex: &'static Mutex<ThreadModeRawMutex, AudioMixer>) {
     let mut squelch_rcv = SQUELCH.receiver().unwrap();
     let mut rssi_rcv = CURRENT_RSSI2.receiver().unwrap();
     let mut compression_rcv = COMPRESSION.receiver().unwrap();
+    let mut nr_enabled_rcv = NR_ENABLED.receiver().unwrap();
+    let mut nr_level_rcv = NR_LEVEL.receiver().unwrap();
     loop {
-        match select5(
-            volume_rcv.changed(),
-            hp_rcv.changed(),
-            squelch_rcv.changed(),
-            rssi_rcv.changed(),
-            compression_rcv.changed(),
+        match select(
+            select5(
+                volume_rcv.changed(),
+                hp_rcv.changed(),
+                squelch_rcv.changed(),
+                rssi_rcv.changed(),
+                compression_rcv.changed(),
+            ),
+            select(nr_enabled_rcv.changed(), nr_level_rcv.changed()),
         )
         .await
         {
-            Either5::First(volume) => {
+            Either::First(Either5::First(volume)) => {
                 mutex.lock().await.set_volume(volume);
             }
-            Either5::Second(connected) => {
+            Either::First(Either5::Second(connected)) => {
                 mutex.lock().await.set_headphones_connected(connected);
             }
-            Either5::Third(squelch) => {
+            Either::First(Either5::Third(squelch)) => {
                 let dbm = squelch_to_dbm(squelch.raw());
                 mutex.lock().await.set_squelch_threshold(dbm);
             }
-            Either5::Fourth(rssi) => {
+            Either::First(Either5::Fourth(rssi)) => {
                 mutex.lock().await.update_squelch(rssi.dbm);
             }
-            Either5::Fifth(compression) => {
+            Either::First(Either5::Fifth(compression)) => {
                 mutex.lock().await.set_compression(compression);
+            }
+            Either::Second(Either::First(enabled)) => {
+                mutex.lock().await.set_nr_enabled(enabled);
+            }
+            Either::Second(Either::Second(level)) => {
+                mutex.lock().await.set_nr_level(level);
             }
         }
     }

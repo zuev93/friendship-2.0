@@ -5,8 +5,8 @@ use crate::consts::AUDIO_BUFFER_SIZE;
 
 use super::types::{
     Band, ClarifierMode, ClarifierValue, Compression, CouplerMetrics, FilterType, Frequency,
-    IfGain, IfGainMode, Microphone, Mode, NbLevel, PaTemperatures, RfGainMode, RfPower, Squelch,
-    SweepRequest, TransmitMode, Volume, WaterfallLine,
+    IfGain, IfGainMode, Microphone, Mode, NbLevel, NrLevel, PaTemperatures, RfGainMode, RfPower,
+    Squelch, SweepRequest, TransmitMode, Volume, WaterfallLine,
 };
 
 pub static MODE: Watch<ThreadModeRawMutex, Mode, 16> = Watch::new();
@@ -30,6 +30,8 @@ pub static SQUELCH_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
 pub static NB_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
 pub static NB_LEVEL: Watch<ThreadModeRawMutex, NbLevel, 2> = Watch::new();
 pub static NB_ACTIVE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static NR_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
+pub static NR_LEVEL: Watch<ThreadModeRawMutex, NrLevel, 2> = Watch::new();
 
 pub static TX_THERMAL_CONSTRAINT: Watch<ThreadModeRawMutex, i32, 2> = Watch::new();
 pub static TRANSMIT_MODE: Watch<ThreadModeRawMutex, TransmitMode, 4> = Watch::new();
