@@ -9,3 +9,4 @@ pub mod scan_task;
 pub mod stats_task;
 pub mod sweep_scheduler;
 pub mod tone_task;
+pub mod watchdog_task;

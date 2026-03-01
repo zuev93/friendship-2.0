@@ -22,5 +22,6 @@ pub async fn stats_task() {
         };
         CPU_PERCENT.sender().send(CpuPercent::new(cpu_pct));
         RAM_STATS.sender().send(runtime_stats::ram_stats());
+        runtime_stats::UPTIME_SECS.fetch_add(1, Ordering::Relaxed);
     }
 }

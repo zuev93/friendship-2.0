@@ -13,6 +13,7 @@ pub enum PacketType {
     WaterfallLineCommand = 0x16,
     MenuCommand = 0x17,
     DisplayFpsEvent = 0x05,
+    CrashInfoCommand = 0x18,
 }
 
 impl PacketType {
@@ -28,6 +29,7 @@ impl PacketType {
             0x15 => Some(PacketType::RadioStateCommand),
             0x16 => Some(PacketType::WaterfallLineCommand),
             0x17 => Some(PacketType::MenuCommand),
+            0x18 => Some(PacketType::CrashInfoCommand),
             _ => None,
         }
     }

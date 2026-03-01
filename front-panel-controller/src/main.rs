@@ -36,7 +36,7 @@ async fn main(spawner: Spawner) {
     tasks::render_spectrum::spawn_tasks(&spawner, hw.displays, &input_state.waterfall_line, 1);
     tasks::menu::spawn_tasks(&spawner, &input_state.menu_screen);
     tasks::render_main::spawn_tasks(&spawner, hw.displays, &input_state.radio_state, &input_state.menu_screen, 2);
-    tasks::error_display::spawn_tasks(&spawner, hw.displays);
+    tasks::error_display::spawn_tasks(&spawner, hw.displays, &input_state.crash_info);
     tasks::fps_task::spawn_tasks(&spawner);
 
     loop {

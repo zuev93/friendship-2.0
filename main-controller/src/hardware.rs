@@ -12,6 +12,7 @@ use embassy_stm32::{
 };
 
 use embassy_stm32::rcc::Hsi48Config;
+use embassy_stm32::wdg::IndependentWatchdog;
 
 use crate::{
     app::AppSubsystem, control_board::control_board_subsystem::ControlBoardSybstem,
@@ -39,7 +40,10 @@ impl Hardware {
         let mut config = StmConfig::default();
         config.enable_ucpd1_dead_battery = true;
         config.rcc.hsi48 = Some(Hsi48Config { sync_from_usb: true });
+        config.rcc.ls.enable_backup_sram = true;
         let p = embassy_stm32::init(config);
+
+        let wdg = IndependentWatchdog::new(p.IWDG, 4_000_000);
         let irqs = Irqs;
         let i2c_map = I2cMap::new();
 
@@ -132,6 +136,6 @@ impl Hardware {
 
         let dit_pin = Input::new(p.PD0, Pull::Up);
         let dah_pin = Input::new(p.PD1, Pull::Up);
-        AppSubsystem::init_subsystem(spawner, p.CORDIC, p.FMAC, dit_pin, dah_pin);
+        AppSubsystem::init_subsystem(spawner, p.CORDIC, p.FMAC, dit_pin, dah_pin, wdg);
     }
 }

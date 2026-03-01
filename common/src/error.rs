@@ -7,6 +7,9 @@ pub enum BsodError {
     FrontPanelInitFailed,
     DisplayInitFailed,
     MainBoardInitFailed,
+    CrashHardFault,
+    CrashPanic,
+    CrashWatchdog,
 }
 
 pub static BSOD: Signal<ThreadModeRawMutex, BsodError> = Signal::new();

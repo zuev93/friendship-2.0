@@ -3,7 +3,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 use super::menu::MenuScreenSignal;
 
 pub use druzhba_common::protocol_types::{
-    IfGainMode, LedState, Mode, RfGainMode, SweepStatus, TransmitMode,
+    CrashInfoCommand, IfGainMode, LedState, Mode, RfGainMode, SweepStatus, TransmitMode,
     Wm8940Command as Wm8940Config, WATERFALL_BINS,
 };
 
@@ -51,12 +51,15 @@ pub struct WaterfallLineData {
 
 pub type WaterfallLineSignal = Signal<ThreadModeRawMutex, WaterfallLineData>;
 
+pub type CrashInfoSignal = Signal<ThreadModeRawMutex, CrashInfoCommand>;
+
 pub struct InputState {
     pub leds: LedSignal,
     pub wm8940: Wm8940Signal,
     pub radio_state: RadioStateSignal,
     pub waterfall_line: WaterfallLineSignal,
     pub menu_screen: MenuScreenSignal,
+    pub crash_info: CrashInfoSignal,
 }
 
 impl InputState {
@@ -67,6 +70,7 @@ impl InputState {
             radio_state: Signal::new(),
             waterfall_line: Signal::new(),
             menu_screen: Signal::new(),
+            crash_info: Signal::new(),
         }
     }
 }

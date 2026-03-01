@@ -33,7 +33,6 @@ cortex-m = { workspace = true }
 cortex-m-rt = { workspace = true }
 
 # Panic handler
-panic-halt = { workspace = true }
 
 # Utilities
 ufmt = { workspace = true }

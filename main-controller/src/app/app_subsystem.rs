@@ -1,6 +1,7 @@
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::Input;
-use embassy_stm32::peripherals::{CORDIC, FMAC};
+use embassy_stm32::peripherals::{CORDIC, FMAC, IWDG};
+use embassy_stm32::wdg::IndependentWatchdog;
 use embassy_stm32::Peri;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
@@ -10,6 +11,7 @@ use crate::app::{tasks::audio_task, tone_generator::ToneGenerator};
 use super::tasks::{
     idle_counter_task::idle_counter_task,
     stats_task::stats_task,
+    watchdog_task::watchdog_task,
     alc::alc_task,
     arbiters::{
         anf::anf_arbiter_task, audio_agc::audio_agc_arbiter_task,
@@ -44,6 +46,7 @@ impl AppSubsystem {
         fmac_peri: Peri<'static, FMAC>,
         dit_pin: Input<'static>,
         dah_pin: Input<'static>,
+        wdg: IndependentWatchdog<'static, IWDG>,
     ) {
         static TONE_GENERATOR: StaticCell<Mutex<ThreadModeRawMutex, ToneGenerator>> =
             StaticCell::new();
@@ -51,6 +54,7 @@ impl AppSubsystem {
 
         spawner.must_spawn(idle_counter_task());
         spawner.must_spawn(stats_task());
+        spawner.must_spawn(watchdog_task(wdg));
         spawner.must_spawn(alc_task());
         spawner.must_spawn(buttons_task());
         spawner.must_spawn(encoder_task());

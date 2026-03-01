@@ -59,10 +59,15 @@ fn wrap_expr(expr: &mut Expr, task_id: &syn::Path) -> bool {
                 crate::runtime_stats::record(#task_id, __inst_elapsed);
             };
 
+            let append_heartbeat: Stmt = syn::parse_quote! {
+                crate::runtime_stats::heartbeat(#task_id);
+            };
+
             let new_stmts = core::iter::once(prepend)
                 .chain(orig_stmts.iter().cloned())
                 .chain(core::iter::once(append_elapsed))
                 .chain(core::iter::once(append_record))
+                .chain(core::iter::once(append_heartbeat))
                 .collect();
 
             loop_expr.body.stmts = new_stmts;

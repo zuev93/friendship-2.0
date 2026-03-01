@@ -1,6 +1,7 @@
 use druzhba_common::error;
 use druzhba_common::protocol_types::{
-    LedCommand, MenuCommand, RadioStateCommand, WaterfallLineCommand, Wm8940Command,
+    CrashInfoCommand, LedCommand, MenuCommand, RadioStateCommand, WaterfallLineCommand,
+    Wm8940Command,
 };
 use druzhba_common::spi_protocol::{Crc16, Packet, PacketSerializable, PacketType};
 use embassy_executor::Spawner;
@@ -121,6 +122,8 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
         });
     } else if let Some(cmd) = MenuCommand::deserialize(packet) {
         let _ = MENU_EVENTS.try_send(cmd);
+    } else if let Some(cmd) = CrashInfoCommand::deserialize(packet) {
+        input_state.crash_info.signal(cmd);
     }
 }
 

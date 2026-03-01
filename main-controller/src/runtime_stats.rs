@@ -1,5 +1,5 @@
 use core::cell::RefCell;
-use core::sync::atomic::AtomicU32;
+use core::sync::atomic::{AtomicU32, Ordering};
 use cortex_m::interrupt::Mutex as CsMutex;
 
 const CPU_MHZ: u32 = 250;
@@ -99,6 +99,7 @@ pub enum TaskId {
     AgcModeLed,
 
     StatsTask,
+    Watchdog,
 
     COUNT,
 }
@@ -142,6 +143,19 @@ pub fn record(task_id: TaskId, cycles: u32) {
 }
 
 pub static IDLE_CAL: AtomicU32 = AtomicU32::new(1);
+
+pub static UPTIME_SECS: AtomicU32 = AtomicU32::new(0);
+
+pub static HEARTBEATS: [AtomicU32; TaskId::COUNT as usize] = {
+    const ZERO: AtomicU32 = AtomicU32::new(0);
+    [ZERO; TaskId::COUNT as usize]
+};
+
+pub fn heartbeat(task_id: TaskId) {
+    HEARTBEATS[task_id as usize].fetch_add(1, Ordering::Relaxed);
+}
+
+pub const MONITORED_TASKS: [TaskId; 3] = [TaskId::Audio, TaskId::IdleCounter, TaskId::StatsTask];
 
 pub struct RamStats {
     pub data_bytes: usize,

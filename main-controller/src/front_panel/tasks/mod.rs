@@ -1,5 +1,6 @@
 pub mod audio_tasks;
 mod button_leds;
+pub mod crash_info_sender;
 pub mod cursor;
 pub mod menu_sender;
 pub mod radio_state;

@@ -496,3 +496,58 @@ impl PacketSerializable for DisplayFpsEvent {
         })
     }
 }
+
+#[derive(Clone, Copy)]
+pub struct CrashInfoCommand {
+    pub reset_reason: u8,
+    pub pc: u32,
+    pub lr: u32,
+    pub panic_line: u32,
+    pub panic_file: [u8; 64],
+    pub uptime_secs: u32,
+}
+
+impl PacketSerializable for CrashInfoCommand {
+    const PACKET_TYPE: PacketType = PacketType::CrashInfoCommand;
+
+    fn write_payload(&self, payload: &mut [u8]) {
+        payload[0] = self.reset_reason;
+        let pc = self.pc.to_be_bytes();
+        payload[1] = pc[0];
+        payload[2] = pc[1];
+        payload[3] = pc[2];
+        payload[4] = pc[3];
+        let lr = self.lr.to_be_bytes();
+        payload[5] = lr[0];
+        payload[6] = lr[1];
+        payload[7] = lr[2];
+        payload[8] = lr[3];
+        let pl = self.panic_line.to_be_bytes();
+        payload[9] = pl[0];
+        payload[10] = pl[1];
+        payload[11] = pl[2];
+        payload[12] = pl[3];
+        payload[13..77].copy_from_slice(&self.panic_file);
+        let up = self.uptime_secs.to_be_bytes();
+        payload[77] = up[0];
+        payload[78] = up[1];
+        payload[79] = up[2];
+        payload[80] = up[3];
+    }
+
+    fn read_payload(payload: &[u8]) -> Option<Self> {
+        if payload.len() < 81 {
+            return None;
+        }
+        let mut panic_file = [0u8; 64];
+        panic_file.copy_from_slice(&payload[13..77]);
+        Some(Self {
+            reset_reason: payload[0],
+            pc: u32::from_be_bytes([payload[1], payload[2], payload[3], payload[4]]),
+            lr: u32::from_be_bytes([payload[5], payload[6], payload[7], payload[8]]),
+            panic_line: u32::from_be_bytes([payload[9], payload[10], payload[11], payload[12]]),
+            panic_file,
+            uptime_secs: u32::from_be_bytes([payload[77], payload[78], payload[79], payload[80]]),
+        })
+    }
+}
