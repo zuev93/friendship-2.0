@@ -14,9 +14,7 @@ mod i2c_map;
 mod main_board;
 mod peripherals;
 
-// TODO add ALC
 // TODO add compressor
-// TODO check squelch is added
 // TODO check used RSSI
 // TODO add usb connection
 // TODO noise reduction
@@ -27,6 +25,7 @@ mod peripherals;
 // TODO add selection/changes of UI elements
 // TODO add settings screen
 // TODO Add system settings screen
+// TODO Add FPS/UPS/RAM/CPU stats
 
 use embassy_executor::Spawner;
 use embassy_time::Timer;

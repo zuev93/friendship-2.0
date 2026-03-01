@@ -1,3 +1,4 @@
+pub mod alc;
 pub mod arbiters;
 pub mod audio_task;
 pub mod buttons_task;

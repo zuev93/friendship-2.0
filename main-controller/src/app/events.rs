@@ -37,6 +37,7 @@ pub static RF_GAIN_MODE: Signal<ThreadModeRawMutex, RfGainMode> = Signal::new();
 pub static TONE: Signal<ThreadModeRawMutex, bool> = Signal::new();
 pub static BUTTON_BEEP: Signal<ThreadModeRawMutex, ()> = Signal::new();
 
+pub static ALC_CONSTRAINT: Signal<ThreadModeRawMutex, i32> = Signal::new();
 pub static COUPLER_METRICS: Signal<ThreadModeRawMutex, CouplerMetrics> = Signal::new();
 pub static PA_TEMPERATURES: Signal<ThreadModeRawMutex, PaTemperatures> = Signal::new();
 

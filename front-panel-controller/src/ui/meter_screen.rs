@@ -33,7 +33,7 @@ pub fn render(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioState, 
     draw_scale(target);
     draw_smeter_bar(target, state.rssi_dbm, peak_dbm);
     draw_smeter_readout(target, state.rssi_dbm);
-    draw_power_bar(target, state.forward_power_mw);
+    draw_power_bar(target, state.forward_power_mw, state.rf_power_centipercent);
     draw_swr_bar(target, state.vswr_x100);
     draw_detail_bar(target, state.forward_power_mw, state.vswr_x100);
 }
@@ -170,8 +170,10 @@ fn draw_smeter_readout(target: &mut impl DrawTarget<Color = Rgb565>, dbm: i8) {
     Text::new(&dbm_str, Point::new(190, y), dim_style).draw(target).ok();
 }
 
-fn draw_power_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_mw: u16) {
+fn draw_power_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_mw: u16, rf_power_centipercent: u16) {
     let y: i32 = 78;
+    let bar_x: i32 = 26;
+    let bar_w: u32 = 144;
     let label_style = MonoTextStyle::new(&FONT_6X10, DIM_WHITE);
     let val_style = MonoTextStyle::new(&FONT_6X10, WHITE);
 
@@ -179,10 +181,19 @@ fn draw_power_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_mw
 
     meter_bar::draw_meter_bar(
         target,
-        26, y, 144, BAR_HEIGHT,
+        bar_x, y, bar_w, BAR_HEIGHT,
         forward_power_mw, MAX_POWER_MW,
         BLUE, DARK_GRAY,
     );
+
+    let target_mw = (rf_power_centipercent as u32 * MAX_POWER_MW as u32 / 10000) as u16;
+    let target_x = (target_mw as u32 * bar_w) / MAX_POWER_MW as u32;
+    let _ = Rectangle::new(
+        Point::new(bar_x + target_x as i32, y),
+        Size::new(1, BAR_HEIGHT),
+    )
+    .into_styled(PrimitiveStyle::with_fill(WHITE))
+    .draw(target);
 
     let mut pwr_str: String<10> = String::new();
     let watts = forward_power_mw / 1000;

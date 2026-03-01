@@ -30,6 +30,7 @@ pub struct CrystallFilter {
     user_power: RfPowerPercent,
     budget_cp: i32,
     thermal_cp: i32,
+    alc_cp: i32,
     last_contract: PdContract,
     mode: Mode,
     filter_type: FilterType,
@@ -56,6 +57,7 @@ impl CrystallFilter {
             user_power: RfPowerPercent::new(0),
             budget_cp: 10000,
             thermal_cp: 10000,
+            alc_cp: 10000,
             last_contract: PdContract::default(),
             mode: Mode::StandBy,
             filter_type: FilterType::Single,
@@ -89,8 +91,13 @@ impl CrystallFilter {
         self.update_state().await
     }
 
+    pub async fn set_alc_constraint(&mut self, alc: i32) -> Result<(), &'static str> {
+        self.alc_cp = alc;
+        self.update_state().await
+    }
+
     fn power_constraint(&self) -> i32 {
-        self.budget_cp.min(self.thermal_cp)
+        self.budget_cp.min(self.thermal_cp).min(self.alc_cp)
     }
 
     fn effective_power(&self) -> u16 {

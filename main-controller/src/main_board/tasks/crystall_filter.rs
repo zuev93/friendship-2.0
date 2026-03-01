@@ -4,7 +4,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{FILTER, MODE, NB_ENABLED, NB_LEVEL, RF_GAIN_MODE, RF_POWER, NB_ACTIVE, TX_THERMAL_CONSTRAINT},
+    app::events::{ALC_CONSTRAINT, FILTER, MODE, NB_ENABLED, NB_LEVEL, RF_GAIN_MODE, RF_POWER, NB_ACTIVE, TX_THERMAL_CONSTRAINT},
     control_board::events::{PD_CONTRACT, POWER_TELEMETRY},
     main_board::{events::CURRENT_RSSI, modules::crystall_filter::CrystallFilter},
 };
@@ -37,7 +37,7 @@ async fn crystall_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, Crystall
                 NB_ENABLED.wait(),
                 NB_LEVEL.wait(),
                 CURRENT_RSSI.wait(),
-                embassy_futures::yield_now(),
+                ALC_CONSTRAINT.wait(),
             ),
         )
         .await
@@ -97,7 +97,11 @@ async fn crystall_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, Crystall
                         error(e).await;
                     }
                 }
-                Either4::Fourth(()) => {}
+                Either4::Fourth(alc) => {
+                    if let Err(e) = mutex.lock().await.set_alc_constraint(alc).await {
+                        error(e).await;
+                    }
+                }
             },
         }
     }
