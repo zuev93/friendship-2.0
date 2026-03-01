@@ -14,8 +14,6 @@ mod i2c_map;
 mod main_board;
 mod peripherals;
 
-// TODO add usb connection
-// TODO DSP
 // TODO Vox
 // TODO CW keyer
 // TODO Scan/search
@@ -24,6 +22,11 @@ mod peripherals;
 // TODO Add system settings screen
 // TODO Add FPS/UPS/RAM/CPU stats
 // TODO AM mode (and other modes)
+// TODO add firmware update via usb.
+// TODO watchdog
+//  TODO low battery
+// TODO RTC
+// TODO tests
 
 use embassy_executor::Spawner;
 use embassy_time::Timer;

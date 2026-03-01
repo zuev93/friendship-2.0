@@ -8,7 +8,7 @@ use crate::{
         audio_mixer::AudioMixer,
         events::{
             AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS, AUDIO_BUFFER_TX, COMPRESSION,
-            COMPRESSION_METER, NR_ENABLED, NR_LEVEL, SQUELCH, VOLUME,
+            COMPRESSION_METER, NR_ENABLED, NR_LEVEL, SQUELCH, USB_AUDIO_TX, VOLUME,
         },
         tone_generator::ToneGenerator,
     },
@@ -33,6 +33,7 @@ async fn audio_task(
 ) {
     let mut rx_rcv = AUDIO_RX_BUFFER.receiver().unwrap();
     let mut mic_rcv = AUDIO_MIC_BUFFER.receiver().unwrap();
+    let mut usb_tx_rcv = USB_AUDIO_TX.receiver().unwrap();
     loop {
         let audio_rx = rx_rcv.changed().await;
         let mic = mic_rcv.changed().await;
@@ -42,6 +43,10 @@ async fn audio_task(
         mixer.set_buffer_rx(audio_rx);
         mixer.set_buffer_generator(generator);
         mixer.set_buffer_mic(mic);
+
+        if let Some(usb_audio) = usb_tx_rcv.try_changed() {
+            mixer.set_buffer_usb_tx(usb_audio);
+        }
 
         mixer.mix();
         COMPRESSION_METER.sender().send(mixer.gain_reduction());

@@ -51,3 +51,4 @@ pub static AUDIO_BUFFER_HEADPHONES: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER
 pub static AUDIO_BUFFER_SPEAKERS: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> =
     Watch::new();
 pub static AUDIO_BUFFER_TX: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();
+pub static USB_AUDIO_TX: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();

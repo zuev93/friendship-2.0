@@ -7,14 +7,17 @@ use embassy_stm32::{
     i2c::{self},
     interrupt::typelevel as irq_types,
     peripherals as stm_peripherals,
-    ucpd,
+    ucpd, usb,
     Config as StmConfig,
 };
+
+use embassy_stm32::rcc::Hsi48Config;
 
 use crate::{
     app::AppSubsystem, control_board::control_board_subsystem::ControlBoardSybstem,
     front_panel::FrontPanelSubsystem, i2c_map::I2cMap, main_board::MainBoardSubsystem,
     peripherals::peripherals_subsystem::PeripheralsSubsystem,
+    control_board::usb::usb_subsystem::UsbSubsystem,
 };
 
 bind_interrupts!(pub struct Irqs {
@@ -26,6 +29,7 @@ bind_interrupts!(pub struct Irqs {
     I2C4_ER => i2c::ErrorInterruptHandler<stm_peripherals::I2C4>;
     EXTI13 => exti::InterruptHandler<irq_types::EXTI13>;
     UCPD1 => ucpd::InterruptHandler<stm_peripherals::UCPD1>;
+    USB_DRD_FS => usb::InterruptHandler<stm_peripherals::USB>;
 });
 
 pub struct Hardware {}
@@ -34,6 +38,7 @@ impl Hardware {
     pub async fn init_subsystem(spawner: Spawner) {
         let mut config = StmConfig::default();
         config.enable_ucpd1_dead_battery = true;
+        config.rcc.hsi48 = Some(Hsi48Config { sync_from_usb: true });
         let p = embassy_stm32::init(config);
         let irqs = Irqs;
         let i2c_map = I2cMap::new();
@@ -123,6 +128,7 @@ impl Hardware {
             p.GPDMA2_CH5,
             irqs,
         );
+        UsbSubsystem::init_subsystem(spawner, p.USB, p.PA12, p.PA11, irqs);
         AppSubsystem::init_subsystem(spawner);
     }
 }

@@ -12,7 +12,12 @@ pub enum BandCommand {
     Down,
 }
 
-pub static FREQUENCY_CMD: Signal<ThreadModeRawMutex, i32> = Signal::new();
+pub enum FrequencyCommand {
+    Delta(i32),
+    SetAbsolute(Frequency),
+}
+
+pub static FREQUENCY_CMD: Signal<ThreadModeRawMutex, FrequencyCommand> = Signal::new();
 pub static BAND_CMD: Signal<ThreadModeRawMutex, BandCommand> = Signal::new();
 
 #[embassy_executor::task]
@@ -33,15 +38,30 @@ pub async fn frequency_arbiter_task() {
         )
         .await
         {
-            Either3::First(delta) => {
-                current_frequency = current_frequency.saturating_add_signed(delta);
+            Either3::First(cmd) => {
+                match cmd {
+                    FrequencyCommand::Delta(delta) => {
+                        current_frequency = current_frequency.saturating_add_signed(delta);
 
-                if current_frequency > current_band.upper_frequency() {
-                    current_band = current_band.next();
-                    current_frequency = current_band.lower_frequency();
-                } else if current_frequency < current_band.lower_frequency() {
-                    current_band = current_band.prev();
-                    current_frequency = current_band.upper_frequency();
+                        if current_frequency > current_band.upper_frequency() {
+                            current_band = current_band.next();
+                            current_frequency = current_band.lower_frequency();
+                        } else if current_frequency < current_band.lower_frequency() {
+                            current_band = current_band.prev();
+                            current_frequency = current_band.upper_frequency();
+                        }
+                    }
+                    FrequencyCommand::SetAbsolute(freq) => {
+                        current_frequency = freq;
+                        let target_band = find_band_for_frequency(freq);
+                        if let Some(band) = target_band {
+                            current_band = band;
+                        } else {
+                            current_frequency = current_frequency
+                                .max(current_band.lower_frequency())
+                                .min(current_band.upper_frequency());
+                        }
+                    }
                 }
 
                 if current_band != last_signaled_band {
@@ -88,4 +108,25 @@ pub async fn frequency_arbiter_task() {
             },
         }
     }
+}
+
+const ALL_BANDS: [Band; 9] = [
+    Band::Band160m,
+    Band::Band80m,
+    Band::Band40m,
+    Band::Band30m,
+    Band::Band20m,
+    Band::Band17m,
+    Band::Band15m,
+    Band::Band12m,
+    Band::Band10m,
+];
+
+fn find_band_for_frequency(freq: Frequency) -> Option<Band> {
+    for band in ALL_BANDS {
+        if freq >= band.lower_frequency() && freq <= band.upper_frequency() {
+            return Some(band);
+        }
+    }
+    None
 }

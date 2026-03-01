@@ -6,6 +6,7 @@ use crate::app::types::TransmitMode;
 
 pub enum TransmitModeCommand {
     Cycle,
+    Set(TransmitMode),
 }
 
 pub static TRANSMIT_MODE_CMD: Signal<ThreadModeRawMutex, TransmitModeCommand> = Signal::new();
@@ -19,8 +20,11 @@ pub async fn transmit_mode_arbiter_task() {
         match cmd {
             TransmitModeCommand::Cycle => {
                 transmit_mode = transmit_mode.next();
-                TRANSMIT_MODE.sender().send(transmit_mode);
+            }
+            TransmitModeCommand::Set(mode) => {
+                transmit_mode = mode;
             }
         }
+        TRANSMIT_MODE.sender().send(transmit_mode);
     }
 }

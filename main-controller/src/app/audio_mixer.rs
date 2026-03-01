@@ -51,6 +51,9 @@ pub struct AudioMixer {
     nr_weights: [i32; NR_TAPS],
     nr_history: [i16; NR_TAPS + NR_DELAY],
     nr_hist_idx: usize,
+    usb_tx: [u16; AUDIO_BUFFER_SIZE],
+    usb_tx_active: bool,
+    usb_tx_timeout: u16,
 }
 
 impl AudioMixer {
@@ -75,6 +78,9 @@ impl AudioMixer {
             nr_weights: [0; NR_TAPS],
             nr_history: [0; NR_TAPS + NR_DELAY],
             nr_hist_idx: 0,
+            usb_tx: [32768; AUDIO_BUFFER_SIZE],
+            usb_tx_active: false,
+            usb_tx_timeout: 0,
         }
     }
 
@@ -130,6 +136,12 @@ impl AudioMixer {
             self.nr_history = [0; NR_TAPS + NR_DELAY];
             self.nr_hist_idx = 0;
         }
+    }
+
+    pub fn set_buffer_usb_tx(&mut self, buffer: [u16; AUDIO_BUFFER_SIZE]) {
+        self.usb_tx = buffer;
+        self.usb_tx_active = true;
+        self.usb_tx_timeout = 0;
     }
 
     pub fn set_nr_level(&mut self, level: NrLevel) {
@@ -227,19 +239,31 @@ impl AudioMixer {
     pub fn mix(&mut self) {
         self.compress_mic();
         self.denoise_rx();
+
+        if self.usb_tx_active {
+            self.usb_tx_timeout += 1;
+            if self.usb_tx_timeout > 50 {
+                self.usb_tx_active = false;
+            }
+        }
+
         let g = self.gains;
         let rx_gain = if self.squelch_open { 255 } else { 0u8 };
         for i in 0..AUDIO_BUFFER_SIZE {
             let rx = scale_u8(self.rx[i], rx_gain);
             let gen = self.generator[i];
-            let mic = self.mic[i];
+            let mic_or_usb = if self.usb_tx_active {
+                self.usb_tx[i]
+            } else {
+                self.mic[i]
+            };
 
             let hp = sat_add(scale_u8(rx, g.rx_to_hp), scale_u8(gen, g.gen_to_hp));
             let spk = scale_u8(
                 sat_add(scale_u8(rx, g.rx_to_spk), scale_u8(gen, g.gen_to_spk)),
                 self.volume_gain,
             );
-            let tx = sat_add(scale_u8(mic, g.mic_to_tx), scale_u8(gen, g.gen_to_tx));
+            let tx = sat_add(scale_u8(mic_or_usb, g.mic_to_tx), scale_u8(gen, g.gen_to_tx));
 
             self.out_headphones[i] = if self.headphones_connected { hp } else { 0 };
             self.out_speakers[i] = if !self.headphones_connected { spk } else { 0 };
