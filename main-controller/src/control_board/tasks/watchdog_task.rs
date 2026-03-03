@@ -1,12 +1,17 @@
 use core::sync::atomic::Ordering;
 
-use embassy_stm32::wdg::IndependentWatchdog;
+use embassy_executor::Spawner;
 use embassy_time::Timer;
 
+use crate::control_board::modules::watchdog::Watchdog;
 use crate::runtime_stats::{HEARTBEATS, MONITORED_TASKS, UPTIME_SECS};
 
+pub fn create_task(spawner: Spawner, watchdog: Watchdog) {
+    spawner.must_spawn(watchdog_task(watchdog));
+}
+
 #[embassy_executor::task]
-pub async fn watchdog_task(mut wdg: IndependentWatchdog<'static, embassy_stm32::peripherals::IWDG>) {
+async fn watchdog_task(mut wdg: Watchdog) {
     wdg.unleash();
     let mut snapshot = [0u32; MONITORED_TASKS.len()];
 

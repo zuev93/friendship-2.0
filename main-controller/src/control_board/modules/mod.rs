@@ -1,6 +1,10 @@
 pub mod audio;
+pub mod cw_paddle;
 pub mod fan;
 pub mod power_control;
+pub mod ptt_button;
 pub mod ucpd_policy;
 pub mod ucpd_sink;
 pub mod ucpd_timer;
+pub mod usb;
+pub mod watchdog;

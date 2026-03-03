@@ -4,4 +4,4 @@ pub mod events;
 mod modules;
 mod tasks;
 pub mod types;
-pub mod usb;
+pub(crate) mod usb;

@@ -1,6 +1,6 @@
 use common::protocol_types::Wm8940Command;
 use embassy_stm32::peripherals as stm_peripherals;
-use embassy_stm32::sai::{self, Dma, FsPin, Sai, SckPin, SdPin, TxRx};
+use embassy_stm32::sai::{self, Dma, FsPin, MclkPin, Sai, SckPin, SdPin, TxRx};
 use embassy_stm32::Peri;
 use static_cell::StaticCell;
 
@@ -30,6 +30,7 @@ impl Audio {
         sd_b: Peri<'static, impl SdPin<stm_peripherals::SAI2, sai::B>>,
         sd_a: Peri<'static, impl SdPin<stm_peripherals::SAI2, sai::A>>,
         fs: Peri<'static, impl FsPin<stm_peripherals::SAI2, sai::B>>,
+        mclk: Peri<'static, impl MclkPin<stm_peripherals::SAI2, sai::B>>,
         dma_b: Peri<'static, impl Dma<stm_peripherals::SAI2, sai::B>>,
         dma_a: Peri<'static, impl Dma<stm_peripherals::SAI2, sai::A>>,
     ) -> Self {
@@ -71,8 +72,8 @@ impl Audio {
         let tx_buffer = TX_BUFFER.init([0u16; AUDIO_BUFFER_SIZE]);
         let rx_buffer = RX_BUFFER.init([0u16; AUDIO_BUFFER_SIZE]);
 
-        let sai_tx = Sai::new_asynchronous(
-            sub_block_b, sck, sd_b, fs, dma_b, tx_buffer, tx_config,
+        let sai_tx = Sai::new_asynchronous_with_mclk(
+            sub_block_b, sck, sd_b, fs, mclk, dma_b, tx_buffer, tx_config,
         );
         let sai_rx = Sai::new_synchronous(sub_block_a, sd_a, dma_a, rx_buffer, rx_config);
 

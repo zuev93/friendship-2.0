@@ -77,10 +77,10 @@ pub async fn buttons_task() {
             }
             ButtonEvent::Press(ButtonFunction::Transmit) => {
                 SCAN_CMD.signal(ScanCommand::Stop);
-                MODE_CMD.signal(ModeCommand::TransmitPress);
+                MODE_CMD.signal(ModeCommand::PttFrontPress);
             }
             ButtonEvent::Release(ButtonFunction::Transmit) => {
-                MODE_CMD.signal(ModeCommand::TransmitRelease);
+                MODE_CMD.signal(ModeCommand::PttFrontRelease);
             }
             ButtonEvent::Press(ButtonFunction::Tone) => {
                 SCAN_CMD.signal(ScanCommand::Stop);
@@ -168,10 +168,10 @@ pub async fn buttons_task() {
 
             ButtonEvent::Press(ButtonFunction::IcomPtt) => {
                 SCAN_CMD.signal(ScanCommand::Stop);
-                MODE_CMD.signal(ModeCommand::TransmitPress);
+                MODE_CMD.signal(ModeCommand::PttMicPress);
             }
             ButtonEvent::Release(ButtonFunction::IcomPtt) => {
-                MODE_CMD.signal(ModeCommand::TransmitRelease);
+                MODE_CMD.signal(ModeCommand::PttMicRelease);
             }
             ButtonEvent::Press(ButtonFunction::IcomSql) => {
                 SQUELCH_CMD.signal(SquelchCommand::Toggle);

@@ -1,5 +1,9 @@
 pub mod audio_tasks;
+pub mod cw_keyer_task;
 pub mod fan_task;
 pub mod power_tasks;
+pub mod ptt_task;
 pub mod status_led;
 pub mod ucpd_task;
+pub mod usb_tasks;
+pub mod watchdog_task;

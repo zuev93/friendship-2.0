@@ -37,5 +37,5 @@ async fn init_task(
         }
     }
 
-    d.backlight.set_high();
+    d.set_brightness(100);
 }

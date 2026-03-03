@@ -1,7 +1,5 @@
 use embassy_executor::Spawner;
-use embassy_stm32::gpio::Input;
-use embassy_stm32::peripherals::{CORDIC, FMAC, IWDG};
-use embassy_stm32::wdg::IndependentWatchdog;
+use embassy_stm32::peripherals::{CORDIC, FMAC};
 use embassy_stm32::Peri;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
@@ -9,9 +7,6 @@ use static_cell::StaticCell;
 use crate::app::{tasks::audio_task, tone_generator::ToneGenerator};
 
 use super::tasks::{
-    idle_counter_task::idle_counter_task,
-    stats_task::stats_task,
-    watchdog_task::watchdog_task,
     alc::alc_task,
     arbiters::{
         anf::anf_arbiter_task, audio_agc::audio_agc_arbiter_task,
@@ -30,9 +25,10 @@ use super::tasks::{
         tx_eq::tx_eq_arbiter_task, volume::volume_arbiter_task, vox::vox_arbiter_task,
     },
     buttons_task::buttons_task,
-    cw_keyer_task::cw_keyer_task,
     encoder_task::encoder_task,
+    idle_counter_task::idle_counter_task,
     scan_task::scan_task,
+    stats_task::stats_task,
     sweep_scheduler::sweep_scheduler_task,
     tone_task,
 };
@@ -44,9 +40,6 @@ impl AppSubsystem {
         spawner: Spawner,
         cordic_peri: Peri<'static, CORDIC>,
         fmac_peri: Peri<'static, FMAC>,
-        dit_pin: Input<'static>,
-        dah_pin: Input<'static>,
-        wdg: IndependentWatchdog<'static, IWDG>,
     ) {
         static TONE_GENERATOR: StaticCell<Mutex<ThreadModeRawMutex, ToneGenerator>> =
             StaticCell::new();
@@ -54,7 +47,6 @@ impl AppSubsystem {
 
         spawner.must_spawn(idle_counter_task());
         spawner.must_spawn(stats_task());
-        spawner.must_spawn(watchdog_task(wdg));
         spawner.must_spawn(alc_task());
         spawner.must_spawn(buttons_task());
         spawner.must_spawn(encoder_task());
@@ -95,7 +87,6 @@ impl AppSubsystem {
         spawner.must_spawn(nb_level_arbiter_task());
         spawner.must_spawn(nr_level_arbiter_task());
 
-        spawner.must_spawn(cw_keyer_task(dit_pin, dah_pin));
         tone_task::spawn(spawner, mutex);
         audio_task::spawn_tasks(spawner, mutex, cordic_peri, fmac_peri);
     }

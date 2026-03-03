@@ -1,5 +1,4 @@
-use druzhba_macros::instrumented;
-use embassy_stm32::gpio::Input;
+use embassy_executor::Spawner;
 use embassy_time::Timer;
 
 use crate::app::cw_keyer::CwKeyer;
@@ -9,7 +8,9 @@ use crate::app::events::{
 };
 use crate::app::tasks::arbiters::mode::{ModeCommand, MODE_CMD};
 use crate::app::types::TransmitMode;
+use crate::control_board::modules::cw_paddle::CwPaddle;
 use crate::runtime_stats::TaskId;
+use druzhba_macros::instrumented;
 
 struct PaddleDebounce {
     dit_count: u8,
@@ -50,9 +51,13 @@ impl PaddleDebounce {
     }
 }
 
+pub fn create_task(spawner: Spawner, paddle: CwPaddle) {
+    spawner.must_spawn(cw_keyer_task(paddle));
+}
+
 #[instrumented(TaskId::CwKeyer)]
 #[embassy_executor::task]
-pub async fn cw_keyer_task(dit_pin: Input<'static>, dah_pin: Input<'static>) {
+async fn cw_keyer_task(paddle: CwPaddle) {
     let mut keyer = CwKeyer::new();
     let mut debounce = PaddleDebounce::new();
     let mut swap = false;
@@ -92,8 +97,8 @@ pub async fn cw_keyer_task(dit_pin: Input<'static>, dah_pin: Input<'static>) {
             continue;
         }
 
-        let dit_raw = dit_pin.is_low();
-        let dah_raw = dah_pin.is_low();
+        let dit_raw = paddle.dit_pressed();
+        let dah_raw = paddle.dah_pressed();
 
         let (dit_in, dah_in) = if swap {
             (dah_raw, dit_raw)

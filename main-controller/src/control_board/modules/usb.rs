@@ -1,23 +1,25 @@
-use embassy_executor::Spawner;
 use embassy_stm32::peripherals as stm_peripherals;
 use embassy_stm32::usb::{self, Driver};
 use embassy_stm32::{interrupt, Peri};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State as CdcState};
 use embassy_usb::class::uac1::speaker::{Speaker, State as SpeakerState};
 use embassy_usb::class::uac1::{Channel, FeedbackRefresh, SampleWidth};
-use embassy_usb::{Builder, Config};
+use embassy_usb::{Builder, Config, UsbDevice};
 use static_cell::StaticCell;
 
-use crate::control_board::usb::tasks::{
-    cat_task::cat_task, cli_task::cli_task, speaker_task::speaker_task,
-    usb_device_task::usb_device_task,
-};
+type UsbDriver = Driver<'static, stm_peripherals::USB>;
 
-pub struct UsbSubsystem;
+pub struct Usb {
+    pub device: UsbDevice<'static, UsbDriver>,
+    pub cat_cdc: CdcAcmClass<'static, UsbDriver>,
+    pub cli_cdc: CdcAcmClass<'static, UsbDriver>,
+    pub stream: embassy_usb::class::uac1::speaker::Stream<'static, UsbDriver>,
+    pub feedback: embassy_usb::class::uac1::speaker::Feedback<'static, UsbDriver>,
+    pub control_monitor: embassy_usb::class::uac1::speaker::ControlMonitor<'static>,
+}
 
-impl UsbSubsystem {
-    pub fn init_subsystem(
-        spawner: Spawner,
+impl Usb {
+    pub fn new(
         usb: Peri<'static, stm_peripherals::USB>,
         dp: Peri<'static, stm_peripherals::PA12>,
         dm: Peri<'static, stm_peripherals::PA11>,
@@ -25,10 +27,9 @@ impl UsbSubsystem {
                 <stm_peripherals::USB as usb::Instance>::Interrupt,
                 usb::InterruptHandler<stm_peripherals::USB>,
             > + 'static,
-    ) {
+    ) -> Self {
         let driver = Driver::new(usb, irqs, dp, dm);
 
-        // TODO: Register PID on pid.codes for production. 0x0001 is dev-only placeholder
         let mut config = Config::new(0x1209, 0x0001);
         config.manufacturer = Some("Druzhba");
         config.product = Some("Druzhba-M Transceiver");
@@ -79,11 +80,15 @@ impl UsbSubsystem {
             FeedbackRefresh::Period8Frames,
         );
 
-        let usb_device = builder.build();
+        let device = builder.build();
 
-        spawner.must_spawn(usb_device_task(usb_device));
-        spawner.must_spawn(cat_task(cat_cdc));
-        spawner.must_spawn(cli_task(cli_cdc));
-        spawner.must_spawn(speaker_task(stream, feedback, control_monitor));
+        Self {
+            device,
+            cat_cdc,
+            cli_cdc,
+            stream,
+            feedback,
+            control_monitor,
+        }
     }
 }

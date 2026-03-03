@@ -76,6 +76,7 @@ pub enum TaskId {
     UcpdTask,
     StatusLed,
     FanControl,
+    Ptt,
 
     UsbDevice,
     CatTask,
@@ -181,10 +182,8 @@ extern "C" {
 }
 
 pub fn ram_stats() -> RamStats {
-    let data_bytes =
-        unsafe { &__edata as *const u8 as usize - &__sdata as *const u8 as usize };
-    let bss_bytes =
-        unsafe { &__ebss as *const u8 as usize - &__sbss as *const u8 as usize };
+    let data_bytes = unsafe { &__edata as *const u8 as usize - &__sdata as *const u8 as usize };
+    let bss_bytes = unsafe { &__ebss as *const u8 as usize - &__sbss as *const u8 as usize };
     RamStats {
         data_bytes,
         bss_bytes,

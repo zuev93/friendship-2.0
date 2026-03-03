@@ -60,10 +60,30 @@ pub fn init() -> Hardware {
     Hardware {
         qei_encoders: QeiEncoders {
             encoders: [
-                Some(QeiEncoder::Tim1(Qei::new(p.TIM1, p.PA8, p.PA9, qei_config()))),
-                Some(QeiEncoder::Tim2(Qei::new(p.TIM2, p.PA0, p.PA1, qei_config()))),
-                Some(QeiEncoder::Tim3(Qei::new(p.TIM3, p.PB4, p.PA7, qei_config()))),
-                Some(QeiEncoder::Tim8(Qei::new(p.TIM8, p.PC6, p.PC7, qei_config()))),
+                Some(QeiEncoder::Tim1(Qei::new(
+                    p.TIM1,
+                    p.PA8,
+                    p.PA9,
+                    qei_config(),
+                ))),
+                Some(QeiEncoder::Tim2(Qei::new(
+                    p.TIM2,
+                    p.PA0,
+                    p.PA1,
+                    qei_config(),
+                ))),
+                Some(QeiEncoder::Tim3(Qei::new(
+                    p.TIM3,
+                    p.PB4,
+                    p.PA7,
+                    qei_config(),
+                ))),
+                Some(QeiEncoder::Tim8(Qei::new(
+                    p.TIM8,
+                    p.PC6,
+                    p.PC7,
+                    qei_config(),
+                ))),
             ],
         },
         exti_encoders: ExtiEncoders {
@@ -122,9 +142,28 @@ pub fn init() -> Hardware {
         },
         headphones_detect: ExtiInput::new(p.PE12, p.EXTI12, Pull::Up, ExtiIrqs),
         wm8940: wm8940::new_wm8940(p.I2C1, p.PB6, p.PB7, p.GPDMA1_CH0, p.GPDMA1_CH1),
-        spi_link: SpiLink::new(p.SPI1, p.PA5, p.PB5, p.PA6, p.PA15, p.GPDMA1_CH3, p.GPDMA1_CH4, p.PB1),
+        spi_link: SpiLink::new(
+            p.SPI1,
+            p.PA5,
+            p.PB5,
+            p.PA6,
+            p.PA15,
+            p.GPDMA1_CH3,
+            p.GPDMA1_CH4,
+            p.PB1,
+        ),
         displays: Displays::new(
-            p.SPI2, p.PB10, p.PB15, p.GPDMA1_CH2, p.PB13, p.PB11, p.PB12, p.PE13, p.PB14, p.PB9,
+            p.SPI2,
+            p.PB10,
+            p.PB15,
+            p.GPDMA1_CH2,
+            p.PB13,
+            p.PE14,
+            p.PB12,
+            p.PE13,
+            p.PB14,
+            p.TIM17,
+            p.PB9,
         )
         .as_mutex(),
         crc_peripheral: p.CRC,

@@ -26,7 +26,9 @@ impl CatHandler {
                 CatResponse::Frequency(freq)
             }
             CatCommand::ModeRead => {
-                let mode = TRANSMIT_MODE.try_get().unwrap_or(crate::app::types::TransmitMode::Usb);
+                let mode = TRANSMIT_MODE
+                    .try_get()
+                    .unwrap_or(crate::app::types::TransmitMode::Usb);
                 CatResponse::ModeValue(mode)
             }
             CatCommand::ModeWrite(mode) => {
@@ -35,7 +37,9 @@ impl CatHandler {
             }
             CatCommand::InfoRead => {
                 let frequency = FREQUENCY.try_get().unwrap_or(14_200_000);
-                let mode = TRANSMIT_MODE.try_get().unwrap_or(crate::app::types::TransmitMode::Usb);
+                let mode = TRANSMIT_MODE
+                    .try_get()
+                    .unwrap_or(crate::app::types::TransmitMode::Usb);
                 let transmitting = MODE.try_get().map(|m| m == Mode::Tx).unwrap_or(false);
                 CatResponse::Info {
                     frequency,
@@ -44,11 +48,11 @@ impl CatHandler {
                 }
             }
             CatCommand::Transmit => {
-                MODE_CMD.signal(ModeCommand::TransmitPress);
+                MODE_CMD.signal(ModeCommand::PttCatPress);
                 CatResponse::Tx
             }
             CatCommand::Receive => {
-                MODE_CMD.signal(ModeCommand::TransmitRelease);
+                MODE_CMD.signal(ModeCommand::PttCatRelease);
                 CatResponse::Rx
             }
         }

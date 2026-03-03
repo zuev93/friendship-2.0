@@ -1,25 +1,19 @@
 use embassy_executor::Spawner;
-use embassy_stm32::exti::{self, ExtiInput};
-use embassy_stm32::gpio::{Input, Pull};
+use embassy_stm32::exti::{self};
 use embassy_stm32::sai;
 use embassy_stm32::{
     bind_interrupts,
     i2c::{self},
     interrupt::typelevel as irq_types,
-    peripherals as stm_peripherals,
-    ucpd, usb,
-    Config as StmConfig,
+    peripherals as stm_peripherals, ucpd, usb, Config as StmConfig,
 };
 
 use embassy_stm32::rcc::{Hsi48Config, LsConfig};
-use embassy_stm32::rtc::{Rtc, RtcConfig};
-use embassy_stm32::wdg::IndependentWatchdog;
 
 use crate::{
     app::AppSubsystem, control_board::control_board_subsystem::ControlBoardSybstem,
     front_panel::FrontPanelSubsystem, i2c_map::I2cMap, main_board::MainBoardSubsystem,
     peripherals::peripherals_subsystem::PeripheralsSubsystem,
-    control_board::usb::usb_subsystem::UsbSubsystem,
 };
 
 bind_interrupts!(pub struct Irqs {
@@ -40,14 +34,15 @@ impl Hardware {
     pub async fn init_subsystem(spawner: Spawner) {
         let mut config = StmConfig::default();
         config.enable_ucpd1_dead_battery = true;
-        config.rcc.hsi48 = Some(Hsi48Config { sync_from_usb: true });
+        config.rcc.hsi48 = Some(Hsi48Config {
+            sync_from_usb: true,
+        });
         config.rcc.ls = LsConfig::default_lse();
         config.rcc.ls.enable_backup_sram = true;
         let p = embassy_stm32::init(config);
 
-        let (rtc, rtc_provider) = Rtc::new(p.RTC, RtcConfig::default());
+        let _swo_pin = p.PB3;
 
-        let wdg = IndependentWatchdog::new(p.IWDG, 4_000_000);
         let irqs = Irqs;
         let i2c_map = I2cMap::new();
 
@@ -75,7 +70,6 @@ impl Hardware {
         )
         .await;
 
-        let alert_input = ExtiInput::new(p.PC13, p.EXTI13, Pull::Up, irqs);
         FrontPanelSubsystem::init_subsystem(
             spawner,
             p.SPI1,
@@ -85,13 +79,16 @@ impl Hardware {
             p.GPDMA1_CH4,
             p.GPDMA1_CH5,
             p.PA4,
-            alert_input,
+            p.PC13,
+            p.EXTI13,
+            irqs,
             sai2_b,
             sai2_a,
             p.PE12,
             p.PE11,
             p.PD11,
             p.PE13,
+            p.PE14,
             p.GPDMA2_CH0,
             p.GPDMA2_CH1,
             p.CRC,
@@ -102,7 +99,7 @@ impl Hardware {
             spawner,
             i2c_map.control_board,
             p.PB0,
-            p.PB3,
+            p.PB2,
             p.PB1,
             p.I2C3,
             p.PC9,
@@ -112,12 +109,9 @@ impl Hardware {
             irqs,
             p.SPI2,
             p.PB15,
-            p.PC2,
             p.PB12,
             p.PA9,
-            p.PC6,
             p.GPDMA2_CH2,
-            p.GPDMA2_CH3,
             p.UCPD1,
             p.PB13,
             p.PB14,
@@ -126,8 +120,15 @@ impl Hardware {
             p.PA15,
             p.TIM2,
             p.PA0,
-            rtc,
-            rtc_provider,
+            p.RTC,
+            p.IWDG,
+            p.PD0,
+            p.PD1,
+            p.PC0,
+            p.USB,
+            p.PA12,
+            p.PA11,
+            irqs,
         )
         .await;
         PeripheralsSubsystem::init_subsystem(
@@ -140,10 +141,7 @@ impl Hardware {
             p.GPDMA2_CH5,
             irqs,
         );
-        UsbSubsystem::init_subsystem(spawner, p.USB, p.PA12, p.PA11, irqs);
 
-        let dit_pin = Input::new(p.PD0, Pull::Up);
-        let dah_pin = Input::new(p.PD1, Pull::Up);
-        AppSubsystem::init_subsystem(spawner, p.CORDIC, p.FMAC, dit_pin, dah_pin, wdg);
+        AppSubsystem::init_subsystem(spawner, p.CORDIC, p.FMAC);
     }
 }

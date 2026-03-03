@@ -1,10 +1,11 @@
 use embassy_executor::Spawner;
-use embassy_stm32::exti::ExtiInput;
+use embassy_stm32::exti::{self, Channel, ExtiInput};
+use embassy_stm32::gpio::{ExtiPin, Pin, Pull};
+use embassy_stm32::interrupt::typelevel::Binding;
 use embassy_stm32::peripherals as stm_peripherals;
 use embassy_stm32::peripherals::CRC as CRC_PERI;
-use embassy_stm32::sai::{self, Dma, FsPin, SckPin, SdPin};
+use embassy_stm32::sai::{self, Dma, FsPin, MclkPin, SckPin, SdPin};
 use embassy_stm32::spi::{self, MisoPin, MosiPin, RxDma, SckPin as SpiSckPin, TxDma};
-use embassy_stm32::gpio::Pin;
 use embassy_stm32::Peri;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
@@ -26,7 +27,7 @@ use crate::front_panel::tasks::{
 pub struct FrontPanelSubsystem {}
 
 impl FrontPanelSubsystem {
-    pub async fn init_subsystem<T: spi::Instance>(
+    pub async fn init_subsystem<T: spi::Instance, P: ExtiPin + Pin>(
         spawner: Spawner,
         spi_bus: Peri<'static, T>,
         bus_mosi: Peri<'static, impl MosiPin<T>>,
@@ -35,7 +36,12 @@ impl FrontPanelSubsystem {
         bus_dma_tx: Peri<'static, impl TxDma<T>>,
         bus_dma_rx: Peri<'static, impl RxDma<T>>,
         bus_cs_pin: Peri<'static, impl Pin>,
-        alert_input: ExtiInput<'static>,
+        alert_pin: Peri<'static, P>,
+        alert_channel: Peri<'static, P::ExtiChannel>,
+        alert_irqs: impl Binding<
+            <<P as ExtiPin>::ExtiChannel as Channel>::IRQ,
+            exti::InterruptHandler<<<P as ExtiPin>::ExtiChannel as Channel>::IRQ>,
+        >,
 
         sai2_b: sai::SubBlock<'static, stm_peripherals::SAI2, sai::B>,
         sai2_a: sai::SubBlock<'static, stm_peripherals::SAI2, sai::A>,
@@ -43,6 +49,7 @@ impl FrontPanelSubsystem {
         sai_sd_b: Peri<'static, impl SdPin<stm_peripherals::SAI2, sai::B>>,
         sai_sd_a: Peri<'static, impl SdPin<stm_peripherals::SAI2, sai::A>>,
         sai_fs: Peri<'static, impl FsPin<stm_peripherals::SAI2, sai::B>>,
+        sai_mclk: Peri<'static, impl MclkPin<stm_peripherals::SAI2, sai::B>>,
         sai_dma_b: Peri<'static, impl Dma<stm_peripherals::SAI2, sai::B>>,
         sai_dma_a: Peri<'static, impl Dma<stm_peripherals::SAI2, sai::A>>,
         crc_peripheral: Peri<'static, CRC_PERI>,
@@ -63,9 +70,11 @@ impl FrontPanelSubsystem {
             sai_sd_b,
             sai_sd_a,
             sai_fs,
+            sai_mclk,
             sai_dma_b,
             sai_dma_a,
         );
+        let alert_input = ExtiInput::new(alert_pin, alert_channel, Pull::Up, alert_irqs);
         spawner.must_spawn(spi_receiver_task(bus, alert_input));
 
         spawner.must_spawn(mode_led_task(bus));

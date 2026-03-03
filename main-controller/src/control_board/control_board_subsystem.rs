@@ -3,17 +3,22 @@ use embassy_stm32::gpio::Pin;
 use embassy_stm32::i2c::{ErrorInterruptHandler, EventInterruptHandler, RxDma as I2cRxDma, TxDma as I2cTxDma};
 use embassy_stm32::i2c::{self, mode as i2c_mode, I2c, SclPin, SdaPin};
 use embassy_stm32::mode;
-use embassy_stm32::peripherals::{GPDMA1_CH6, GPDMA1_CH7, PA0, PB13, PB14, TIM2, UCPD1};
-use embassy_stm32::rtc::{Rtc, RtcTimeProvider};
-use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin};
+use embassy_stm32::peripherals::{self as stm_peripherals, GPDMA1_CH6, GPDMA1_CH7, IWDG, PA0, PB13, PB14, RTC as RTC_PERI, TIM2, UCPD1};
+use embassy_stm32::rtc::{Rtc, RtcConfig, RtcTimeProvider};
+use embassy_stm32::spi::{self, CkPin, MosiPin, TxDma, WsPin};
+use embassy_stm32::usb;
 use embassy_stm32::{interrupt, Peri};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
 use crate::control_board::modules::audio::Audio;
+use crate::control_board::modules::cw_paddle::CwPaddle;
 use crate::control_board::modules::fan::Fan;
-use crate::control_board::tasks::{audio_tasks, fan_task, status_led, ucpd_task};
+use crate::control_board::modules::ptt_button::PttButton;
+use crate::control_board::modules::usb::Usb;
+use crate::control_board::modules::watchdog::Watchdog;
+use crate::control_board::tasks::{audio_tasks, cw_keyer_task, fan_task, ptt_task, status_led, ucpd_task, usb_tasks, watchdog_task};
 use crate::control_board::{modules::power_control::PowerControl, tasks::power_tasks};
 use crate::i2c_map::ControlBoardI2cMap;
 
@@ -37,12 +42,9 @@ impl ControlBoardSybstem {
 
         spi_peri: Peri<'static, T2>,
         spi_txsd: Peri<'static, impl MosiPin<T2>>,
-        spi_rxsd: Peri<'static, impl MisoPin<T2>>,
         spi_ws: Peri<'static, impl WsPin<T2>>,
         spi_ck: Peri<'static, impl CkPin<T2>>,
-        spi_mck: Peri<'static, impl MckPin<T2>>,
         spi_txdma: Peri<'static, impl TxDma<T2>>,
-        spi_rxdma: Peri<'static, impl RxDma<T2>>,
 
         ucpd_peri: Peri<'static, UCPD1>,
         ucpd_cc1: Peri<'static, PB13>,
@@ -55,12 +57,26 @@ impl ControlBoardSybstem {
         fan_tim: Peri<'static, TIM2>,
         fan_pin: Peri<'static, PA0>,
 
-        rtc: Rtc,
-        rtc_provider: RtcTimeProvider,
+        rtc_peri: Peri<'static, RTC_PERI>,
+
+        iwdg_peri: Peri<'static, IWDG>,
+        dit_pin: Peri<'static, impl Pin>,
+        dah_pin: Peri<'static, impl Pin>,
+        ptt_pin: Peri<'static, impl Pin>,
+
+        usb_peri: Peri<'static, stm_peripherals::USB>,
+        usb_dp: Peri<'static, stm_peripherals::PA12>,
+        usb_dm: Peri<'static, stm_peripherals::PA11>,
+
+        usb_irqs: impl interrupt::typelevel::Binding<
+                <stm_peripherals::USB as usb::Instance>::Interrupt,
+                usb::InterruptHandler<stm_peripherals::USB>,
+            > + 'static,
     ) {
         static RTC_INSTANCE: StaticCell<Mutex<ThreadModeRawMutex, Rtc>> = StaticCell::new();
         static RTC_PROVIDER: StaticCell<RtcTimeProvider> = StaticCell::new();
 
+        let (rtc, rtc_provider) = Rtc::new(rtc_peri, RtcConfig::default());
         let _rtc_mutex = RTC_INSTANCE.init(Mutex::new(rtc));
         let _provider = RTC_PROVIDER.init(rtc_provider);
 
@@ -85,7 +101,7 @@ impl ControlBoardSybstem {
             i2c_map.ina228_3v3,
         );
         let audio = Audio::new(
-            spi_peri, spi_txsd, spi_rxsd, spi_ws, spi_ck, spi_mck, spi_txdma, spi_rxdma,
+            spi_peri, spi_txsd, spi_ws, spi_ck, spi_txdma,
         );
 
         let fan = Fan::new(fan_tim, fan_pin);
@@ -95,5 +111,17 @@ impl ControlBoardSybstem {
         audio_tasks::create_tasks(spawner, audio).await;
         ucpd_task::create_tasks(spawner, ucpd_peri, ucpd_cc1, ucpd_cc2, ucpd_rx_dma, ucpd_tx_dma);
         fan_task::create_task(spawner, fan);
+
+        let watchdog = Watchdog::new(iwdg_peri, 4_000_000);
+        watchdog_task::create_task(spawner, watchdog);
+
+        let paddle = CwPaddle::new(dit_pin, dah_pin);
+        cw_keyer_task::create_task(spawner, paddle);
+
+        let ptt = PttButton::new(ptt_pin);
+        ptt_task::create_task(spawner, ptt);
+
+        let usb = Usb::new(usb_peri, usb_dp, usb_dm, usb_irqs);
+        usb_tasks::create_tasks(spawner, usb);
     }
 }

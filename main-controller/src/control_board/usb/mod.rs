@@ -1,3 +1,2 @@
-pub mod usb_subsystem;
-mod tasks;
-mod cat;
+pub mod tasks;
+pub mod cat;
