@@ -15,15 +15,48 @@ const FINAL_TOLERANCE_MA: i32 = 20;
 const DRIVER_TARGET_IDQ_MA: i32 = 100;
 const DRIVER_TOLERANCE_MA: i32 = 20;
 const CALIBRATION_STALE_MS: u64 = 60_000;
-const CALIBRATION_TEMP_DRIFT: i16 = 12_000;
 const DAC_COARSE_STEP: u16 = 8;
 const DAC_FINE_STEP: u16 = 2;
 
-const THERMAL_DERATING_START: i16 = 20000;
-const THERMAL_AD8367_ZERO: i16 = 30000;
-const THERMAL_EMERGENCY: i16 = 32000;
+const THERMAL_DERATING_START_C: i16 = 50;
+const THERMAL_AD8367_ZERO_C: i16 = 70;
+const THERMAL_EMERGENCY_C: i16 = 80;
+
+const NTC_R0: f32 = 10000.0;
+const NTC_T0: f32 = 298.15;
+const NTC_B: f32 = 3455.0;
+const PULL_UP_R: f32 = 10000.0;
+const VCC: f32 = 3.3;
+const ADC_FSR: f32 = 4.096;
+const ADC_MAX: f32 = 32768.0;
+
+const CALIBRATION_TEMP_DRIFT_C: i16 = 15;
 
 const RAIL_50V_TIMEOUT: Duration = Duration::from_millis(500);
+
+fn raw_to_celsius(raw: i16) -> i16 {
+    if raw <= 0 {
+        return 150;
+    }
+    let voltage = raw as f32 * ADC_FSR / ADC_MAX;
+    let r_ntc = PULL_UP_R * voltage / (VCC - voltage);
+    if r_ntc <= 0.0 {
+        return 150;
+    }
+    let ln_r_ratio = ln_approx(r_ntc / NTC_R0);
+    let t_kelvin = 1.0 / (1.0 / NTC_T0 + ln_r_ratio / NTC_B);
+    (t_kelvin - 273.15) as i16
+}
+
+fn ln_approx(x: f32) -> f32 {
+    let bits = x.to_bits();
+    let exponent = ((bits >> 23) & 0xFF) as i32 - 127;
+    let mantissa_bits = (bits & 0x007F_FFFF) | 0x3F80_0000;
+    let m = f32::from_bits(mantissa_bits);
+    let m1 = m - 1.0;
+    let ln_m = m1 * (1.0 + m1 * (-0.5 + m1 * (0.333333 + m1 * -0.25)));
+    exponent as f32 * 0.6931472 + ln_m
+}
 
 struct CalibrationState {
     driver_dac_code: u16,
@@ -179,8 +212,8 @@ impl HfAmp {
         self.cal.valid = true;
 
         if self.adc_initialized {
-            if let Ok(temp) = self.adc.read_ain0().await {
-                self.cal.calibration_temp = temp;
+            if let Ok(raw) = self.adc.read_ain0().await {
+                self.cal.calibration_temp = raw_to_celsius(raw);
             }
         }
 
@@ -307,35 +340,38 @@ impl HfAmp {
             .await
             .map_err(|_| "HfAmp: read final temp failed")?;
 
-        let worst = driver_raw.max(final_raw);
+        let driver_c = raw_to_celsius(driver_raw);
+        let final_c = raw_to_celsius(final_raw);
+
+        let worst_c = driver_c.max(final_c);
         if self.cal.valid && self.cal.calibration_temp != 0 {
-            let drift = (worst - self.cal.calibration_temp).abs();
-            if drift > CALIBRATION_TEMP_DRIFT {
+            let drift = (worst_c - self.cal.calibration_temp).abs();
+            if drift > CALIBRATION_TEMP_DRIFT_C {
                 self.cal.valid = false;
             }
         }
 
         Ok(PaTemperatures {
-            driver_raw,
-            final_raw,
+            driver_c,
+            final_c,
         })
     }
 
     pub fn is_thermal_emergency(temps: &PaTemperatures) -> bool {
-        temps.driver_raw >= THERMAL_EMERGENCY || temps.final_raw >= THERMAL_EMERGENCY
+        temps.driver_c >= THERMAL_EMERGENCY_C || temps.final_c >= THERMAL_EMERGENCY_C
     }
 
     pub fn compute_thermal_constraint(temps: &PaTemperatures) -> i32 {
-        let worst = temps.driver_raw.max(temps.final_raw);
-        if worst >= THERMAL_EMERGENCY {
+        let worst = temps.driver_c.max(temps.final_c);
+        if worst >= THERMAL_EMERGENCY_C {
             -10000
-        } else if worst >= THERMAL_AD8367_ZERO {
-            let range = (THERMAL_EMERGENCY - THERMAL_AD8367_ZERO) as i32;
-            let above = (worst - THERMAL_AD8367_ZERO) as i32;
+        } else if worst >= THERMAL_AD8367_ZERO_C {
+            let range = (THERMAL_EMERGENCY_C - THERMAL_AD8367_ZERO_C) as i32;
+            let above = (worst - THERMAL_AD8367_ZERO_C) as i32;
             -(above * 10000 / range)
-        } else if worst > THERMAL_DERATING_START {
-            let range = (THERMAL_AD8367_ZERO - THERMAL_DERATING_START) as i32;
-            let above = (worst - THERMAL_DERATING_START) as i32;
+        } else if worst > THERMAL_DERATING_START_C {
+            let range = (THERMAL_AD8367_ZERO_C - THERMAL_DERATING_START_C) as i32;
+            let above = (worst - THERMAL_DERATING_START_C) as i32;
             (range - above) * 10000 / range
         } else {
             10000

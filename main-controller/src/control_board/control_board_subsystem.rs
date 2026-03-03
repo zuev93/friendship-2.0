@@ -3,7 +3,7 @@ use embassy_stm32::gpio::Pin;
 use embassy_stm32::i2c::{ErrorInterruptHandler, EventInterruptHandler, RxDma as I2cRxDma, TxDma as I2cTxDma};
 use embassy_stm32::i2c::{self, mode as i2c_mode, I2c, SclPin, SdaPin};
 use embassy_stm32::mode;
-use embassy_stm32::peripherals::{GPDMA1_CH6, GPDMA1_CH7, PB13, PB14, UCPD1};
+use embassy_stm32::peripherals::{GPDMA1_CH6, GPDMA1_CH7, PA0, PB13, PB14, TIM2, UCPD1};
 use embassy_stm32::rtc::{Rtc, RtcTimeProvider};
 use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, WsPin};
 use embassy_stm32::{interrupt, Peri};
@@ -12,7 +12,8 @@ use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
 use crate::control_board::modules::audio::Audio;
-use crate::control_board::tasks::{audio_tasks, status_led, ucpd_task};
+use crate::control_board::modules::fan::Fan;
+use crate::control_board::tasks::{audio_tasks, fan_task, status_led, ucpd_task};
 use crate::control_board::{modules::power_control::PowerControl, tasks::power_tasks};
 use crate::i2c_map::ControlBoardI2cMap;
 
@@ -51,6 +52,9 @@ impl ControlBoardSybstem {
 
         status_led_pin: Peri<'static, impl Pin>,
 
+        fan_tim: Peri<'static, TIM2>,
+        fan_pin: Peri<'static, PA0>,
+
         rtc: Rtc,
         rtc_provider: RtcTimeProvider,
     ) {
@@ -84,9 +88,12 @@ impl ControlBoardSybstem {
             spi_peri, spi_txsd, spi_rxsd, spi_ws, spi_ck, spi_mck, spi_txdma, spi_rxdma,
         );
 
+        let fan = Fan::new(fan_tim, fan_pin);
+
         status_led::create_task(spawner, status_led_pin);
         power_tasks::create_tasks(spawner, power_control);
         audio_tasks::create_tasks(spawner, audio).await;
         ucpd_task::create_tasks(spawner, ucpd_peri, ucpd_cc1, ucpd_cc2, ucpd_rx_dma, ucpd_tx_dma);
+        fan_task::create_task(spawner, fan);
     }
 }

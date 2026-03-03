@@ -483,8 +483,8 @@ pub enum SweepRequest {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PaTemperatures {
-    pub driver_raw: i16,
-    pub final_raw: i16,
+    pub driver_c: i16,
+    pub final_c: i16,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

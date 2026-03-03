@@ -75,6 +75,7 @@ pub enum TaskId {
     ControlBoardAudioControl,
     UcpdTask,
     StatusLed,
+    FanControl,
 
     UsbDevice,
     CatTask,

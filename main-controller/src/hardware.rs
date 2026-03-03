@@ -124,6 +124,8 @@ impl Hardware {
             p.GPDMA1_CH6,
             p.GPDMA1_CH7,
             p.PA15,
+            p.TIM2,
+            p.PA0,
             rtc,
             rtc_provider,
         )
