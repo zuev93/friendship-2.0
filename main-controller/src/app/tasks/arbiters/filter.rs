@@ -17,7 +17,7 @@ pub static FILTER_CMD: Signal<ThreadModeRawMutex, FilterCommand> = Signal::new()
 #[instrumented(TaskId::FilterArbiter)]
 #[embassy_executor::task]
 pub async fn filter_arbiter_task() {
-    let mut filter = FilterType::Single;
+    let mut filter = FilterType::Narrow;
     let mut user_filter = filter;
     let mut transmit_mode_rcv = TRANSMIT_MODE.receiver().unwrap();
     let mut sweep_active_rcv = SWEEP_ACTIVE.receiver().unwrap();
@@ -50,7 +50,7 @@ pub async fn filter_arbiter_task() {
             Either3::Third(active) => {
                 if active {
                     user_filter = filter;
-                    filter = FilterType::Single;
+                    filter = FilterType::Wide;
                     FILTER.sender().send(filter);
                 } else {
                     filter = user_filter;

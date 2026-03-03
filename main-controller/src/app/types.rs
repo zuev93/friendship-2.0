@@ -28,17 +28,14 @@ impl DisplayFps {
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum FilterType {
-    None,
-    Single,
-    DoubleNarrow,
-    DoubleWide,
+    Wide,
+    Medium,
+    Narrow,
+    CwNarrow,
 }
 
 impl FilterType {
     const FILTER_CENTER_HZ: u32 = 10_000_000;
-    const WIDE_FILTER_BANDWIDTH_HZ: u32 = 2_400;
-    const NARROW_FILTER_BANDWIDTH_HZ: u32 = 1_200;
-    const SINGLE_FILTER_BANDWIDTH_HZ: u32 = 3_600;
 
     pub fn center_frequency_hz(self) -> u32 {
         Self::FILTER_CENTER_HZ
@@ -46,27 +43,27 @@ impl FilterType {
 
     pub fn bandwidth_hz(self) -> u32 {
         match self {
-            Self::DoubleNarrow => Self::NARROW_FILTER_BANDWIDTH_HZ,
-            Self::DoubleWide => Self::WIDE_FILTER_BANDWIDTH_HZ,
-            Self::Single => Self::SINGLE_FILTER_BANDWIDTH_HZ,
-            Self::None => Self::SINGLE_FILTER_BANDWIDTH_HZ,
+            Self::Wide => 6_000,
+            Self::Medium => 3_000,
+            Self::Narrow => 2_400,
+            Self::CwNarrow => 1_000,
         }
     }
 
     pub fn next(self) -> Self {
         match self {
-            Self::None => Self::Single,
-            Self::Single => Self::DoubleWide,
-            Self::DoubleWide => Self::DoubleNarrow,
-            Self::DoubleNarrow => Self::Single,
+            Self::Wide => Self::Medium,
+            Self::Medium => Self::Narrow,
+            Self::Narrow => Self::CwNarrow,
+            Self::CwNarrow => Self::Wide,
         }
     }
 
     pub fn default_for_mode(mode: TransmitMode) -> Self {
         match mode {
-            TransmitMode::Usb | TransmitMode::Lsb => Self::DoubleWide,
-            TransmitMode::Cw => Self::DoubleNarrow,
-            TransmitMode::Am => Self::Single,
+            TransmitMode::Usb | TransmitMode::Lsb => Self::Narrow,
+            TransmitMode::Cw => Self::CwNarrow,
+            TransmitMode::Am => Self::Wide,
         }
     }
 }

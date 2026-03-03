@@ -44,7 +44,7 @@ impl Detector {
             dds,
             mode: Mode::StandBy,
             transmit_mode: TransmitMode::Lsb,
-            current_filter: FilterType::None,
+            current_filter: FilterType::Narrow,
         }
     }
 

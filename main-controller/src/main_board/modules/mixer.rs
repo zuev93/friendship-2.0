@@ -35,7 +35,7 @@ impl Mixer {
             bridge,
             synthesizer,
             vfo_frequency: 0,
-            filter: FilterType::Single,
+            filter: FilterType::Narrow,
             mode: Mode::StandBy,
             clarifier_mode: ClarifierMode::Off,
             clarifier_value: ClarifierValue::new(0),

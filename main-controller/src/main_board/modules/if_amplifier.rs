@@ -62,7 +62,7 @@ impl IfAmplifier {
             current_agc_gain: MAX_GAIN / 2, // Start at mid-gain
             last_agc_update: Instant::now(),
             mode: Mode::StandBy,
-            filter_type: FilterType::None,
+            filter_type: FilterType::Narrow,
         }
     }
 
@@ -98,13 +98,13 @@ impl IfAmplifier {
             port |= IO_RX_PIN.mask();
         }
         match self.filter_type {
-            FilterType::None | FilterType::Single => {
+            FilterType::Wide | FilterType::Medium => {
                 port |= IO_F1_PIN.mask();
             }
-            FilterType::DoubleNarrow => {
+            FilterType::Narrow => {
                 port |= IO_F2_PIN.mask();
             }
-            FilterType::DoubleWide => {
+            FilterType::CwNarrow => {
                 port |= IO_F3_PIN.mask();
             }
         }

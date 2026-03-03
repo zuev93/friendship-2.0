@@ -60,7 +60,7 @@ impl CrystallFilter {
             alc_cp: 10000,
             last_contract: PdContract::default(),
             mode: Mode::StandBy,
-            filter_type: FilterType::Single,
+            filter_type: FilterType::Narrow,
             rf_gain_mode: RfGainMode::Attenuator,
             nb_enabled: false,
             nb_level: NbLevel::new(0),
@@ -159,10 +159,13 @@ impl CrystallFilter {
         if self.mode == Mode::Tx {
             port |= IO_TX_PIN.mask();
         }
-        if self.filter_type == FilterType::None {
-            port |= IO_F2_PIN.mask();
-        } else {
-            port |= IO_F1_PIN.mask();
+        match self.filter_type {
+            FilterType::Wide => {
+                port |= IO_F2_PIN.mask();
+            }
+            FilterType::Medium | FilterType::Narrow | FilterType::CwNarrow => {
+                port |= IO_F1_PIN.mask();
+            }
         }
         let amp_enabled =
             self.rf_gain_mode == RfGainMode::RfSingle || self.rf_gain_mode == RfGainMode::RfDouble;
