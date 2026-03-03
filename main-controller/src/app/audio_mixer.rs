@@ -170,6 +170,9 @@ pub struct AudioMixer {
     rx_eq_high_db: i8,
     rx_eq_biquads: [BiquadState; 3],
     cw_pitch_hz: u16,
+    sam_enabled: bool,
+    sam_pll_phase: f32,
+    sam_pll_freq: f32,
     cordic: CordicMath,
     fmac: FmacFir,
     vox: VoxProcessor,
@@ -224,6 +227,9 @@ impl AudioMixer {
             rx_eq_high_db: 0,
             rx_eq_biquads: [BiquadState::zero(); 3],
             cw_pitch_hz: 700,
+            sam_enabled: false,
+            sam_pll_phase: 0.0,
+            sam_pll_freq: 0.0,
             cordic: CordicMath::new(cordic_peri),
             fmac: FmacFir::new(fmac_peri),
             vox: VoxProcessor::new(),
@@ -451,6 +457,51 @@ impl AudioMixer {
 
     pub fn set_vox_voice_mode(&mut self, voice: bool) {
         self.vox.set_voice_mode(voice);
+    }
+
+    pub fn set_sam_enabled(&mut self, enabled: bool) {
+        self.sam_enabled = enabled;
+        if !enabled {
+            self.sam_pll_phase = 0.0;
+            self.sam_pll_freq = 0.0;
+        }
+    }
+
+    fn apply_sam(&mut self) {
+        if !self.sam_enabled {
+            return;
+        }
+
+        const ALPHA: f32 = 0.0093;
+        const BETA: f32 = 0.0000043;
+        const MAX_FREQ: f32 = 0.0262;
+        let pi = core::f32::consts::PI;
+
+        for sample in &mut self.rx {
+            let x = *sample as f32 / 32768.0 - 1.0;
+
+            let (sin_p, cos_p) = self.cordic.sin_cos(self.sam_pll_phase);
+            let i = x * cos_p;
+            let q = x * (-sin_p);
+
+            let phase_error = if i >= 0.0 { q } else { -q };
+
+            self.sam_pll_freq += BETA * phase_error;
+            if self.sam_pll_freq > MAX_FREQ {
+                self.sam_pll_freq = MAX_FREQ;
+            } else if self.sam_pll_freq < -MAX_FREQ {
+                self.sam_pll_freq = -MAX_FREQ;
+            }
+
+            self.sam_pll_phase += self.sam_pll_freq + ALPHA * phase_error;
+            if self.sam_pll_phase > pi {
+                self.sam_pll_phase -= 2.0 * pi;
+            } else if self.sam_pll_phase < -pi {
+                self.sam_pll_phase += 2.0 * pi;
+            }
+
+            *sample = ((i + 1.0) * 32768.0).clamp(0.0, 65535.0) as u16;
+        }
     }
 
     fn compute_fir_bandpass(&mut self, bw_hz: u16, pbt_hz: i16, sr: f32) -> [f32; FIR_TAPS] {
@@ -841,6 +892,7 @@ impl AudioMixer {
         self.apply_tx_eq();
 
         self.apply_bandpass();
+        self.apply_sam();
         self.apply_cw_peak();
         self.denoise_rx();
         self.denoise_notch();
