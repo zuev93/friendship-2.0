@@ -1,4 +1,4 @@
-use common::drivers::ads1115::{ADS1115Config, ADS1115};
+use common::drivers::ads1015::ADS1015;
 use common::drivers::pca9534::{Pin, PCA9534};
 use embassy_time::Instant;
 
@@ -34,7 +34,7 @@ pub struct RssiData {
 
 pub struct IfAmplifier {
     dac_gain: MCP4725<MainBoardI2C>,
-    adc_rssi: ADS1115<MainBoardI2C>,
+    adc_rssi: ADS1015<MainBoardI2C>,
     io: PCA9534<MainBoardI2C>,
     rssi_dbm: RssiDbm,
     desired_manual_gain: i16,
@@ -54,7 +54,7 @@ impl IfAmplifier {
     ) -> Self {
         Self {
             dac_gain: MCP4725::new(dac_addr.into(), i2c),
-            adc_rssi: ADS1115::new(adc_addr.into(), ADS1115Config::default(), i2c),
+            adc_rssi: ADS1015::new(adc_addr.into(), i2c),
             io: PCA9534::new(io_addr.into(), i2c),
             if_gain_mode: IfGainMode::Manual,
             rssi_dbm: RssiDbm { dbm: 0 },
@@ -211,11 +211,11 @@ impl IfAmplifier {
         self.io
             .init()
             .await
-            .map_err(|_| "Faield to init IO extender for if gain control")?;
+            .map_err(|_| "Failed to init IO extender for if gain control")?;
         self.io
             .set_direction(0x0)
             .await
-            .map_err(|_| "Faield to init IO extender for if gain control")?;
+            .map_err(|_| "Failed to init IO extender for if gain control")?;
         Ok(())
     }
 }

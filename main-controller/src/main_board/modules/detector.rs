@@ -1,6 +1,6 @@
 use crate::app::types::{FilterType, Mode, TransmitMode};
 use crate::i2c_map::I2cAddress;
-use common::drivers::ad9834::{AD9834Config, Waveform, AD9834};
+use common::drivers::ad9834::{AD9834Config, AD9834};
 use common::drivers::sc18is602::{GpioPin, SC18IS602SpiDevice, SC18IS602};
 
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
@@ -31,13 +31,7 @@ impl Detector {
         };
         let dds = AD9834::new(dds_config);
         let sc18is602 = SC18IS602::new(bridge_addr.into(), i2c);
-        let bridge: SC18IS602SpiDevice<
-            embassy_stm32::i2c::I2c<
-                'static,
-                embassy_stm32::mode::Async,
-                embassy_stm32::i2c::Master,
-            >,
-        > = SC18IS602SpiDevice::new(sc18is602, 0);
+        let bridge = SC18IS602SpiDevice::new(sc18is602, 0);
 
         Self {
             bridge,
@@ -123,7 +117,7 @@ impl Detector {
             .map_err(|_| "Failed to initialize IF reference generator")?;
 
         self.dds
-            .set_waveform(&mut self.bridge, Waveform::Sine)
+            .set_waveform_sine(&mut self.bridge)
             .await
             .map_err(|_| "Failed to set waveform of if reference")
     }

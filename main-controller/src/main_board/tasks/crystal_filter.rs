@@ -6,23 +6,23 @@ use static_cell::StaticCell;
 use crate::{
     app::events::{ALC_CONSTRAINT, FILTER, MODE, NB_ENABLED, NB_LEVEL, RF_GAIN_MODE, RF_POWER, NB_ACTIVE, TX_THERMAL_CONSTRAINT},
     control_board::events::{PD_CONTRACT, POWER_TELEMETRY},
-    main_board::{events::CURRENT_RSSI1, modules::crystall_filter::CrystallFilter},
+    main_board::{events::CURRENT_RSSI1, modules::crystal_filter::CrystalFilter},
     runtime_stats::TaskId,
 };
 use common::error::error;
 use druzhba_macros::instrumented;
 
-pub fn spawn_tasks(spawner: Spawner, crystall_filter: CrystallFilter) {
-    static CRYSTAL_FILTER: StaticCell<Mutex<ThreadModeRawMutex, CrystallFilter>> =
+pub fn spawn_tasks(spawner: Spawner, crystal_filter: CrystalFilter) {
+    static CRYSTAL_FILTER: StaticCell<Mutex<ThreadModeRawMutex, CrystalFilter>> =
         StaticCell::new();
-    let mutex = CRYSTAL_FILTER.init(Mutex::new(crystall_filter));
-    spawner.must_spawn(crystall_filter_task(mutex));
+    let mutex = CRYSTAL_FILTER.init(Mutex::new(crystal_filter));
+    spawner.must_spawn(crystal_filter_task(mutex));
     spawner.must_spawn(nb_activity_task(mutex));
 }
 
-#[instrumented(TaskId::CrystallFilter)]
+#[instrumented(TaskId::CrystalFilter)]
 #[embassy_executor::task]
-async fn crystall_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, CrystallFilter>) {
+async fn crystal_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, CrystalFilter>) {
     let mut rf_power_rcv = RF_POWER.receiver().unwrap();
     let mut power_telemetry_rcv = POWER_TELEMETRY.receiver().unwrap();
     let mut pd_contract_rcv = PD_CONTRACT.receiver().unwrap();
@@ -123,7 +123,7 @@ async fn crystall_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, Crystall
 
 #[instrumented(TaskId::NbActivity)]
 #[embassy_executor::task]
-async fn nb_activity_task(mutex: &'static Mutex<ThreadModeRawMutex, CrystallFilter>) {
+async fn nb_activity_task(mutex: &'static Mutex<ThreadModeRawMutex, CrystalFilter>) {
     loop {
         match mutex.lock().await.read_nb_activity().await {
             Ok(active) => {

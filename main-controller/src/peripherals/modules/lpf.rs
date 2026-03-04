@@ -1,18 +1,23 @@
 /*
  * LPF (Low Pass Filter) Module
  * Controls low-pass filters (TCA9555) and reads coupler power/VSWR (ADS1115) on the same board.
- * TCA9555: Port0 = LPF1..LPF8 (Pin0..Pin7); Port1 Pin0 = LPF9; Pin1 = TX bypass
- * ADS1115: AIN0 = forward voltage, AIN1 = reflected voltage
+ * TCA9555 pins are routed through ULN2002 Darlington drivers to relay coils.
+ * Pin mapping is non-linear due to PCB routing through two ULN2002 chips (U4, U6).
+ * ADS1115: AIN0 = forward voltage (AD8307 log detector), AIN1 = reflected voltage (AD8307 log detector)
  */
 
+use crate::app::cordic_math::{with_cordic, CordicMutex};
 use crate::app::types::{CouplerMetrics, Frequency, Mode};
 use crate::i2c_map::I2cAddress;
 use crate::peripherals::types::{PeripherialI2c, PeripherialI2cMutex};
 use common::drivers::ads1115::{ADS1115Config, ADS1115};
 use common::drivers::tca9555::{Pin as TcaPin, Port as TcaPort, TCA9555};
 
-const COUPLER_V_PER_COUNT: f32 = 4.096 / 32768.0; // ADS1115 gain 4.096V, single-ended counts
-const COUPLER_W_PER_V_SQUARED: f32 = 1.0; // TODO: calibrate coupler factor
+const ADC_V_PER_COUNT: f32 = 4.096 / 32768.0;
+
+const AD8307_SLOPE_V_PER_DB: f32 = 0.025;
+const AD8307_INTERCEPT_DBM: f32 = -84.0;
+const COUPLER_DB: f32 = 20.0;
 
 #[derive(Clone, Copy)]
 struct LpfFilter {
@@ -42,56 +47,56 @@ impl LpfConfig {
                     freq_min: 3_500_000,
                     freq_max: 4_000_000,
                     port: TcaPort::Port0,
-                    pin: TcaPin::Pin1,
+                    pin: TcaPin::Pin7,
                 },
                 LpfFilter {
                     freq_min: 5_000_000,
                     freq_max: 7_500_000,
                     port: TcaPort::Port0,
-                    pin: TcaPin::Pin2,
+                    pin: TcaPin::Pin1,
                 },
                 LpfFilter {
                     freq_min: 10_000_000,
                     freq_max: 10_150_000,
                     port: TcaPort::Port0,
-                    pin: TcaPin::Pin3,
+                    pin: TcaPin::Pin2,
                 },
                 LpfFilter {
                     freq_min: 14_000_000,
                     freq_max: 14_350_000,
-                    port: TcaPort::Port0,
-                    pin: TcaPin::Pin4,
+                    port: TcaPort::Port1,
+                    pin: TcaPin::Pin1,
                 },
                 LpfFilter {
                     freq_min: 18_000_000,
                     freq_max: 18_168_000,
-                    port: TcaPort::Port0,
-                    pin: TcaPin::Pin5,
+                    port: TcaPort::Port1,
+                    pin: TcaPin::Pin0,
                 },
                 LpfFilter {
                     freq_min: 21_000_000,
                     freq_max: 21_450_000,
                     port: TcaPort::Port0,
-                    pin: TcaPin::Pin6,
+                    pin: TcaPin::Pin3,
                 },
                 LpfFilter {
                     freq_min: 24_000_000,
                     freq_max: 30_000_000,
                     port: TcaPort::Port0,
-                    pin: TcaPin::Pin7,
+                    pin: TcaPin::Pin5,
                 },
                 LpfFilter {
                     freq_min: 50_000_000,
                     freq_max: 54_000_000,
-                    port: TcaPort::Port1,
-                    pin: TcaPin::Pin0,
+                    port: TcaPort::Port0,
+                    pin: TcaPin::Pin6,
                 },
             ],
             tx_pin: LpfFilter {
                 freq_min: 0,
                 freq_max: 0,
-                port: TcaPort::Port1,
-                pin: TcaPin::Pin1,
+                port: TcaPort::Port0,
+                pin: TcaPin::Pin4,
             },
         }
     }
@@ -118,6 +123,7 @@ pub struct Lpf {
     coupler_initialized: bool,
     mode: Mode,
     frequency: Frequency,
+    cordic: &'static CordicMutex,
 }
 
 impl Lpf {
@@ -125,6 +131,7 @@ impl Lpf {
         i2c: PeripherialI2cMutex,
         gpio_addr: I2cAddress,
         ads1115_addr: I2cAddress,
+        cordic: &'static CordicMutex,
     ) -> Self {
         Self {
             config: LpfConfig::default(),
@@ -133,6 +140,7 @@ impl Lpf {
             coupler_initialized: false,
             mode: Mode::StandBy,
             frequency: 0,
+            cordic,
         }
     }
 
@@ -166,17 +174,18 @@ impl Lpf {
             .await
             .map_err(|_| "Failed to read reflected voltage")?;
 
-        let forward_v = forward_raw as f32 * COUPLER_V_PER_COUNT;
-        let reflected_v = reflected_raw as f32 * COUPLER_V_PER_COUNT;
+        let forward_v = forward_raw as f32 * ADC_V_PER_COUNT;
+        let reflected_v = reflected_raw as f32 * ADC_V_PER_COUNT;
 
-        let forward_w = (forward_v * forward_v) * COUPLER_W_PER_V_SQUARED;
-        let reflected_w = (reflected_v * reflected_v) * COUPLER_W_PER_V_SQUARED;
+        let forward_dbm = ad8307_voltage_to_dbm(forward_v) + COUPLER_DB;
+        let reflected_dbm = ad8307_voltage_to_dbm(reflected_v) + COUPLER_DB;
 
-        let gamma = if forward_v.abs() > f32::EPSILON {
-            (reflected_v.abs() / forward_v.abs()).min(0.999)
-        } else {
-            0.0
-        };
+        let forward_w = self.dbm_to_watts(forward_dbm);
+        let reflected_w = self.dbm_to_watts(reflected_dbm);
+
+        let return_loss_db = forward_dbm - reflected_dbm;
+        let gamma = with_cordic(self.cordic, |c| c.pow10f(-return_loss_db / 20.0)).min(0.999);
+
         let vswr = if gamma >= 0.999 {
             f32::INFINITY
         } else {
@@ -255,4 +264,12 @@ impl Lpf {
             .await
             .map_err(|_| "Failed to write LPF Port1")
     }
+
+    fn dbm_to_watts(&self, dbm: f32) -> f32 {
+        with_cordic(self.cordic, |c| c.pow10f((dbm - 30.0) / 10.0))
+    }
+}
+
+fn ad8307_voltage_to_dbm(v: f32) -> f32 {
+    v / AD8307_SLOPE_V_PER_DB + AD8307_INTERCEPT_DBM
 }

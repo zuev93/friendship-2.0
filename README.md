@@ -1,132 +1,116 @@
-# Druzhba-M Transceiver (Modern Rust Implementation) 🦀📻
+# Druzhba-M 2.0 / Дружба-М 2.0 ("Friendship") — Modern HF Transceiver
 
-A modern digital redesign of the classic Soviet "Druzhba-M" transceiver, implemented in Rust with contemporary hardware while preserving the superheterodyne architecture.
+An open-source HF transceiver designed to fit a single-DIN slot (180x50 mm — the size of a car stereo). The goal is a compact, fully featured radio that competes with commercial transceivers like the Icom IC-7300 or Yaesu FT-891 in feature set, while being fully open-source and buildable from readily available components.
 
-**Reference Documentation**: Original Druzhba-M schematic and technical details available at [CQHAM.ru](https://www.cqham.ru/druzba-m.htm)
+Based on the classic Soviet "Druzhba-M" superheterodyne architecture — a proven RF topology — with all control and signal management brought into the digital domain. DDS synthesis, digital codecs, software-controlled filtering, USB-C power, and real-time DSP — in a package you can mount in a dashboard.
 
-## Project Overview
+**Original design**: V. Abramov (UX5PS) & S. Telezhnikov (RV3YF) — [Druzhba-M on CQHAM.ru](https://www.cqham.ru/druzba-m.htm)
 
-This project aims to create a modern version of the legendary "Druzhba-M" transceiver - a Soviet-era shortwave radio transceiver known for its reliability and performance. The goal is to maintain the proven superheterodyne design principles while replacing outdated components with modern digital alternatives.
+## Why This Exists
 
-**⚠️ Work in Progress**: This project is actively under development. Schematics and comprehensive documentation will be shared as development progresses.
+I was building an original Druzhba-M and got tired of endless manual calibration — trimming VFOs, matching transistors, aligning filters. The radio itself sounds great, the architecture is solid, but the analog control side is tedious to get right. So I decided to keep the RF design and replace all the fiddly analog control with digital — make it repeatable, make it compact, make it the best I can.
 
-## Key Modernizations
+Every board is a custom PCB designed in EasyEDA. Schematics and netlists are in the `hardware/` directory.
 
-### Digital User Interface
-- **Graphic OLED displays** (SSD1315): Replacing 7-segment indicators with modern graphical displays for rich user interfaces
-- **Tactile buttons with I2C bridges**: Digital button matrix controlled by microcontrollers instead of mechanical switches
-- **Precision rotary encoders**: Digital encoders replacing variable capacitors and mechanical tuning controls
+## Key Design Decisions
 
-### Digital Audio Processing
-- **Digital audio codec** (WM8940): Complete digital audio processing pipeline replacing analog audio circuits
-- **Digital audio mixer**: Software-controlled audio mixing and routing
-- **Digital filtering**: DSP-based audio filtering for improved signal quality
+**Superheterodyne, not SDR.** This is intentionally not a software-defined radio. The signal path is a real superheterodyne chain — BPF, mixer, crystal filter, IF amp, detector — with each stage on its own module board. Digital control means every parameter is software-adjustable, but the RF path is analog where it matters.
 
-### Frequency Synthesis & Signal Processing
-- **DDS synthesizers** (AD9834): Crystal-based digital frequency synthesis replacing traditional VFO circuits
-- **Digital ADC/DAC** (ADS1115, MCP4725): High-precision analog-to-digital conversion for measurements and control
-- **Digital filters**: Software-defined bandpass (BPF) and lowpass (LPF) filters
+**Why microcontrollers at all?** Every module board has digitally controlled components — DDS chips, DACs, ADCs, GPIO expanders, relay drivers. Something needs to orchestrate all of that: set frequencies, switch bands, read RSSI, manage gain, monitor power, handle USB, run the UI. A microcontroller with I2C buses and async firmware replaces what would otherwise be a rats nest of discrete logic and manual controls.
 
-### Power Management
-- **Digital power monitoring** (INA3221): Real-time voltage and current monitoring for all subsystems
-- **Smart power control**: Microcontroller-managed power sequencing and protection
+**Two-controller split.** The main controller runs the signal path and power management. A separate front panel controller handles displays, buttons, encoders, and headphone audio. They communicate over a high-speed SPI link. This keeps display rendering and UI polling away from time-sensitive RF control, and lets each side be developed and debugged independently.
 
-### Hardware Architecture
-The system consists of two STM32 microcontrollers communicating via SPI and I2C buses:
+**I2C for module control.** All module boards connect to the main controller via I2C buses. GPIO expanders (PCA9534, TCA9555) switch relays for band filters. DACs (MCP4725) set gain and bias voltages. ADCs (ADS1015, ADS1115) read RSSI, power levels, and temperatures. SPI-to-I2C bridges (SC18IS602) talk to the DDS and detector chips. Three separate I2C buses keep traffic isolated: main signal path, power monitoring, and external peripherals (filters, PA).
 
-- **Main Controller** (STM32H563VI): Core transceiver logic, signal processing, modulation, frequency synthesis, power management
-- **Front Panel Controller** (STM32H563VI): User interface, OLED displays, buttons, encoders, S-meter, audio output
+**Hardware DSP.** The STM32H5 has a CORDIC math coprocessor and an FMAC FIR accelerator. All trigonometric, exponential, and logarithmic math runs on the CORDIC hardware — no lookup tables, no software approximations. Audio filtering uses the hardware FMAC.
 
-### Communication Infrastructure
-- **SPI protocol**: High-speed communication between main controllers
-- **I2C network**: Peripheral device management with bridge chips (SC18IS602, PCA9534, TCA9554)
-- **Event-driven architecture**: Asynchronous processing with Embassy framework
+**USB-C Power Delivery.** The transceiver is powered via USB-C PD. The STM32H5's built-in UCPD peripheral negotiates power contracts directly — no external PD controller needed. The PA gets its 50V from a boost converter enabled only during transmit.
 
-## Technology Stack
+**Rust, async, no_std.** Fully async firmware on the Embassy framework. No RTOS, no heap, no unsafe. Every peripheral interaction is non-blocking. The system is event-driven with message passing between tasks.
 
-- **Language**: Rust (embedded, no_std, async)
-- **Framework**: Embassy 0.5 for async embedded development
-- **Hardware**: 2x STM32H563VI (Cortex-M33, 250MHz)
-- **Communication**: SPI and I2C protocols for inter-board communication
-- **Architecture**: Event-driven embedded systems with message passing
-- **Build System**: Cargo with thumbv8m.main-none-eabihf target
-- **Development Tools**: Probe-rs for debugging and flashing
+## Signal Path
 
-## Features (Implemented & Planned)
+```
+Antenna → BPF → Mixer → Crystal Filter → IF Amp → Detector → Audio Codec
+           |       |          |              |         |            |
+        Relays   AD9834     Relay-      MCP4725     SC18IS602    PCM3060
+       via I2C   DDS LO    switched     AGC gain    SPI bridge   SAI1 I2S
+                           bandwidth                              |
+                                                           Audio Mixer (DSP)
+                                                            /          \
+                                                    Headphones       Speaker
+                                                    WM8940/SAI2    MAX98357A/I2S
+```
 
-### ✅ Implemented
-- Digital frequency synthesis using DDS (AD9834)
-- Graphic OLED displays (SSD1315) replacing 7-segment indicators
-- Digital audio processing with WM8940 codec
-- Rotary encoders for precise tuning control
-- Digital button matrix with I2C expanders
-- SPI/I2C communication infrastructure
-- Event-driven embedded architecture
-- Digital power monitoring and control
+## Module Boards
 
-### 🚧 In Development
-- Software-defined filtering (BPF/LPF)
-- Digital modulation/demodulation
-- Advanced DSP audio processing
-- USB connectivity for computer control
-- Touchscreen interface capabilities
-- Remote control functionality
+11 separate PCBs connected through a passive distribution board:
 
-### 📋 Planned
-- Improved receiver sensitivity and selectivity
-- Multiple operating modes (SSB, CW, AM)
-- Digital signal strength metering
-- Automatic gain control (AGC)
-- Noise reduction algorithms
-- Frequency hopping capabilities
+- **BPF** — Band-pass input filters, relay-switched per band
+- **Mixer** — AD9834 DDS local oscillator (75 MHz TCXO reference)
+- **Crystal Filter** — Switchable IF bandwidths, noise blanker with adjustable threshold
+- **IF Amplifier** — Variable gain via DAC, RSSI measurement via 12-bit ADC
+- **Detector** — Product detector
+- **Audio Panel** — PCM3060 stereo codec, I2S interface to main controller
+- **LPF** — Low-pass output filters with AD8307 log-detector power measurement
+- **HF Power Amplifier** — Driver + final stage, DAC-controlled bias, NTC temperature monitoring
+- **Control Board** — Power management (3x INA228), fan, USB (CDC + UAC1), USB-C PD, CW paddle, PTT
+- **Front Panel** — 3x color IPS TFT (ST7789, 240x135), encoders, buttons, LEDs, WM8940 headphone codec
+- **Distribution Board** — Passive connectors routing signals between modules
 
-## Getting Started
+## Front Panel
+
+Three small color IPS displays (ST7789, 240x135 each) show: main tuning screen with frequency/mode/levels, real-time spectrum with waterfall, and S-meter/power/SWR readings. Rotary encoders handle tuning and parameter adjustment. The front panel controller renders all UI locally — it receives state updates over the SPI link and handles display and input logic independently.
+
+Headphone audio goes through a WM8940 mono codec on the front panel, receiving its stream from the main controller over SAI2.
+
+## Power System
+
+Three INA228 high-side monitors track VBUS input, PA supply, and 3.3V rail in real time. Overcurrent protection with automatic shutdown. The 50V PA supply is enabled only when transmitting, with mode-based sequencing. PWM-controlled fan responds to PA temperature.
+
+## Features
+
+**Modes**: SSB (LSB/USB), CW, AM
+
+**Receiver**:
+- Software-controlled AGC with adjustable attack/decay
+- Noise blanker with adjustable threshold
+- Switchable IF bandwidth (crystal filter)
+- S-meter with peak hold
+- Real-time spectrum display and scrolling waterfall
+
+**Transmitter**:
+- VOX with adjustable delay
+- SWR and forward power metering (AD8307 log detectors)
+- Per-rail overcurrent protection with automatic shutdown
+- Thermal monitoring and active cooling
+
+**CW**:
+- Built-in iambic keyer with adjustable speed
+- Sidetone generator
+- Paddle input (dit/dah)
+
+**Digital integration**:
+- USB audio (UAC1) — use as a soundcard for digital modes (FT8, WSPR, etc.)
+- USB serial (CDC) — CAT control for logging/rig control software + CLI
+- USB-C Power Delivery — single cable for power, no wall wart
+
+**Form factor**: Single-DIN (180x50 mm) — fits a standard car stereo slot or a compact shack setup
+
+## Tech Stack
+
+- **Rust** (no_std, async, embedded)
+- **Embassy** — async executor, HAL, timers, sync primitives
+- **2x STM32H563VI** — Cortex-M33, 250 MHz
+- **Hardware DSP** — CORDIC coprocessor, FMAC FIR accelerator
+- **probe-rs** for debug and flash
+
+## Building
 
 ```bash
-# Clone the repository
-git clone https://github.com/zuev93/friendship-2.0.git
-cd friendship-2.0
-
-# Build the project
 cargo build --release
 ```
 
-## Project Structure
-
-- `common/` - Shared Rust library with hardware abstractions and device drivers
-- `main-controller/` - STM32H563VI firmware for core transceiver functionality
-- `front-panel-controller/` - STM32H563VI firmware for user interface (displays, buttons, encoders)
-
-### Architecture Details
-
-The system uses a distributed architecture with two STM32H563VI microcontrollers:
-
-#### Main Controller (STM32H563VI)
-- **app/**: High-level application logic, audio processing, tone generation
-- **main_board/**: Core transceiver modules (mixer, detector, IF amplifier, DDS control)
-- **control_board/**: Power management, audio codec control
-- **front_panel/**: Communication with front panel controller
-- **peripherals/**: External devices (filters, amplifiers)
-- **display/**: System status display management
-
-#### Front Panel Controller (STM32H563VI)
-- **hardware/**: Button, encoder, display, and LED drivers
-- **state/**: Input processing and output state management
-- **tasks/**: Asynchronous task handlers for UI elements
-
-#### Common Library
-- **drivers/**: Hardware abstraction layer for all peripherals
-- **spi_protocol/**: Inter-controller communication protocol
-- **protocol_types/**: Shared data structures and message types
-
-## Contributing
-
-This project welcomes contributions! Please feel free to open issues or submit pull requests.
-
 ## License
 
-TBD - License information will be added as the project matures.
-
----
-
-*Inspired by the classic "Druzhba-M" transceiver, modernized for the 21st century.*
+TBD

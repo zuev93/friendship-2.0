@@ -29,34 +29,18 @@ async fn wm8940_task(
 
         if config.enable {
             if let Err(_) = wm8940
-                .set_volume(Register::LeftDacVolume, config.dac_volume_left)
+                .set_volume(Register::DacVolume, config.dac_volume)
                 .await
             {
-                error::error("WM8940 DAC left volume write failed").await;
+                error::error("WM8940 DAC volume write failed").await;
                 continue;
             }
 
             if let Err(_) = wm8940
-                .set_volume(Register::RightDacVolume, config.dac_volume_right)
+                .set_volume(Register::AdcVolume, config.adc_volume)
                 .await
             {
-                error::error("WM8940 DAC right volume write failed").await;
-                continue;
-            }
-
-            if let Err(_) = wm8940
-                .set_volume(Register::LeftAdcVolume, config.adc_volume_left)
-                .await
-            {
-                error::error("WM8940 ADC left volume write failed").await;
-                continue;
-            }
-
-            if let Err(_) = wm8940
-                .set_volume(Register::RightAdcVolume, config.adc_volume_right)
-                .await
-            {
-                error::error("WM8940 ADC right volume write failed").await;
+                error::error("WM8940 ADC volume write failed").await;
                 continue;
             }
         } else {

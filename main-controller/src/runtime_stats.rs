@@ -54,7 +54,7 @@ pub enum TaskId {
     NrLevelArbiter,
 
     MixerTasks,
-    CrystallFilter,
+    CrystalFilter,
     NbActivity,
     IfGainControl,
     RssiRead,

@@ -27,7 +27,6 @@ impl Mixer {
 
         let synthesizer = AD9834::new(AD9834Config {
             reference_clock_hz: REFERENCE_CLOCK_HZ,
-            // TODO check me
             enable_doubler: true,
         });
 

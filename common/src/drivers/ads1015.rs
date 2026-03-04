@@ -10,65 +10,31 @@ const CFG_OS_BUSY: u16 = 0x8000;
 
 const CFG_MUX_AIN0_GND: u16 = 0x4000;
 const CFG_MUX_AIN1_GND: u16 = 0x5000;
-const CFG_MUX_AIN2_GND: u16 = 0x6000;
-const CFG_MUX_AIN3_GND: u16 = 0x7000;
 
-#[derive(Clone, Copy)]
-pub enum Gain {
-    Gain4096mV = 0x0200,
-}
+const CFG_PGA_4096MV: u16 = 0x0200;
 
 const CFG_MODE_CONTINUOUS: u16 = 0x0000;
 
-#[derive(Clone, Copy)]
-pub enum DataRate {
-    Sps128 = 0x0080,
-}
+const CFG_DR_3300SPS: u16 = 0x00C0;
 
-#[derive(Clone, Copy)]
-pub enum ComparatorQueue {
-    Disable = 0x0003,
-}
+const CFG_COMP_QUE_DISABLE: u16 = 0x0003;
 
-#[derive(Clone, Copy)]
-pub struct ADS1115Config {
-    pub gain: Gain,
-    pub data_rate: DataRate,
-    pub comp_queue: ComparatorQueue,
-}
-
-impl Default for ADS1115Config {
-    fn default() -> Self {
-        Self {
-            gain: Gain::Gain4096mV,
-            data_rate: DataRate::Sps128,
-            comp_queue: ComparatorQueue::Disable,
-        }
-    }
-}
-
-pub struct ADS1115<I2C>
+pub struct ADS1015<I2C>
 where
     I2C: I2c + 'static,
 {
     address: u8,
-    config: ADS1115Config,
     current_mux: u16,
     i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
 }
 
-impl<I2C> ADS1115<I2C>
+impl<I2C> ADS1015<I2C>
 where
     I2C: I2c + 'static,
 {
-    pub fn new(
-        address: u8,
-        config: ADS1115Config,
-        i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
-    ) -> Self {
+    pub fn new(address: u8, i2c: &'static Mutex<ThreadModeRawMutex, I2C>) -> Self {
         Self {
             address,
-            config,
             current_mux: CFG_MUX_AIN0_GND,
             i2c,
         }
@@ -76,10 +42,10 @@ where
 
     pub async fn init(&mut self) -> Result<(), I2C::Error> {
         let config_reg: u16 = CFG_MUX_AIN0_GND
-            | (self.config.gain as u16)
+            | CFG_PGA_4096MV
             | CFG_MODE_CONTINUOUS
-            | (self.config.data_rate as u16)
-            | (self.config.comp_queue as u16);
+            | CFG_DR_3300SPS
+            | CFG_COMP_QUE_DISABLE;
 
         self.write_register(REG_CONFIG, config_reg).await?;
         Timer::after_millis(10).await;
@@ -94,21 +60,13 @@ where
         self.read_channel(CFG_MUX_AIN1_GND).await
     }
 
-    pub async fn read_ain2(&mut self) -> Result<i16, I2C::Error> {
-        self.read_channel(CFG_MUX_AIN2_GND).await
-    }
-
-    pub async fn read_ain3(&mut self) -> Result<i16, I2C::Error> {
-        self.read_channel(CFG_MUX_AIN3_GND).await
-    }
-
     async fn read_channel(&mut self, mux: u16) -> Result<i16, I2C::Error> {
         if self.current_mux != mux {
             let config = mux
-                | (self.config.gain as u16)
+                | CFG_PGA_4096MV
                 | CFG_MODE_CONTINUOUS
-                | (self.config.data_rate as u16)
-                | (self.config.comp_queue as u16);
+                | CFG_DR_3300SPS
+                | CFG_COMP_QUE_DISABLE;
 
             self.write_register(REG_CONFIG, config).await?;
             self.current_mux = mux;
@@ -116,7 +74,8 @@ where
             self.wait_ready().await?;
         }
 
-        self.read_register(REG_CONVERSION).await
+        let raw = self.read_register(REG_CONVERSION).await?;
+        Ok(raw >> 4)
     }
 
     async fn wait_ready(&self) -> Result<(), I2C::Error> {

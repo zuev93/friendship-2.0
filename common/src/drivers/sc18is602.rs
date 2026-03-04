@@ -40,31 +40,17 @@ const REG_FUNCTION_ID: u8 = 0xF0;
 
 #[derive(Debug, Clone, Copy)]
 pub enum SPIClockSpeed {
-    Rate1843kHz = 0b00, // 1843 kHz - maximum
-    #[allow(dead_code)]
-    Rate461kHz = 0b01, // 461 kHz
-    #[allow(dead_code)]
-    Rate115kHz = 0b10, // 115 kHz
-    #[allow(dead_code)]
-    Rate58kHz = 0b11, // 58 kHz
+    Rate1843kHz = 0b00,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum SPIMode {
-    Mode0 = 0b00, // CPOL=0, CPHA=0
-    #[allow(dead_code)]
-    Mode1 = 0b01, // CPOL=0, CPHA=1
-    #[allow(dead_code)]
-    Mode2 = 0b10, // CPOL=1, CPHA=0
-    #[allow(dead_code)]
-    Mode3 = 0b11, // CPOL=1, CPHA=1
+    Mode0 = 0b00,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum SPIOrder {
     MsbFirst = 0,
-    #[allow(dead_code)]
-    LsbFirst = 1,
 }
 
 pub struct SC18IS602Config {

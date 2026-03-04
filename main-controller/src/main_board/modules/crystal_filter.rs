@@ -20,10 +20,10 @@ const VDD_MV: u32 = 3300;
 const NB_DELTA_MIN_MV: u32 = 50;
 const NB_DELTA_MAX_MV: u32 = 1500;
 const NB_LEVEL_MAX: u32 = 1000;
-const ADC_MAX_RAW: i32 = 26500;
+const ADC_MAX_RAW: i32 = 1656;
 const ADC_FS_MV: i32 = 4096;
 
-pub struct CrystallFilter {
+pub struct CrystalFilter {
     dac: MCP4725<MainBoardI2C>,
     io: PCA9534<MainBoardI2C>,
     nb_dac: MCP4725<MainBoardI2C>,
@@ -40,7 +40,7 @@ pub struct CrystallFilter {
     last_rssi: RssiDbm,
 }
 
-impl CrystallFilter {
+impl CrystalFilter {
     pub fn new(
         i2c: &'static MainBoardI2CMutex,
         mcp4725_addr: I2cAddress,
@@ -233,7 +233,7 @@ impl CrystallFilter {
 
 fn rssi_to_mv(rssi: RssiDbm) -> u32 {
     let raw_estimate = ((rssi.dbm as i32 + 120) * ADC_MAX_RAW / 100).max(0);
-    let mv = (raw_estimate * ADC_FS_MV / 32768).max(0);
+    let mv = (raw_estimate * ADC_FS_MV / 2048).max(0);
     mv as u32
 }
 

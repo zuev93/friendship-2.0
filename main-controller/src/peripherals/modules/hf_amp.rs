@@ -1,5 +1,6 @@
 use embassy_time::{Duration, Instant, Timer};
 
+use crate::app::cordic_math::{with_cordic, CordicMutex};
 use crate::app::types::{Mode, PaTemperatures};
 use crate::control_board::events::{
     PdContract, PowerTelemetry, PA_CURRENT_READING, PA_CURRENT_REQUEST, PA_FAST_MODE,
@@ -34,30 +35,6 @@ const CALIBRATION_TEMP_DRIFT_C: i16 = 15;
 
 const RAIL_50V_TIMEOUT: Duration = Duration::from_millis(500);
 
-fn raw_to_celsius(raw: i16) -> i16 {
-    if raw <= 0 {
-        return 150;
-    }
-    let voltage = raw as f32 * ADC_FSR / ADC_MAX;
-    let r_ntc = PULL_UP_R * voltage / (VCC - voltage);
-    if r_ntc <= 0.0 {
-        return 150;
-    }
-    let ln_r_ratio = ln_approx(r_ntc / NTC_R0);
-    let t_kelvin = 1.0 / (1.0 / NTC_T0 + ln_r_ratio / NTC_B);
-    (t_kelvin - 273.15) as i16
-}
-
-fn ln_approx(x: f32) -> f32 {
-    let bits = x.to_bits();
-    let exponent = ((bits >> 23) & 0xFF) as i32 - 127;
-    let mantissa_bits = (bits & 0x007F_FFFF) | 0x3F80_0000;
-    let m = f32::from_bits(mantissa_bits);
-    let m1 = m - 1.0;
-    let ln_m = m1 * (1.0 + m1 * (-0.5 + m1 * (0.333333 + m1 * -0.25)));
-    exponent as f32 * 0.6931472 + ln_m
-}
-
 struct CalibrationState {
     driver_dac_code: u16,
     final_dac_code: u16,
@@ -88,6 +65,7 @@ pub struct HfAmp {
     budget_cp: i32,
     thermal_cp: i32,
     last_contract: PdContract,
+    cordic: &'static CordicMutex,
 }
 
 impl HfAmp {
@@ -96,6 +74,7 @@ impl HfAmp {
         driver_dac_addr: I2cAddress,
         final_dac_addr: I2cAddress,
         adc_addr: I2cAddress,
+        cordic: &'static CordicMutex,
     ) -> Self {
         Self {
             driver_dac: MCP4725::new(driver_dac_addr.into(), i2c),
@@ -107,6 +86,7 @@ impl HfAmp {
             budget_cp: 10000,
             thermal_cp: 10000,
             last_contract: PdContract::default(),
+            cordic,
         }
     }
 
@@ -213,7 +193,7 @@ impl HfAmp {
 
         if self.adc_initialized {
             if let Ok(raw) = self.adc.read_ain0().await {
-                self.cal.calibration_temp = raw_to_celsius(raw);
+                self.cal.calibration_temp = self.raw_to_celsius(raw);
             }
         }
 
@@ -340,8 +320,8 @@ impl HfAmp {
             .await
             .map_err(|_| "HfAmp: read final temp failed")?;
 
-        let driver_c = raw_to_celsius(driver_raw);
-        let final_c = raw_to_celsius(final_raw);
+        let driver_c = self.raw_to_celsius(driver_raw);
+        let final_c = self.raw_to_celsius(final_raw);
 
         let worst_c = driver_c.max(final_c);
         if self.cal.valid && self.cal.calibration_temp != 0 {
@@ -383,5 +363,19 @@ impl HfAmp {
         let _ = self.final_dac.set_raw(0).await;
         self.cal.valid = false;
         self.mode = Mode::StandBy;
+    }
+
+    fn raw_to_celsius(&self, raw: i16) -> i16 {
+        if raw <= 0 {
+            return 150;
+        }
+        let voltage = raw as f32 * ADC_FSR / ADC_MAX;
+        let r_ntc = PULL_UP_R * voltage / (VCC - voltage);
+        if r_ntc <= 0.0 {
+            return 150;
+        }
+        let ln_r_ratio = with_cordic(self.cordic, |c| c.lnf(r_ntc / NTC_R0));
+        let t_kelvin = 1.0 / (1.0 / NTC_T0 + ln_r_ratio / NTC_B);
+        (t_kelvin - 273.15) as i16
     }
 }

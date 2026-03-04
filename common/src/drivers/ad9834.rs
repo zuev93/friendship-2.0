@@ -23,15 +23,6 @@ pub struct AD9834Config {
     pub enable_doubler: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Waveform {
-    Sine,
-    #[allow(dead_code)]
-    Triangle,
-    #[allow(dead_code)]
-    Square,
-}
-
 pub struct AD9834 {
     control_reg: u16,
     effective_clock_hz: u32,
@@ -124,23 +115,11 @@ impl AD9834 {
         Ok(())
     }
 
-    pub async fn set_waveform<SPI: SpiBus>(
+    pub async fn set_waveform_sine<SPI: SpiBus>(
         &mut self,
         spi: &mut SPI,
-        waveform: Waveform,
     ) -> Result<(), SPI::Error> {
         self.control_reg &= !(CTRL_MODE | CTRL_OPBITEN | CTRL_SIGN_PIB);
-
-        match waveform {
-            Waveform::Sine => {}
-            Waveform::Triangle => {
-                self.control_reg |= CTRL_MODE;
-            }
-            Waveform::Square => {
-                self.control_reg |= CTRL_OPBITEN | CTRL_SIGN_PIB;
-            }
-        }
-
         self.write_register(spi, REG_CONTROL | self.control_reg)
             .await?;
         Ok(())

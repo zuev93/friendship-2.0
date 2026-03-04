@@ -9,7 +9,8 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
-use crate::i2c_map::{PeripheralI2cMap};
+use crate::app::cordic_math::CordicMutex;
+use crate::i2c_map::PeripheralI2cMap;
 use crate::peripherals::modules::{bpf::Bpf, hf_amp::HfAmp, lpf::Lpf};
 use crate::peripherals::tasks::bpf_task::bpf_task;
 use crate::peripherals::tasks::hf_amp_task;
@@ -29,6 +30,7 @@ impl PeripheralsSubsystem {
         irqs: impl interrupt::typelevel::Binding<T::EventInterrupt, EventInterruptHandler<T>>
             + interrupt::typelevel::Binding<T::ErrorInterrupt, ErrorInterruptHandler<T>>
             + 'static,
+        cordic: &'static CordicMutex,
     ) {
         static I2C3_BUS: StaticCell<
             Mutex<ThreadModeRawMutex, I2c<'static, mode::Async, i2c_mode::Master>>,
@@ -43,7 +45,7 @@ impl PeripheralsSubsystem {
 
         lpf_tasks::create_tasks(
             spawner,
-            Lpf::new(i2c_mutex, i2c_map.lpf_gpio, i2c_map.lpf_ads1115),
+            Lpf::new(i2c_mutex, i2c_map.lpf_gpio, i2c_map.lpf_ads1115, cordic),
         );
         spawner.must_spawn(bpf_task(Bpf::new(
             i2c_mutex,
@@ -57,6 +59,7 @@ impl PeripheralsSubsystem {
                 i2c_map.hf_amp_driver_dac,
                 i2c_map.hf_amp_final_dac,
                 i2c_map.hf_amp_adc,
+                cordic,
             ),
         );
     }

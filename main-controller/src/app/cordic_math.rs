@@ -1,3 +1,4 @@
+use core::cell::RefCell;
 use embassy_stm32::cordic::{
     self,
     utils::{f64_to_q1_31, q1_31_to_f64},
@@ -5,16 +6,25 @@ use embassy_stm32::cordic::{
 };
 use embassy_stm32::peripherals::CORDIC;
 use embassy_stm32::Peri;
+use embassy_sync::blocking_mutex::{raw::CriticalSectionRawMutex, Mutex};
+use static_cell::StaticCell;
 
 const PI: f64 = core::f64::consts::PI;
+const LN2: f32 = 0.693_147_2;
+const LN10: f32 = 2.302_585;
+const SQRT_2: f32 = 1.414_213_5;
 
-const SQRT_2: f32 = 1.4142135;
+pub type CordicMutex = Mutex<CriticalSectionRawMutex, RefCell<CordicMath>>;
 
-const DB_TO_AMP: [f32; 25] = [
-    0.25119, 0.26607, 0.28184, 0.29854, 0.31623, 0.33497, 0.35481, 0.37584, 0.39811, 0.42170,
-    0.44668, 0.47315, 0.50119, 0.53088, 0.56234, 0.59566, 0.63096, 0.66834, 0.70795, 0.74989,
-    0.79433, 0.84140, 0.89125, 0.94406, 1.00000,
-];
+static CORDIC_INSTANCE: StaticCell<CordicMutex> = StaticCell::new();
+
+pub fn init_global(peri: Peri<'static, CORDIC>) -> &'static CordicMutex {
+    CORDIC_INSTANCE.init(Mutex::new(RefCell::new(CordicMath::new(peri))))
+}
+
+pub fn with_cordic<R>(mutex: &'static CordicMutex, f: impl FnOnce(&mut CordicMath) -> R) -> R {
+    mutex.lock(|cell| f(&mut cell.borrow_mut()))
+}
 
 fn wrap_to_q1(normalized: f64) -> f64 {
     if normalized >= -1.0 && normalized < 1.0 {
@@ -34,6 +44,7 @@ fn wrap_to_q1(normalized: f64) -> f64 {
 pub struct CordicMath {
     cordic: cordic::Cordic<'static, CORDIC>,
     current_func: Function,
+    current_scale: Scale,
 }
 
 impl CordicMath {
@@ -42,25 +53,22 @@ impl CordicMath {
         Self {
             cordic: cordic::Cordic::new(peri, config),
             current_func: Function::Cos,
+            current_scale: Scale::Arg1Res1,
         }
     }
 
-    fn configure(&mut self, func: Function) {
-        if self.current_func as u8 != func as u8 {
-            let scale = match func {
-                Function::Sqrt => Scale::Arg1Res1,
-                _ => Scale::Arg1Res1,
-            };
+    fn configure(&mut self, func: Function, scale: Scale) {
+        if self.current_func as u8 != func as u8 || self.current_scale != scale {
             let config = Config::new(func, Precision::Iters24, scale).unwrap();
             self.cordic.set_config(config);
             self.current_func = func;
+            self.current_scale = scale;
         }
     }
 
     pub fn sinf(&mut self, radians: f32) -> f32 {
-        self.configure(Function::Sin);
-        let clamped = wrap_to_q1(radians as f64 / PI);
-        let q = f64_to_q1_31(clamped).unwrap();
+        self.configure(Function::Sin, Scale::Arg1Res1);
+        let q = f64_to_q1_31(wrap_to_q1(radians as f64 / PI)).unwrap();
         let mut res = [0u32; 1];
         self.cordic
             .blocking_calc_32bit(&[q], &mut res, true, true)
@@ -69,9 +77,8 @@ impl CordicMath {
     }
 
     pub fn cosf(&mut self, radians: f32) -> f32 {
-        self.configure(Function::Cos);
-        let clamped = wrap_to_q1(radians as f64 / PI);
-        let q = f64_to_q1_31(clamped).unwrap();
+        self.configure(Function::Cos, Scale::Arg1Res1);
+        let q = f64_to_q1_31(wrap_to_q1(radians as f64 / PI)).unwrap();
         let mut res = [0u32; 1];
         self.cordic
             .blocking_calc_32bit(&[q], &mut res, true, true)
@@ -80,9 +87,8 @@ impl CordicMath {
     }
 
     pub fn sin_cos(&mut self, radians: f32) -> (f32, f32) {
-        self.configure(Function::Cos);
-        let clamped = wrap_to_q1(radians as f64 / PI);
-        let q = f64_to_q1_31(clamped).unwrap();
+        self.configure(Function::Cos, Scale::Arg1Res1);
+        let q = f64_to_q1_31(wrap_to_q1(radians as f64 / PI)).unwrap();
         let mut res = [0u32; 2];
         self.cordic
             .blocking_calc_32bit(&[q], &mut res, true, false)
@@ -92,27 +98,87 @@ impl CordicMath {
         (sin_val, cos_val)
     }
 
-    pub fn db_to_amplitude(db: i8) -> f32 {
-        let idx = (db as i16 + 12) as usize;
-        if idx >= DB_TO_AMP.len() {
-            DB_TO_AMP[DB_TO_AMP.len() - 1]
-        } else {
-            DB_TO_AMP[idx]
-        }
-    }
-
-    pub fn fast_exp(x: f32) -> f32 {
-        1.0 + x + x * x * 0.5
-    }
-
-    pub fn fast_sqrt(x: f32) -> f32 {
+    pub fn sqrtf(&mut self, x: f32) -> f32 {
         if x <= 0.0 {
             return 0.0;
         }
-        let mut guess = x * 0.5 + 0.5;
-        guess = 0.5 * (guess + x / guess);
-        guess = 0.5 * (guess + x / guess);
-        guess
+        self.configure(Function::Sqrt, Scale::Arg1Res1);
+        let normalized = (x as f64).clamp(0.027, 0.75);
+        let q = f64_to_q1_31(normalized).unwrap();
+        let mut res = [0u32; 1];
+        self.cordic
+            .blocking_calc_32bit(&[q], &mut res, true, true)
+            .unwrap();
+        q1_31_to_f64(res[0]) as f32
+    }
+
+    fn coshf(&mut self, x: f32) -> f32 {
+        self.configure(Function::Cosh, Scale::Arg1o2Res2);
+        let q = f64_to_q1_31((x as f64).clamp(-0.559, 0.559)).unwrap();
+        let mut res = [0u32; 1];
+        self.cordic
+            .blocking_calc_32bit(&[q], &mut res, true, true)
+            .unwrap();
+        q1_31_to_f64(res[0]) as f32 * 2.0
+    }
+
+    fn sinhf(&mut self, x: f32) -> f32 {
+        self.configure(Function::Sinh, Scale::Arg1o2Res2);
+        let q = f64_to_q1_31((x as f64).clamp(-0.559, 0.559)).unwrap();
+        let mut res = [0u32; 1];
+        self.cordic
+            .blocking_calc_32bit(&[q], &mut res, true, true)
+            .unwrap();
+        q1_31_to_f64(res[0]) as f32 * 2.0
+    }
+
+    pub fn lnf(&mut self, x: f32) -> f32 {
+        if x <= 0.0 {
+            return f32::NEG_INFINITY;
+        }
+        let bits = x.to_bits();
+        let exponent = ((bits >> 23) & 0xFF) as i32 - 127;
+        let mantissa_bits = (bits & 0x007F_FFFF) | 0x3F80_0000;
+        let m = f32::from_bits(mantissa_bits);
+        let arg = (m as f64) - 1.0;
+        self.configure(Function::Ln, Scale::Arg1Res1);
+        let q = f64_to_q1_31(arg.clamp(-0.9999, 0.9999)).unwrap();
+        let mut res = [0u32; 1];
+        self.cordic
+            .blocking_calc_32bit(&[q], &mut res, true, true)
+            .unwrap();
+        let ln_m = q1_31_to_f64(res[0]) as f32;
+        ln_m + exponent as f32 * LN2
+    }
+
+    pub fn expf(&mut self, x: f32) -> f32 {
+        if x > 0.0 {
+            return 1.0 / self.expf(-x);
+        }
+        if x < -20.0 {
+            return 0.0;
+        }
+        let mut k = 0u32;
+        let mut r = x;
+        while r < -0.5 {
+            r += LN2;
+            k += 1;
+        }
+        let exp_r = self.coshf(r) + self.sinhf(r);
+        let scale = if k < 31 {
+            1.0f32 / ((1u32 << k) as f32)
+        } else {
+            0.0
+        };
+        exp_r * scale
+    }
+
+    pub fn pow10f(&mut self, x: f32) -> f32 {
+        self.expf(x * LN10)
+    }
+
+    pub fn db_to_amplitude(&mut self, db: f32) -> f32 {
+        self.pow10f(db / 20.0)
     }
 
     pub fn sqrt_2() -> f32 {

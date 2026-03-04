@@ -19,11 +19,11 @@ enum FilterDriver {
 
 #[derive(Clone, Copy)]
 struct BpfControlPins {
-    att_on: PcaPin,
-    att_off: PcaPin,
-    tx: PcaPin,
-    rf_amp_on: PcaPin,
-    rf_amp_off: PcaPin,
+    att_on: FilterDriver,
+    att_off: FilterDriver,
+    tx: FilterDriver,
+    rf_amp_on: FilterDriver,
+    rf_amp_off: FilterDriver,
 }
 
 #[derive(Clone, Copy)]
@@ -38,154 +38,152 @@ impl BpfConfig {
         Self {
             hpf_filters: [
                 FilterLine {
-                    freq_min: 1_800_000,
-                    freq_max: 3_500_000,
+                    freq_min: 1_000_000,
+                    freq_max: 2_475_000,
                     driver: FilterDriver::Tca {
-                        port: TcaPort::Port0,
-                        pin: TcaPin::Pin0,
+                        port: TcaPort::Port1,
+                        pin: TcaPin::Pin1,
                     },
                 },
                 FilterLine {
-                    freq_min: 3_500_000,
-                    freq_max: 5_300_000,
+                    freq_min: 2_475_000,
+                    freq_max: 4_860_000,
                     driver: FilterDriver::Tca {
                         port: TcaPort::Port0,
                         pin: TcaPin::Pin1,
                     },
                 },
                 FilterLine {
-                    freq_min: 5_300_000,
-                    freq_max: 7_000_000,
+                    freq_min: 4_860_000,
+                    freq_max: 7_740_000,
                     driver: FilterDriver::Tca {
                         port: TcaPort::Port0,
                         pin: TcaPin::Pin2,
                     },
                 },
                 FilterLine {
-                    freq_min: 7_000_000,
-                    freq_max: 10_100_000,
-                    driver: FilterDriver::Tca {
-                        port: TcaPort::Port0,
-                        pin: TcaPin::Pin3,
-                    },
-                },
-                FilterLine {
-                    freq_min: 10_100_000,
-                    freq_max: 14_000_000,
+                    freq_min: 7_740_000,
+                    freq_max: 11_500_000,
                     driver: FilterDriver::Tca {
                         port: TcaPort::Port0,
                         pin: TcaPin::Pin4,
                     },
                 },
                 FilterLine {
-                    freq_min: 14_000_000,
-                    freq_max: 18_068_000,
-                    driver: FilterDriver::Tca {
-                        port: TcaPort::Port0,
-                        pin: TcaPin::Pin5,
-                    },
+                    freq_min: 11_500_000,
+                    freq_max: 15_700_000,
+                    driver: FilterDriver::Pca { pin: PcaPin::Pin2 },
                 },
                 FilterLine {
-                    freq_min: 18_068_000,
-                    freq_max: 21_000_000,
-                    driver: FilterDriver::Tca {
-                        port: TcaPort::Port0,
-                        pin: TcaPin::Pin6,
-                    },
+                    freq_min: 15_700_000,
+                    freq_max: 19_265_000,
+                    driver: FilterDriver::Pca { pin: PcaPin::Pin1 },
                 },
                 FilterLine {
-                    freq_min: 21_000_000,
-                    freq_max: 24_890_000,
+                    freq_min: 19_265_000,
+                    freq_max: 22_706_000,
                     driver: FilterDriver::Tca {
                         port: TcaPort::Port0,
                         pin: TcaPin::Pin7,
                     },
                 },
                 FilterLine {
-                    freq_min: 24_890_000,
+                    freq_min: 22_706_000,
+                    freq_max: 26_038_000,
+                    driver: FilterDriver::Pca { pin: PcaPin::Pin4 },
+                },
+                FilterLine {
+                    freq_min: 26_038_000,
                     freq_max: 50_000_000,
                     driver: FilterDriver::Tca {
-                        port: TcaPort::Port1,
-                        pin: TcaPin::Pin0,
+                        port: TcaPort::Port0,
+                        pin: TcaPin::Pin5,
                     },
                 },
-                // HPF10: bypass for anything that did not match above ranges
                 FilterLine {
                     freq_min: 0,
                     freq_max: 0,
                     driver: FilterDriver::Tca {
                         port: TcaPort::Port1,
-                        pin: TcaPin::Pin1,
+                        pin: TcaPin::Pin7,
                     },
                 },
             ],
             bpf_filters: [
                 FilterLine {
-                    freq_min: 1_800_000,
-                    freq_max: 2_000_000,
+                    freq_min: 1_300_000,
+                    freq_max: 2_500_000,
+                    driver: FilterDriver::Tca {
+                        port: TcaPort::Port0,
+                        pin: TcaPin::Pin6,
+                    },
+                },
+                FilterLine {
+                    freq_min: 3_100_000,
+                    freq_max: 4_000_000,
+                    driver: FilterDriver::Pca { pin: PcaPin::Pin0 },
+                },
+                FilterLine {
+                    freq_min: 6_650_000,
+                    freq_max: 7_550_000,
+                    driver: FilterDriver::Pca { pin: PcaPin::Pin3 },
+                },
+                FilterLine {
+                    freq_min: 9_000_000,
+                    freq_max: 11_000_000,
+                    driver: FilterDriver::Tca {
+                        port: TcaPort::Port0,
+                        pin: TcaPin::Pin3,
+                    },
+                },
+                FilterLine {
+                    freq_min: 13_800_000,
+                    freq_max: 14_750_000,
+                    driver: FilterDriver::Tca {
+                        port: TcaPort::Port0,
+                        pin: TcaPin::Pin0,
+                    },
+                },
+                FilterLine {
+                    freq_min: 17_200_000,
+                    freq_max: 19_200_000,
                     driver: FilterDriver::Tca {
                         port: TcaPort::Port1,
                         pin: TcaPin::Pin2,
                     },
                 },
                 FilterLine {
-                    freq_min: 3_500_000,
-                    freq_max: 4_000_000,
-                    driver: FilterDriver::Tca {
-                        port: TcaPort::Port1,
-                        pin: TcaPin::Pin3,
-                    },
-                },
-                FilterLine {
-                    freq_min: 5_300_000,
-                    freq_max: 5_400_000,
-                    driver: FilterDriver::Tca {
-                        port: TcaPort::Port1,
-                        pin: TcaPin::Pin4,
-                    },
-                },
-                FilterLine {
-                    freq_min: 7_000_000,
-                    freq_max: 7_300_000,
+                    freq_min: 20_500_000,
+                    freq_max: 21_950_000,
                     driver: FilterDriver::Tca {
                         port: TcaPort::Port1,
                         pin: TcaPin::Pin5,
                     },
                 },
                 FilterLine {
-                    freq_min: 10_100_000,
-                    freq_max: 10_150_000,
-                    driver: FilterDriver::Tca {
-                        port: TcaPort::Port1,
-                        pin: TcaPin::Pin6,
-                    },
-                },
-                FilterLine {
-                    freq_min: 14_000_000,
-                    freq_max: 14_350_000,
-                    driver: FilterDriver::Tca {
-                        port: TcaPort::Port1,
-                        pin: TcaPin::Pin7,
-                    },
-                },
-                FilterLine {
-                    freq_min: 18_068_000,
-                    freq_max: 24_990_000,
-                    driver: FilterDriver::Pca { pin: PcaPin::Pin0 },
-                },
-                // BPF8: bypass fallback
-                FilterLine {
                     freq_min: 0,
                     freq_max: 0,
-                    driver: FilterDriver::Pca { pin: PcaPin::Pin1 },
+                    driver: FilterDriver::Tca {
+                        port: TcaPort::Port1,
+                        pin: TcaPin::Pin4,
+                    },
                 },
             ],
             control: BpfControlPins {
-                att_on: PcaPin::Pin2,
-                att_off: PcaPin::Pin3,
-                tx: PcaPin::Pin4,
-                rf_amp_on: PcaPin::Pin5,
-                rf_amp_off: PcaPin::Pin6,
+                att_on: FilterDriver::Pca { pin: PcaPin::Pin5 },
+                att_off: FilterDriver::Tca {
+                    port: TcaPort::Port1,
+                    pin: TcaPin::Pin0,
+                },
+                tx: FilterDriver::Pca { pin: PcaPin::Pin6 },
+                rf_amp_on: FilterDriver::Tca {
+                    port: TcaPort::Port1,
+                    pin: TcaPin::Pin3,
+                },
+                rf_amp_off: FilterDriver::Tca {
+                    port: TcaPort::Port1,
+                    pin: TcaPin::Pin6,
+                },
             },
         }
     }
@@ -296,13 +294,24 @@ impl Bpf {
         port1: u8,
         pca_port: u8,
     ) -> (u8, u8, u8) {
+        self.apply_control_pin(driver, true, port0, port1, pca_port)
+    }
+
+    fn apply_control_pin(
+        &self,
+        driver: &FilterDriver,
+        state: bool,
+        port0: u8,
+        port1: u8,
+        pca_port: u8,
+    ) -> (u8, u8, u8) {
         match driver {
             FilterDriver::Tca { port, pin } => {
-                let (p0, p1) = self.tca.set_pin_value(port0, port1, *port, *pin, true);
+                let (p0, p1) = self.tca.set_pin_value(port0, port1, *port, *pin, state);
                 (p0, p1, pca_port)
             }
             FilterDriver::Pca { pin } => {
-                let p = self.pca.set_pin_value(pca_port, *pin, true);
+                let p = self.pca.set_pin_value(pca_port, *pin, state);
                 (port0, port1, p)
             }
         }
@@ -338,29 +347,21 @@ impl Bpf {
         (tca_port0, tca_port1, pca_port) =
             self.apply_filter_driver(&bpf_driver, tca_port0, tca_port1, pca_port);
 
-        // TX control
         let tx_active = self.mode == Mode::Tx;
-        pca_port = self
-            .pca
-            .set_pin_value(pca_port, self.config.control.tx, tx_active);
+        (tca_port0, tca_port1, pca_port) =
+            self.apply_control_pin(&self.config.control.tx, tx_active, tca_port0, tca_port1, pca_port);
 
-        // Attenuator control
         let att_on = self.rf_gain_mode == RfGainMode::Attenuator;
-        pca_port = self
-            .pca
-            .set_pin_value(pca_port, self.config.control.att_on, att_on);
-        pca_port = self
-            .pca
-            .set_pin_value(pca_port, self.config.control.att_off, !att_on);
+        (tca_port0, tca_port1, pca_port) =
+            self.apply_control_pin(&self.config.control.att_on, att_on, tca_port0, tca_port1, pca_port);
+        (tca_port0, tca_port1, pca_port) =
+            self.apply_control_pin(&self.config.control.att_off, !att_on, tca_port0, tca_port1, pca_port);
 
-        // RF amplifier control
         let rf_amp_on = self.rf_gain_mode == RfGainMode::RfDouble;
-        pca_port = self
-            .pca
-            .set_pin_value(pca_port, self.config.control.rf_amp_on, rf_amp_on);
-        pca_port = self
-            .pca
-            .set_pin_value(pca_port, self.config.control.rf_amp_off, !rf_amp_on);
+        (tca_port0, tca_port1, pca_port) =
+            self.apply_control_pin(&self.config.control.rf_amp_on, rf_amp_on, tca_port0, tca_port1, pca_port);
+        (tca_port0, tca_port1, pca_port) =
+            self.apply_control_pin(&self.config.control.rf_amp_off, !rf_amp_on, tca_port0, tca_port1, pca_port);
 
         self.write_tca_ports(tca_port0, tca_port1).await?;
         self.pca

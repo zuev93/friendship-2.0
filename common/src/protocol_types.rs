@@ -192,10 +192,8 @@ impl PacketSerializable for LedCommand {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Wm8940Command {
-    pub dac_volume_left: u8,
-    pub dac_volume_right: u8,
-    pub adc_volume_left: u8,
-    pub adc_volume_right: u8,
+    pub dac_volume: u8,
+    pub adc_volume: u8,
     pub enable: bool,
 }
 
@@ -203,20 +201,16 @@ impl PacketSerializable for Wm8940Command {
     const PACKET_TYPE: PacketType = PacketType::Wm8940Command;
 
     fn write_payload(&self, payload: &mut [u8]) {
-        payload[0] = self.dac_volume_left;
-        payload[1] = self.dac_volume_right;
-        payload[2] = self.adc_volume_left;
-        payload[3] = self.adc_volume_right;
-        payload[4] = if self.enable { 1 } else { 0 };
+        payload[0] = self.dac_volume;
+        payload[1] = self.adc_volume;
+        payload[2] = if self.enable { 1 } else { 0 };
     }
 
     fn read_payload(payload: &[u8]) -> Option<Self> {
         Some(Self {
-            dac_volume_left: payload[0],
-            dac_volume_right: payload[1],
-            adc_volume_left: payload[2],
-            adc_volume_right: payload[3],
-            enable: payload[4] != 0,
+            dac_volume: payload[0],
+            adc_volume: payload[1],
+            enable: payload[2] != 0,
         })
     }
 }

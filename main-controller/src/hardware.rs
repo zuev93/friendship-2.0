@@ -11,7 +11,8 @@ use embassy_stm32::{
 use embassy_stm32::rcc::{Hsi48Config, LsConfig};
 
 use crate::{
-    app::AppSubsystem, control_board::control_board_subsystem::ControlBoardSybstem,
+    app::{cordic_math, AppSubsystem},
+    control_board::control_board_subsystem::ControlBoardSybstem,
     front_panel::FrontPanelSubsystem, i2c_map::I2cMap, main_board::MainBoardSubsystem,
     peripherals::peripherals_subsystem::PeripheralsSubsystem,
 };
@@ -131,6 +132,8 @@ impl Hardware {
             irqs,
         )
         .await;
+        let cordic = cordic_math::init_global(p.CORDIC);
+
         PeripheralsSubsystem::init_subsystem(
             spawner,
             i2c_map.peripherals,
@@ -140,8 +143,9 @@ impl Hardware {
             p.GPDMA2_CH4,
             p.GPDMA2_CH5,
             irqs,
+            cordic,
         );
 
-        AppSubsystem::init_subsystem(spawner, p.CORDIC, p.FMAC);
+        AppSubsystem::init_subsystem(spawner, cordic, p.FMAC);
     }
 }

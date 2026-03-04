@@ -101,10 +101,8 @@ impl Audio {
 
     async fn update_codec(&self) -> Result<(), ()> {
         let wm8940_cmd = Wm8940Command {
-            dac_volume_left: self.volume_percent,
-            dac_volume_right: self.volume_percent,
-            adc_volume_left: self.mic_gain_percent,
-            adc_volume_right: self.mic_gain_percent,
+            dac_volume: self.volume_percent,
+            adc_volume: self.mic_gain_percent,
             enable: true,
         };
 

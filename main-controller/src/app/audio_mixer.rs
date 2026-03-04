@@ -1,9 +1,9 @@
-use embassy_stm32::peripherals::{CORDIC, FMAC};
+use embassy_stm32::peripherals::FMAC;
 use embassy_stm32::Peri;
 
 use crate::{
     app::{
-        cordic_math::CordicMath,
+        cordic_math::{with_cordic, CordicMath, CordicMutex},
         fmac_fir::{FmacFir, FIR_TAPS},
         types::{AudioAgcMode, Compression, EqGain, NrLevel, Volume},
         vox::VoxProcessor,
@@ -173,13 +173,13 @@ pub struct AudioMixer {
     sam_enabled: bool,
     sam_pll_phase: f32,
     sam_pll_freq: f32,
-    cordic: CordicMath,
+    cordic: &'static CordicMutex,
     fmac: FmacFir,
     vox: VoxProcessor,
 }
 
 impl AudioMixer {
-    pub fn new(cordic_peri: Peri<'static, CORDIC>, fmac_peri: Peri<'static, FMAC>) -> Self {
+    pub fn new(cordic: &'static CordicMutex, fmac_peri: Peri<'static, FMAC>) -> Self {
         Self {
             rx: [0; AUDIO_BUFFER_SIZE],
             generator: [0; AUDIO_BUFFER_SIZE],
@@ -230,7 +230,7 @@ impl AudioMixer {
             sam_enabled: false,
             sam_pll_phase: 0.0,
             sam_pll_freq: 0.0,
-            cordic: CordicMath::new(cordic_peri),
+            cordic,
             fmac: FmacFir::new(fmac_peri),
             vox: VoxProcessor::new(),
         }
@@ -480,7 +480,7 @@ impl AudioMixer {
         for sample in &mut self.rx {
             let x = *sample as f32 / 32768.0 - 1.0;
 
-            let (sin_p, cos_p) = self.cordic.sin_cos(self.sam_pll_phase);
+            let (sin_p, cos_p) = with_cordic(self.cordic, |c| c.sin_cos(self.sam_pll_phase));
             let i = x * cos_p;
             let q = x * (-sin_p);
 
@@ -519,15 +519,18 @@ impl AudioMixer {
             let sinc_high = if n == 0.0 {
                 2.0 * f_high
             } else {
-                self.cordic.sinf(2.0 * pi * f_high * n) / (pi * n)
+                with_cordic(self.cordic, |c| c.sinf(2.0 * pi * f_high * n)) / (pi * n)
             };
             let sinc_low = if n == 0.0 {
                 2.0 * f_low
             } else {
-                self.cordic.sinf(2.0 * pi * f_low * n) / (pi * n)
+                with_cordic(self.cordic, |c| c.sinf(2.0 * pi * f_low * n)) / (pi * n)
             };
-            let window =
-                0.54 - 0.46 * self.cordic.cosf(2.0 * pi * i as f32 / (FIR_TAPS as f32 - 1.0));
+            let window = 0.54
+                - 0.46
+                    * with_cordic(self.cordic, |c| {
+                        c.cosf(2.0 * pi * i as f32 / (FIR_TAPS as f32 - 1.0))
+                    });
             coeffs[i] = (sinc_high - sinc_low) * window;
             sum += coeffs[i];
         }
@@ -540,16 +543,11 @@ impl AudioMixer {
         coeffs
     }
 
-    fn compute_biquad_bandpass(
-        &mut self,
-        center_hz: f32,
-        width_hz: f32,
-        sr: f32,
-    ) -> BiquadState {
+    fn compute_biquad_bandpass(&mut self, center_hz: f32, width_hz: f32, sr: f32) -> BiquadState {
         let pi = core::f32::consts::PI;
         let w0 = 2.0 * pi * center_hz / sr;
         let q = center_hz / width_hz;
-        let (sin_w0, cos_w0) = self.cordic.sin_cos(w0);
+        let (sin_w0, cos_w0) = with_cordic(self.cordic, |c| c.sin_cos(w0));
         let alpha = sin_w0 / (2.0 * q);
 
         let b0 = alpha;
@@ -574,11 +572,12 @@ impl AudioMixer {
 
     fn compute_low_shelf(&mut self, freq: f32, gain_db: f32, sr: f32) -> BiquadState {
         let pi = core::f32::consts::PI;
-        let a = CordicMath::db_to_amplitude(gain_db as i8);
+        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db));
         let w0 = 2.0 * pi * freq / sr;
-        let (sin_w0, cos_w0) = self.cordic.sin_cos(w0);
+        let (sin_w0, cos_w0) = with_cordic(self.cordic, |c| c.sin_cos(w0));
         let alpha = sin_w0 / 2.0 * CordicMath::sqrt_2();
-        let two_sqrt_a_alpha = 2.0 * CordicMath::fast_sqrt(a) * alpha;
+        let sqrt_a = with_cordic(self.cordic, |c| c.sqrtf(a.clamp(0.027, 0.75)));
+        let two_sqrt_a_alpha = 2.0 * sqrt_a * alpha;
 
         let b0 = a * ((a + 1.0) - (a - 1.0) * cos_w0 + two_sqrt_a_alpha);
         let b1 = 2.0 * a * ((a - 1.0) - (a + 1.0) * cos_w0);
@@ -600,17 +599,11 @@ impl AudioMixer {
         }
     }
 
-    fn compute_peak_eq(
-        &mut self,
-        freq: f32,
-        gain_db: f32,
-        q: f32,
-        sr: f32,
-    ) -> BiquadState {
+    fn compute_peak_eq(&mut self, freq: f32, gain_db: f32, q: f32, sr: f32) -> BiquadState {
         let pi = core::f32::consts::PI;
-        let a = CordicMath::db_to_amplitude(gain_db as i8);
+        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db));
         let w0 = 2.0 * pi * freq / sr;
-        let (sin_w0, cos_w0) = self.cordic.sin_cos(w0);
+        let (sin_w0, cos_w0) = with_cordic(self.cordic, |c| c.sin_cos(w0));
         let alpha = sin_w0 / (2.0 * q);
 
         let b0 = 1.0 + alpha * a;
@@ -635,11 +628,12 @@ impl AudioMixer {
 
     fn compute_high_shelf(&mut self, freq: f32, gain_db: f32, sr: f32) -> BiquadState {
         let pi = core::f32::consts::PI;
-        let a = CordicMath::db_to_amplitude(gain_db as i8);
+        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db));
         let w0 = 2.0 * pi * freq / sr;
-        let (sin_w0, cos_w0) = self.cordic.sin_cos(w0);
+        let (sin_w0, cos_w0) = with_cordic(self.cordic, |c| c.sin_cos(w0));
         let alpha = sin_w0 / 2.0 * CordicMath::sqrt_2();
-        let two_sqrt_a_alpha = 2.0 * CordicMath::fast_sqrt(a) * alpha;
+        let sqrt_a = with_cordic(self.cordic, |c| c.sqrtf(a.clamp(0.027, 0.75)));
+        let two_sqrt_a_alpha = 2.0 * sqrt_a * alpha;
 
         let b0 = a * ((a + 1.0) + (a - 1.0) * cos_w0 + two_sqrt_a_alpha);
         let b1 = -2.0 * a * ((a - 1.0) + (a + 1.0) * cos_w0);
@@ -669,12 +663,12 @@ impl AudioMixer {
     }
 
     fn recompute_cw_peak(&mut self) {
-        self.cw_peak_bq =
-            self.compute_biquad_bandpass(self.cw_pitch_hz as f32, 200.0, SAMPLE_RATE);
+        self.cw_peak_bq = self.compute_biquad_bandpass(self.cw_pitch_hz as f32, 200.0, SAMPLE_RATE);
     }
 
     fn recompute_tx_eq(&mut self) {
-        self.tx_eq_biquads[0] = self.compute_low_shelf(300.0, self.tx_eq_low_db as f32, SAMPLE_RATE);
+        self.tx_eq_biquads[0] =
+            self.compute_low_shelf(300.0, self.tx_eq_low_db as f32, SAMPLE_RATE);
         self.tx_eq_biquads[1] =
             self.compute_peak_eq(1000.0, self.tx_eq_mid_db as f32, 1.0, SAMPLE_RATE);
         self.tx_eq_biquads[2] =
@@ -682,7 +676,8 @@ impl AudioMixer {
     }
 
     fn recompute_rx_eq(&mut self) {
-        self.rx_eq_biquads[0] = self.compute_low_shelf(300.0, self.rx_eq_low_db as f32, SAMPLE_RATE);
+        self.rx_eq_biquads[0] =
+            self.compute_low_shelf(300.0, self.rx_eq_low_db as f32, SAMPLE_RATE);
         self.rx_eq_biquads[1] =
             self.compute_peak_eq(1000.0, self.rx_eq_mid_db as f32, 1.0, SAMPLE_RATE);
         self.rx_eq_biquads[2] =
@@ -774,10 +769,14 @@ impl AudioMixer {
             AudioAgcMode::Off => return,
         };
 
-        let attack_coeff =
-            1.0 - CordicMath::fast_exp(-1.0 / (attack_ms * SAMPLE_RATE / 1000.0));
-        let release_coeff =
-            1.0 - CordicMath::fast_exp(-1.0 / (release_ms * SAMPLE_RATE / 1000.0));
+        let attack_coeff = 1.0
+            - with_cordic(self.cordic, |c| {
+                c.expf(-1.0 / (attack_ms * SAMPLE_RATE / 1000.0))
+            });
+        let release_coeff = 1.0
+            - with_cordic(self.cordic, |c| {
+                c.expf(-1.0 / (release_ms * SAMPLE_RATE / 1000.0))
+            });
         let max_gain = 31.62f32;
         let noise_gate = 0.001f32;
 
@@ -922,7 +921,10 @@ impl AudioMixer {
                 sat_add(scale_u8(rx, g.rx_to_spk), scale_u8(gen, g.gen_to_spk)),
                 self.volume_gain,
             );
-            let tx = sat_add(scale_u8(mic_or_usb, g.mic_to_tx), scale_u8(gen, g.gen_to_tx));
+            let tx = sat_add(
+                scale_u8(mic_or_usb, g.mic_to_tx),
+                scale_u8(gen, g.gen_to_tx),
+            );
 
             self.out_headphones[i] = if self.headphones_connected { hp } else { 0 };
             self.out_speakers[i] = if !self.headphones_connected { spk } else { 0 };

@@ -2,7 +2,7 @@ use druzhba_macros::instrumented;
 use crate::runtime_stats::TaskId;
 use embassy_executor::Spawner;
 use embassy_futures::select::{select, select3, select4, select5, Either, Either3, Either4, Either5};
-use embassy_stm32::peripherals::{CORDIC, FMAC};
+use embassy_stm32::peripherals::FMAC;
 use embassy_stm32::Peri;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
@@ -10,6 +10,7 @@ use static_cell::StaticCell;
 use crate::{
     app::{
         audio_mixer::AudioMixer,
+        cordic_math::CordicMutex,
         events::{
             ANF_ENABLED, AUDIO_AGC_MODE, AUDIO_BUFFER_HEADPHONES, AUDIO_BUFFER_SPEAKERS,
             AUDIO_BUFFER_TX, COMPRESSION, COMPRESSION_METER, CW_PEAK_ENABLED, CW_PEAK_WIDTH,
@@ -32,11 +33,11 @@ use crate::{
 pub fn spawn_tasks(
     spawner: Spawner,
     tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>,
-    cordic_peri: Peri<'static, CORDIC>,
+    cordic: &'static CordicMutex,
     fmac_peri: Peri<'static, FMAC>,
 ) {
     static MIXER: StaticCell<Mutex<ThreadModeRawMutex, AudioMixer>> = StaticCell::new();
-    let mixer = MIXER.init(Mutex::new(AudioMixer::new(cordic_peri, fmac_peri)));
+    let mixer = MIXER.init(Mutex::new(AudioMixer::new(cordic, fmac_peri)));
     spawner.must_spawn(audio_task(mixer, tone_generator));
     spawner.must_spawn(controls_task(mixer));
     spawner.must_spawn(dsp_controls_task(mixer));

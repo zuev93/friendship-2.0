@@ -1,10 +1,10 @@
 use embassy_executor::Spawner;
-use embassy_stm32::peripherals::{CORDIC, FMAC};
+use embassy_stm32::peripherals::FMAC;
 use embassy_stm32::Peri;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
-use crate::app::{tasks::audio_task, tone_generator::ToneGenerator};
+use crate::app::{cordic_math::CordicMutex, tasks::audio_task, tone_generator::ToneGenerator};
 
 use super::tasks::{
     alc::alc_task,
@@ -38,7 +38,7 @@ pub struct AppSubsystem {}
 impl AppSubsystem {
     pub fn init_subsystem(
         spawner: Spawner,
-        cordic_peri: Peri<'static, CORDIC>,
+        cordic: &'static CordicMutex,
         fmac_peri: Peri<'static, FMAC>,
     ) {
         static TONE_GENERATOR: StaticCell<Mutex<ThreadModeRawMutex, ToneGenerator>> =
@@ -88,6 +88,6 @@ impl AppSubsystem {
         spawner.must_spawn(nr_level_arbiter_task());
 
         tone_task::spawn(spawner, mutex);
-        audio_task::spawn_tasks(spawner, mutex, cordic_peri, fmac_peri);
+        audio_task::spawn_tasks(spawner, mutex, cordic, fmac_peri);
     }
 }

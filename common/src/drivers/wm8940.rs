@@ -14,10 +14,8 @@ pub enum Register {
     Power1 = 0x01,
     Power2 = 0x02,
     Power3 = 0x03,
-    LeftDacVolume = 0x0B,
-    RightDacVolume = 0x0C,
-    LeftAdcVolume = 0x0F,
-    RightAdcVolume = 0x10,
+    DacVolume = 0x0B,
+    AdcVolume = 0x0F,
 }
 
 pub struct Wm8940<I2C> {

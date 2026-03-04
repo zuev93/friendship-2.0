@@ -16,7 +16,7 @@ pub struct RssiDbm {
 
 impl RssiDbm {
     pub fn from_adc_raw(raw: i16) -> Self {
-        const ADC_MAX: i32 = 26500;
+        const ADC_MAX: i32 = 1656;
         const DBM_MIN: i32 = -120;
         const DBM_MAX: i32 = -20;
         const DBM_RANGE: i32 = DBM_MAX - DBM_MIN; // 100 dB

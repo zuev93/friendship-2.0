@@ -64,6 +64,13 @@ where
 
     pub async fn init(&mut self) -> Result<(), I2C::Error> {
         self.reset().await?;
+
+        const FMT_I2S_16BIT: u8 = 0x02;
+        self.write_register(Register::AdcDigital1, FMT_I2S_16BIT)
+            .await?;
+        self.write_register(Register::DacDigital1, FMT_I2S_16BIT)
+            .await?;
+
         Ok(())
     }
 }

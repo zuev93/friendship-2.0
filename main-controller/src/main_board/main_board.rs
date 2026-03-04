@@ -2,7 +2,7 @@ use embassy_stm32::spi::{self, CkPin, MckPin, MisoPin, MosiPin, RxDma, TxDma, Ws
 use embassy_stm32::Peri;
 
 use crate::i2c_map::MainI2cMap;
-use crate::main_board::modules::crystall_filter::CrystallFilter;
+use crate::main_board::modules::crystal_filter::CrystalFilter;
 use crate::main_board::modules::detector::Detector;
 use crate::main_board::types::MainBoardI2CMutex;
 
@@ -12,7 +12,7 @@ use super::modules::mixer::Mixer;
 
 pub struct MainBoard {
     pub mixer: Mixer,
-    pub crystall_filter: CrystallFilter,
+    pub crystal_filter: CrystalFilter,
     pub if_amplifier: IfAmplifier,
     pub detector: Detector,
     pub audio_panel: AudioPanel,
@@ -36,7 +36,7 @@ impl MainBoard {
             filter_pca9534,
             filter_mcp4725,
             if_amp_pca9534,
-            if_amp_ads1115_rssi,
+            if_amp_ads1015_rssi,
             if_amp_mcp4725,
             detector_sc18is602,
             audio_pcm3060,
@@ -45,11 +45,11 @@ impl MainBoard {
 
         Self {
             mixer: Mixer::new(i2c, mixer_sc18is602),
-            crystall_filter: CrystallFilter::new(i2c, filter_mcp4725, filter_pca9534),
+            crystal_filter: CrystalFilter::new(i2c, filter_mcp4725, filter_pca9534),
             if_amplifier: IfAmplifier::new(
                 i2c,
                 if_amp_mcp4725,
-                if_amp_ads1115_rssi,
+                if_amp_ads1015_rssi,
                 if_amp_pca9534,
             ),
             detector: Detector::new(i2c, detector_sc18is602),
