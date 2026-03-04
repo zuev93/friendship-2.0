@@ -4,11 +4,13 @@ use embassy_stm32::Peri;
 use crate::i2c_map::MainI2cMap;
 use crate::main_board::modules::crystal_filter::CrystalFilter;
 use crate::main_board::modules::detector::Detector;
-use crate::main_board::types::MainBoardI2CMutex;
+use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 
 use super::modules::audio_panel::AudioPanel;
 use super::modules::if_amplifier::IfAmplifier;
 use super::modules::mixer::Mixer;
+
+use common::drivers::si5351::Si5351;
 
 pub struct MainBoard {
     pub mixer: Mixer,
@@ -20,6 +22,7 @@ pub struct MainBoard {
 
 impl MainBoard {
     pub fn new<T: spi::Instance>(
+        si5351: Si5351<MainBoardI2C>,
         i2c: &'static MainBoardI2CMutex,
         i2c_map: MainI2cMap,
         spi_peri: Peri<'static, T>,
@@ -32,30 +35,31 @@ impl MainBoard {
         rxdma: Peri<'static, impl RxDma<T>>,
     ) -> Self {
         let MainI2cMap {
-            mixer_sc18is602,
+            si5351: _,
             filter_pca9534,
-            filter_mcp4725,
             if_amp_pca9534,
             if_amp_ads1015_rssi,
             if_amp_mcp4725,
-            detector_sc18is602,
+            detector_pca9534,
+            detector_mcp4725,
             audio_pcm3060,
             audio_panel_pca9534,
+            filter_nb_mcp4725,
         } = i2c_map;
 
         Self {
-            mixer: Mixer::new(i2c, mixer_sc18is602),
-            crystal_filter: CrystalFilter::new(i2c, filter_mcp4725, filter_pca9534),
+            mixer: Mixer::new(si5351),
+            crystal_filter: CrystalFilter::new(i2c, filter_pca9534, filter_nb_mcp4725),
             if_amplifier: IfAmplifier::new(
                 i2c,
                 if_amp_mcp4725,
                 if_amp_ads1015_rssi,
                 if_amp_pca9534,
             ),
-            detector: Detector::new(i2c, detector_sc18is602),
+            detector: Detector::new(i2c, detector_pca9534, detector_mcp4725),
             audio_panel: AudioPanel::new(
                 i2c,
-                audio_pcm3060,
+                audio_cs4272,
                 audio_panel_pca9534,
                 spi_peri,
                 txsd,

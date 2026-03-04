@@ -18,14 +18,14 @@ impl From<I2cAddress> for u8 {
 }
 
 pub struct MainI2cMap {
-    pub mixer_sc18is602: I2cAddress,
+    pub si5351: I2cAddress,
     pub filter_pca9534: I2cAddress,
-    pub filter_mcp4725: I2cAddress,
     pub if_amp_pca9534: I2cAddress,
     pub if_amp_ads1015_rssi: I2cAddress,
     pub if_amp_mcp4725: I2cAddress,
-    pub detector_sc18is602: I2cAddress,
-    pub audio_pcm3060: I2cAddress,
+    pub detector_pca9534: I2cAddress,
+    pub detector_mcp4725: I2cAddress,
+    pub audio_cs4272: I2cAddress,
     pub audio_panel_pca9534: I2cAddress,
     pub filter_nb_mcp4725: I2cAddress,
 }
@@ -33,14 +33,14 @@ pub struct MainI2cMap {
 impl MainI2cMap {
     pub const fn new() -> Self {
         Self {
-            mixer_sc18is602: I2cAddress::new(0b0101000),
+            si5351: I2cAddress::new(0x60),
             filter_pca9534: I2cAddress::new(0b0100000),
-            filter_mcp4725: I2cAddress::new(0x60),
             if_amp_pca9534: I2cAddress::new(0b0100001),
             if_amp_ads1015_rssi: I2cAddress::new(0b1001000),
             if_amp_mcp4725: I2cAddress::new(0x61),
-            detector_sc18is602: I2cAddress::new(0b0101001),
-            audio_pcm3060: I2cAddress::new(0b1000110),
+            detector_pca9534: I2cAddress::new(0x22),
+            detector_mcp4725: I2cAddress::new(0x63),
+            audio_cs4272: I2cAddress::new(0x10),
             audio_panel_pca9534: I2cAddress::new(0b0100011),
             filter_nb_mcp4725: I2cAddress::new(0x62),
         }

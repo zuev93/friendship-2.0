@@ -1,7 +1,7 @@
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::watch::Watch;
 
-use crate::consts::AUDIO_BUFFER_SIZE;
+use crate::consts::{ADC_BUFFER_SIZE, AUDIO_BUFFER_SIZE};
 
 use crate::runtime_stats::RamStats;
 
@@ -71,7 +71,7 @@ pub static AUDIO_BUFFER_HEADPHONES: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER
     Watch::new();
 pub static AUDIO_BUFFER_SPEAKERS: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> =
     Watch::new();
-pub static AUDIO_BUFFER_TX: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();
+pub static AUDIO_BUFFER_TX: Watch<ThreadModeRawMutex, [u32; ADC_BUFFER_SIZE], 2> = Watch::new();
 pub static USB_AUDIO_TX: Watch<ThreadModeRawMutex, [u16; AUDIO_BUFFER_SIZE], 2> = Watch::new();
 
 pub static VOX_ENABLED: Watch<ThreadModeRawMutex, bool, 4> = Watch::new();

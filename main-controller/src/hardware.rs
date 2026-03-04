@@ -8,12 +8,18 @@ use embassy_stm32::{
     peripherals as stm_peripherals, ucpd, usb, Config as StmConfig,
 };
 
-use embassy_stm32::rcc::{Hsi48Config, LsConfig};
+use embassy_stm32::rcc::{
+    AHBPrescaler, APBPrescaler, Hse, HseMode, Hsi48Config, LsConfig, Pll, PllDiv, PllMul,
+    PllPreDiv, PllSource, Sysclk, VoltageScale,
+};
+use embassy_stm32::time::Hertz;
 
 use crate::{
     app::{cordic_math, AppSubsystem},
     control_board::control_board_subsystem::ControlBoardSybstem,
-    front_panel::FrontPanelSubsystem, i2c_map::I2cMap, main_board::MainBoardSubsystem,
+    front_panel::FrontPanelSubsystem,
+    i2c_map::I2cMap,
+    main_board::MainBoardSubsystem,
     peripherals::peripherals_subsystem::PeripheralsSubsystem,
 };
 
@@ -35,6 +41,26 @@ impl Hardware {
     pub async fn init_subsystem(spawner: Spawner) {
         let mut config = StmConfig::default();
         config.enable_ucpd1_dead_battery = true;
+
+        config.rcc.hse = Some(Hse {
+            freq: Hertz(16_000_000),
+            mode: HseMode::Oscillator,
+        });
+        config.rcc.pll1 = Some(Pll {
+            source: PllSource::HSE,
+            prediv: PllPreDiv::DIV4,
+            mul: PllMul::MUL125,
+            divp: Some(PllDiv::DIV2),
+            divq: None,
+            divr: None,
+        });
+        config.rcc.sys = Sysclk::PLL1_P;
+        config.rcc.voltage_scale = VoltageScale::Scale0;
+        config.rcc.ahb_pre = AHBPrescaler::DIV1;
+        config.rcc.apb1_pre = APBPrescaler::DIV1;
+        config.rcc.apb2_pre = APBPrescaler::DIV1;
+        config.rcc.apb3_pre = APBPrescaler::DIV1;
+
         config.rcc.hsi48 = Some(Hsi48Config {
             sync_from_usb: true,
         });
@@ -65,7 +91,6 @@ impl Hardware {
             p.PE6,
             p.PE3,
             p.PE4,
-            p.PE2,
             p.GPDMA1_CH2,
             p.GPDMA1_CH3,
         )

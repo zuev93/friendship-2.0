@@ -2,34 +2,28 @@ use common::drivers::ads1015::ADS1015;
 use common::drivers::pca9534::{Pin, PCA9534};
 use embassy_time::Instant;
 
-use crate::app::types::{FilterType, IfGain, IfGainMode, Mode};
+use crate::app::types::{IfGain, IfGainMode, Mode};
 use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex, RssiDbm};
 use common::drivers::mcp4725::MCP4725;
 
-// TODO move to settings
-// AGC constants
-const TARGET_RSSI_DBM: i8 = -73; // S9 level target (~S9)
+const TARGET_RSSI_DBM: i8 = -73;
 const DAC_12BIT_MAX: u16 = 4095;
 const MIN_GAIN: i16 = 0;
 const MAX_GAIN: i16 = DAC_12BIT_MAX as i16;
 
-// AGC time constants in milliseconds
-const AGC_FAST_TIME_CONSTANT_MS: u32 = 200; // 200ms to settle (for CW, fast signals)
-const AGC_SLOW_TIME_CONSTANT_MS: u32 = 2000; // 2s to settle (for SSB, AM)
+const AGC_FAST_TIME_CONSTANT_MS: u32 = 200;
+const AGC_SLOW_TIME_CONSTANT_MS: u32 = 2000;
 
-// Gain adjustment factor: 1 dB change ≈ 250 gain units
 const DB_TO_GAIN_FACTOR: i32 = 250;
 
-const IO_F1_PIN: Pin = Pin::Pin0;
-const IO_F2_PIN: Pin = Pin::Pin1;
-const IO_F3_PIN: Pin = Pin::Pin2;
-const IO_RX_PIN: Pin = Pin::Pin3;
+const IO_RX_PIN: Pin = Pin::Pin0;
+const IO_TX_PIN: Pin = Pin::Pin1;
 
 #[derive(Debug, Clone, Copy)]
 pub struct RssiData {
-    pub rssi1: RssiDbm, // AIN0 - Primary RSSI
-    pub rssi2: RssiDbm, // AIN1 - Secondary RSSI
+    pub rssi1: RssiDbm,
+    pub rssi2: RssiDbm,
 }
 
 pub struct IfAmplifier {
@@ -38,11 +32,10 @@ pub struct IfAmplifier {
     io: PCA9534<MainBoardI2C>,
     rssi_dbm: RssiDbm,
     desired_manual_gain: i16,
-    current_agc_gain: i16,    // Current AGC gain for smoothing
-    last_agc_update: Instant, // Last AGC update time
+    current_agc_gain: i16,
+    last_agc_update: Instant,
     if_gain_mode: IfGainMode,
     mode: Mode,
-    filter_type: FilterType,
 }
 
 impl IfAmplifier {
@@ -59,10 +52,9 @@ impl IfAmplifier {
             if_gain_mode: IfGainMode::Manual,
             rssi_dbm: RssiDbm { dbm: 0 },
             desired_manual_gain: 0,
-            current_agc_gain: MAX_GAIN / 2, // Start at mid-gain
+            current_agc_gain: MAX_GAIN / 2,
             last_agc_update: Instant::now(),
             mode: Mode::StandBy,
-            filter_type: FilterType::Narrow,
         }
     }
 
@@ -97,16 +89,8 @@ impl IfAmplifier {
         if self.mode == Mode::Rx {
             port |= IO_RX_PIN.mask();
         }
-        match self.filter_type {
-            FilterType::Wide | FilterType::Medium => {
-                port |= IO_F1_PIN.mask();
-            }
-            FilterType::Narrow => {
-                port |= IO_F2_PIN.mask();
-            }
-            FilterType::CwNarrow => {
-                port |= IO_F3_PIN.mask();
-            }
+        if self.mode == Mode::Tx {
+            port |= IO_TX_PIN.mask();
         }
 
         self.io
@@ -159,16 +143,6 @@ impl IfAmplifier {
         .await
     }
 
-    /// Calculate AGC gain based on RSSI with time-based exponential smoothing
-    ///
-    /// Time-based AGC Algorithm:
-    /// 1. Measure time since last update (dt)
-    /// 2. Calculate target gain based on RSSI error
-    /// 3. Apply exponential smoothing with time constant:
-    ///    - Fast: 200ms tau (for CW, digital modes)
-    ///    - Slow: 2000ms tau (for SSB, AM - smooth audio)
-    ///
-    /// This ensures consistent AGC behavior regardless of update frequency.
     fn calculate_agc_gain(&mut self, is_slow: bool) -> i16 {
         let now = Instant::now();
         let dt_ms = (now - self.last_agc_update).as_millis() as u32;

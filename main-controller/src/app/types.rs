@@ -35,7 +35,7 @@ pub enum FilterType {
 }
 
 impl FilterType {
-    const FILTER_CENTER_HZ: u32 = 10_000_000;
+    const FILTER_CENTER_HZ: u32 = 10_700_000;
 
     pub fn center_frequency_hz(self) -> u32 {
         Self::FILTER_CENTER_HZ
@@ -460,7 +460,6 @@ impl EqGain {
         Self(val)
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Compression(i16);

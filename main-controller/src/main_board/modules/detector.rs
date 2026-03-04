@@ -1,44 +1,45 @@
-use crate::app::types::{FilterType, Mode, TransmitMode};
+use crate::app::types::{Mode, RfPowerPercent};
+use crate::control_board::events::{PdContract, PowerTelemetry};
 use crate::i2c_map::I2cAddress;
-use common::drivers::ad9834::{AD9834Config, AD9834};
-use common::drivers::sc18is602::{GpioPin, SC18IS602SpiDevice, SC18IS602};
-
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
+use common::drivers::mcp4725::MCP4725;
+use common::drivers::pca9534::{Pin, PCA9534};
 
-// TODO move to settings
-const AUDIO_LOW_HZ: u32 = 300;
-const CW_OFFSET_HZ: u32 = 700;
+const IO_RX_PIN: Pin = Pin::Pin0;
+const IO_TX_PIN: Pin = Pin::Pin1;
 
-const REFERENCE_CLOCK_HZ: u32 = 75_000_000;
-const ENABLE_DOUBLER: bool = true;
-
-const IO_TX_PIN: GpioPin = GpioPin::P2;
-const IO_RX_PIN: GpioPin = GpioPin::P3;
+const DAC_12BIT_MAX: u32 = 4095;
+const CENTIPERCENT_MAX: u32 = 10000;
 
 pub struct Detector {
-    bridge: SC18IS602SpiDevice<MainBoardI2C>,
-    dds: AD9834,
+    io: PCA9534<MainBoardI2C>,
+    gain_dac: MCP4725<MainBoardI2C>,
     mode: Mode,
-    transmit_mode: TransmitMode,
-    current_filter: FilterType,
+    user_power: RfPowerPercent,
+    budget_cp: i32,
+    thermal_cp: i32,
+    alc_cp: i32,
+    last_contract: PdContract,
 }
 
 impl Detector {
-    pub fn new(i2c: &'static MainBoardI2CMutex, bridge_addr: I2cAddress) -> Self {
-        let dds_config = AD9834Config {
-            reference_clock_hz: REFERENCE_CLOCK_HZ,
-            enable_doubler: ENABLE_DOUBLER,
-        };
-        let dds = AD9834::new(dds_config);
-        let sc18is602 = SC18IS602::new(bridge_addr.into(), i2c);
-        let bridge = SC18IS602SpiDevice::new(sc18is602, 0);
+    pub fn new(
+        i2c: &'static MainBoardI2CMutex,
+        pca9534_addr: I2cAddress,
+        mcp4725_addr: I2cAddress,
+    ) -> Self {
+        let io = PCA9534::new(pca9534_addr.into(), i2c);
+        let gain_dac = MCP4725::new(mcp4725_addr.into(), i2c);
 
         Self {
-            bridge,
-            dds,
+            io,
+            gain_dac,
             mode: Mode::StandBy,
-            transmit_mode: TransmitMode::Lsb,
-            current_filter: FilterType::Narrow,
+            user_power: RfPowerPercent::new(0),
+            budget_cp: 10000,
+            thermal_cp: 10000,
+            alc_cp: 10000,
+            last_contract: PdContract::default(),
         }
     }
 
@@ -47,17 +48,41 @@ impl Detector {
         self.update_state().await
     }
 
-    pub async fn set_transmit_mode(
-        &mut self,
-        transmit_mode: TransmitMode,
-    ) -> Result<(), &'static str> {
-        self.transmit_mode = transmit_mode;
-        self.update_state().await
+    pub async fn set_power(&mut self, power: RfPowerPercent) -> Result<(), &'static str> {
+        self.user_power = power;
+        self.update_gain().await
     }
 
-    pub async fn set_filter(&mut self, filter: FilterType) -> Result<(), &'static str> {
-        self.current_filter = filter;
-        self.update_state().await
+    pub async fn set_power_telemetry(
+        &mut self,
+        telemetry: PowerTelemetry,
+    ) -> Result<(), &'static str> {
+        self.budget_cp = telemetry.power_budget(&self.last_contract);
+        self.update_gain().await
+    }
+
+    pub async fn set_pd_contract(&mut self, contract: PdContract) -> Result<(), &'static str> {
+        self.last_contract = contract;
+        self.update_gain().await
+    }
+
+    pub async fn set_thermal_constraint(&mut self, thermal: i32) -> Result<(), &'static str> {
+        self.thermal_cp = thermal;
+        self.update_gain().await
+    }
+
+    pub async fn set_alc_constraint(&mut self, alc: i32) -> Result<(), &'static str> {
+        self.alc_cp = alc;
+        self.update_gain().await
+    }
+
+    fn power_constraint(&self) -> i32 {
+        self.budget_cp.min(self.thermal_cp).min(self.alc_cp)
+    }
+
+    fn effective_power(&self) -> u16 {
+        let limit = self.power_constraint().max(0) as u16;
+        self.user_power.centipercent.min(limit)
     }
 
     async fn update_state(&mut self) -> Result<(), &'static str> {
@@ -68,57 +93,47 @@ impl Detector {
             return self.init().await;
         }
 
-        let frequency_hz = self.calculate_bfo_frequency();
-        self.bridge
-            .bridge
-            .write_gpio_pin(IO_RX_PIN, self.mode == Mode::Rx)
+        let mut port: u8 = 0;
+        if self.mode == Mode::Rx {
+            port |= IO_RX_PIN.mask();
+        }
+        if self.mode == Mode::Tx {
+            port |= IO_TX_PIN.mask();
+        }
+        self.io
+            .write_port(port)
             .await
-            .map_err(|_| "Failed to write IO detector")?;
-        self.bridge
-            .bridge
-            .write_gpio_pin(IO_TX_PIN, self.mode == Mode::Tx)
-            .await
-            .map_err(|_| "Failed to write IO detector")?;
-        self.dds
-            .set_frequency(&mut self.bridge, frequency_hz)
-            .await
-            .map_err(|_| "Failed to set frequency of if reference")?;
+            .map_err(|_| "Failed to write detector IO")?;
+
+        self.update_gain().await
+    }
+
+    async fn update_gain(&mut self) -> Result<(), &'static str> {
+        if self.mode == Mode::Tx {
+            let dac_value =
+                ((self.effective_power() as u32 * DAC_12BIT_MAX) / CENTIPERCENT_MAX) as u16;
+            self.gain_dac
+                .set_raw(dac_value)
+                .await
+                .map_err(|_| "Failed to set AD8367 gain")?;
+        } else {
+            self.gain_dac
+                .write_eeprom_power_down()
+                .await
+                .map_err(|_| "Failed to power down gain DAC")?;
+        }
         Ok(())
     }
 
-    fn calculate_bfo_frequency(&mut self) -> u32 {
-        let filter_center = self.current_filter.center_frequency_hz();
-        let filter_bw = self.current_filter.bandwidth_hz();
-
-        let bfo_offset = (filter_bw / 2) + AUDIO_LOW_HZ;
-
-        match self.transmit_mode {
-            TransmitMode::Usb => filter_center - bfo_offset,
-            TransmitMode::Lsb => filter_center + bfo_offset,
-            TransmitMode::Cw => filter_center - bfo_offset + CW_OFFSET_HZ,
-            TransmitMode::Am => filter_center,
-        }
-    }
-
     async fn init(&mut self) -> Result<(), &'static str> {
-        self.bridge
+        self.io
             .init()
             .await
-            .map_err(|_| "Detector IO bridge init failed")?;
-        self.bridge
-            .bridge
-            .set_gpio_direction(0xFF)
+            .map_err(|_| "Detector IO init failed")?;
+        self.io
+            .set_direction(0x00)
             .await
-            .map_err(|_| "Detector IO bridge init failed")?;
-
-        self.dds
-            .init(&mut self.bridge)
-            .await
-            .map_err(|_| "Failed to initialize IF reference generator")?;
-
-        self.dds
-            .set_waveform_sine(&mut self.bridge)
-            .await
-            .map_err(|_| "Failed to set waveform of if reference")
+            .map_err(|_| "Detector IO direction failed")?;
+        Ok(())
     }
 }

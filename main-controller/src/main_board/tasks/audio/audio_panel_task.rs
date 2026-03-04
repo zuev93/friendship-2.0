@@ -6,14 +6,14 @@ use static_cell::StaticCell;
 
 use crate::{
     app::events::{AUDIO_BUFFER_TX, MODE},
-    consts::AUDIO_BUFFER_SIZE,
+    consts::ADC_BUFFER_SIZE,
     main_board::{events::AUDIO_RX_BUFFER, modules::audio_panel::AudioPanel},
     runtime_stats::TaskId,
 };
 use druzhba_macros::instrumented;
 
-type SaiTx = Sai<'static, stm_peripherals::SAI1, u16>;
-type SaiRx = Sai<'static, stm_peripherals::SAI1, u16>;
+type SaiTx = Sai<'static, stm_peripherals::SAI1, u32>;
+type SaiRx = Sai<'static, stm_peripherals::SAI1, u32>;
 
 static AUDIO_PANEL: StaticCell<AudioPanel> = StaticCell::new();
 
@@ -27,7 +27,7 @@ pub async fn create_tasks(spawner: Spawner, audio_panel: AudioPanel) {
 
 #[embassy_executor::task]
 async fn audio_panel_sai_rx_task(sai_rx: &'static mut SaiRx) {
-    let mut buffer: [u16; AUDIO_BUFFER_SIZE] = [0u16; AUDIO_BUFFER_SIZE];
+    let mut buffer = [0u32; ADC_BUFFER_SIZE];
 
     loop {
         loop {

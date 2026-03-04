@@ -26,6 +26,7 @@ use crate::{
         tone_generator::ToneGenerator,
         types::TransmitMode,
     },
+    consts::{ADC_BUFFER_SIZE, AUDIO_BUFFER_SIZE, DECIMATION_FACTOR},
     front_panel::events::{AUDIO_MIC_BUFFER, HEADPHONES_CONNECTED},
     main_board::events::{AUDIO_RX_BUFFER, CURRENT_RSSI2},
 };
@@ -44,6 +45,36 @@ pub fn spawn_tasks(
     spawner.must_spawn(vox_controls_task(mixer));
 }
 
+fn decimate_rx(adc_buf: &[u32; ADC_BUFFER_SIZE]) -> [u16; AUDIO_BUFFER_SIZE] {
+    let mut out = [0u16; AUDIO_BUFFER_SIZE];
+    let step = DECIMATION_FACTOR as usize * 2;
+    for i in 0..AUDIO_BUFFER_SIZE {
+        let src_idx = i * step;
+        if src_idx < ADC_BUFFER_SIZE {
+            let raw = adc_buf[src_idx];
+            let signed_24 = (raw << 8) as i32 >> 8;
+            out[i] = ((signed_24 >> 8) + 32768).clamp(0, 65535) as u16;
+        }
+    }
+    out
+}
+
+fn upsample_tx(audio_buf: &[u16; AUDIO_BUFFER_SIZE]) -> [u32; ADC_BUFFER_SIZE] {
+    let mut out = [0u32; ADC_BUFFER_SIZE];
+    let step = DECIMATION_FACTOR as usize * 2;
+    for i in 0..AUDIO_BUFFER_SIZE {
+        let signed_16 = audio_buf[i] as i32 - 32768;
+        let signed_24 = signed_16 << 8;
+        let raw = (signed_24 & 0x00FF_FFFF) as u32;
+        let dst_idx = i * step;
+        if dst_idx + 1 < ADC_BUFFER_SIZE {
+            out[dst_idx] = raw;
+            out[dst_idx + 1] = raw;
+        }
+    }
+    out
+}
+
 #[instrumented(TaskId::Audio)]
 #[embassy_executor::task]
 async fn audio_task(
@@ -54,14 +85,16 @@ async fn audio_task(
     let mut mic_rcv = AUDIO_MIC_BUFFER.receiver().unwrap();
     let mut usb_tx_rcv = USB_AUDIO_TX.receiver().unwrap();
     loop {
-        let audio_rx = rx_rcv.changed().await;
+        let adc_rx = rx_rcv.changed().await;
+        let rx_decimated = decimate_rx(&adc_rx);
+
         let mic = mic_rcv.changed().await;
         let generator = tone_generator.lock().await.next_buffer();
 
         let vox_transition;
         {
             let mut mixer = mutex.lock().await;
-            mixer.set_buffer_rx(audio_rx);
+            mixer.set_buffer_rx(rx_decimated);
             mixer.set_buffer_generator(generator);
             mixer.set_buffer_mic(mic);
 
@@ -74,7 +107,8 @@ async fn audio_task(
             mixer.mix();
             COMPRESSION_METER.sender().send(mixer.gain_reduction());
 
-            AUDIO_BUFFER_TX.sender().send(mixer.get_buffer_tx());
+            let tx_upsampled = upsample_tx(&mixer.get_buffer_tx());
+            AUDIO_BUFFER_TX.sender().send(tx_upsampled);
             AUDIO_BUFFER_HEADPHONES
                 .sender()
                 .send(mixer.get_buffer_headphones());

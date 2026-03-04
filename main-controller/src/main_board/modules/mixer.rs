@@ -1,41 +1,29 @@
-use crate::app::types::{ClarifierMode, ClarifierValue, FilterType, Mode};
-use crate::i2c_map::I2cAddress;
-use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
-use common::drivers::ad9834::{AD9834Config, AD9834};
-use common::drivers::sc18is602::{SC18IS602SpiDevice, SC18IS602};
+use crate::app::types::{ClarifierMode, ClarifierValue, FilterType, Mode, TransmitMode};
+use crate::main_board::types::MainBoardI2C;
+use common::drivers::si5351::{ClkOutput, PllSource, Si5351};
 
-const REFERENCE_CLOCK_HZ: u32 = 75_000_000;
-const SIGN_CHANGE_FREQUENCY: u32 = 12_000_000; // 12 MHz
-const FSYNC_GPIO_PIN: u8 = 0;
+const SIGN_CHANGE_FREQUENCY: u32 = 12_000_000;
+const AUDIO_LOW_HZ: u32 = 300;
+const CW_OFFSET_HZ: u32 = 700;
 
 pub struct Mixer {
-    bridge: SC18IS602SpiDevice<MainBoardI2C>,
-    synthesizer: AD9834,
+    si5351: Si5351<MainBoardI2C>,
     vfo_frequency: u32,
     filter: FilterType,
     mode: Mode,
+    transmit_mode: TransmitMode,
     clarifier_mode: ClarifierMode,
     clarifier_value: ClarifierValue,
 }
 
 impl Mixer {
-    pub fn new(i2c: &'static MainBoardI2CMutex, bridge_addr: I2cAddress) -> Self {
-        let bridge = SC18IS602SpiDevice::new(
-            SC18IS602::new(bridge_addr.into(), i2c),
-            FSYNC_GPIO_PIN,
-        );
-
-        let synthesizer = AD9834::new(AD9834Config {
-            reference_clock_hz: REFERENCE_CLOCK_HZ,
-            enable_doubler: true,
-        });
-
+    pub fn new(si5351: Si5351<MainBoardI2C>) -> Self {
         Self {
-            bridge,
-            synthesizer,
+            si5351,
             vfo_frequency: 0,
             filter: FilterType::Narrow,
             mode: Mode::StandBy,
+            transmit_mode: TransmitMode::Lsb,
             clarifier_mode: ClarifierMode::Off,
             clarifier_value: ClarifierValue::new(0),
         }
@@ -43,12 +31,21 @@ impl Mixer {
 
     pub async fn set_frequency(&mut self, frequency_hz: u32) -> Result<(), &'static str> {
         self.vfo_frequency = frequency_hz;
-        self.update_state().await
+        self.update_vfo().await
     }
 
     pub async fn set_filter(&mut self, filter: FilterType) -> Result<(), &'static str> {
         self.filter = filter;
-        self.update_state().await
+        self.update_vfo().await?;
+        self.update_bfo().await
+    }
+
+    pub async fn set_transmit_mode(
+        &mut self,
+        transmit_mode: TransmitMode,
+    ) -> Result<(), &'static str> {
+        self.transmit_mode = transmit_mode;
+        self.update_bfo().await
     }
 
     pub async fn set_clarifier_mode(
@@ -56,7 +53,7 @@ impl Mixer {
         clarifier_mode: ClarifierMode,
     ) -> Result<(), &'static str> {
         self.clarifier_mode = clarifier_mode;
-        self.update_state().await
+        self.update_vfo().await
     }
 
     pub async fn set_clarifier_value(
@@ -64,32 +61,51 @@ impl Mixer {
         clarifier_value: ClarifierValue,
     ) -> Result<(), &'static str> {
         self.clarifier_value = clarifier_value;
-        self.update_state().await
+        self.update_vfo().await
     }
 
     pub async fn set_mode(&mut self, mode: Mode) -> Result<(), &'static str> {
         self.mode = mode;
-        self.update_state().await
-    }
-
-    async fn update_state(&mut self) -> Result<(), &'static str> {
-        match self.mode {
-            Mode::Rx | Mode::Tx => {
-                let dds_frequency = self.calculate_dds_frequency();
-
-                self.synthesizer
-                    .set_frequency(&mut self.bridge, dds_frequency)
-                    .await
-                    .map_err(|_| "Failed to set DDS frequency")?;
-
+        match mode {
+            Mode::WarmUp => {
+                self.si5351.init().await.map_err(|_| "Si5351 init failed")?;
                 Ok(())
             }
-            Mode::WarmUp => self.init().await,
+            Mode::Rx | Mode::Tx => {
+                self.update_vfo().await?;
+                self.update_bfo().await
+            }
             Mode::StandBy => Ok(()),
         }
     }
 
-    fn calculate_dds_frequency(&self) -> u32 {
+    async fn update_vfo(&mut self) -> Result<(), &'static str> {
+        match self.mode {
+            Mode::Rx | Mode::Tx => {
+                let lo_frequency = self.calculate_lo_frequency();
+                self.si5351
+                    .set_frequency(PllSource::PllA, ClkOutput::Clk0, lo_frequency)
+                    .await
+                    .map_err(|_| "Failed to set VFO frequency")
+            }
+            Mode::WarmUp | Mode::StandBy => Ok(()),
+        }
+    }
+
+    async fn update_bfo(&mut self) -> Result<(), &'static str> {
+        match self.mode {
+            Mode::Rx | Mode::Tx => {
+                let bfo_frequency = self.calculate_bfo_frequency();
+                self.si5351
+                    .set_frequency(PllSource::PllB, ClkOutput::Clk1, bfo_frequency)
+                    .await
+                    .map_err(|_| "Failed to set BFO frequency")
+            }
+            Mode::WarmUp | Mode::StandBy => Ok(()),
+        }
+    }
+
+    fn calculate_lo_frequency(&self) -> u32 {
         let base_freq = if self.vfo_frequency > SIGN_CHANGE_FREQUENCY {
             self.vfo_frequency - self.filter.center_frequency_hz()
         } else {
@@ -114,21 +130,16 @@ impl Mixer {
         }
     }
 
-    async fn init(&mut self) -> Result<(), &'static str> {
-        self.bridge
-            .init()
-            .await
-            .map_err(|_| "Failed to initialize bridge of dds")?;
-        self.bridge
-            .bridge
-            .set_gpio_direction(0xFF)
-            .await
-            .map_err(|_| "Failed to initialize bridge of dds")?;
+    fn calculate_bfo_frequency(&self) -> u32 {
+        let filter_center = self.filter.center_frequency_hz();
+        let filter_bw = self.filter.bandwidth_hz();
+        let bfo_offset = (filter_bw / 2) + AUDIO_LOW_HZ;
 
-        self.synthesizer
-            .init(&mut self.bridge)
-            .await
-            .map_err(|_| "Failed to initialize ad9851")?;
-        Ok(())
+        match self.transmit_mode {
+            TransmitMode::Usb => filter_center - bfo_offset,
+            TransmitMode::Lsb => filter_center + bfo_offset,
+            TransmitMode::Cw => filter_center - bfo_offset + CW_OFFSET_HZ,
+            TransmitMode::Am => filter_center,
+        }
     }
 }

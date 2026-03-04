@@ -1,12 +1,11 @@
-pub mod ad9834;
 pub mod ads1015;
 pub mod ads1115;
 pub mod ina228;
 pub mod ina3221;
 pub mod mcp4725;
 pub mod pca9534;
-pub mod pcm3060;
-pub mod sc18is602;
+pub mod cs4272;
+pub mod si5351;
 pub mod ssd1315;
 pub mod st7789;
 pub mod tca9555;

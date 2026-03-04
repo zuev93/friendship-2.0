@@ -7,7 +7,7 @@ use embassy_stm32::{
     interrupt,
     mode::{self},
     peripherals as stm_peripherals,
-    sai::{self, Dma, FsPin, MclkPin, SckPin, SdPin},
+    sai::{self, Dma, FsPin, SckPin, SdPin},
     Peri,
 };
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
@@ -24,6 +24,7 @@ use crate::main_board::{
         if_amplifier_tasks, mixer_tasks::mixer_tasks,
     },
 };
+use common::drivers::si5351::Si5351;
 
 pub struct MainBoardSubsystem {}
 
@@ -45,7 +46,6 @@ impl MainBoardSubsystem {
         sai_sd_a: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::A>>,
         sai_sd_b: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::B>>,
         sai_fs: Peri<'static, impl FsPin<stm_peripherals::SAI1, sai::A>>,
-        sai_mclk: Peri<'static, impl MclkPin<stm_peripherals::SAI1, sai::A>>,
         sai_dma_a: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::A>>,
         sai_dma_b: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::B>>,
     ) {
@@ -59,10 +59,9 @@ impl MainBoardSubsystem {
         > = StaticCell::new();
         let i2c_mutex = I2C1_BUS.init(Mutex::new(i2c1));
 
-        spawner.must_spawn(mixer_tasks(Mixer::new(
-            i2c_mutex,
-            main_i2c_map.mixer_sc18is602,
-        )));
+        let si5351 = Si5351::new(main_i2c_map.si5351.into(), i2c_mutex);
+
+        spawner.must_spawn(mixer_tasks(Mixer::new(si5351)));
         if_amplifier_tasks::spawn_tasks(
             spawner,
             IfAmplifier::new(
@@ -76,7 +75,7 @@ impl MainBoardSubsystem {
             spawner,
             AudioPanel::new(
                 i2c_mutex,
-                main_i2c_map.audio_pcm3060,
+                main_i2c_map.audio_cs4272,
                 main_i2c_map.audio_panel_pca9534,
                 sai1_a,
                 sai1_b,
@@ -84,7 +83,6 @@ impl MainBoardSubsystem {
                 sai_sd_a,
                 sai_sd_b,
                 sai_fs,
-                sai_mclk,
                 sai_dma_a,
                 sai_dma_b,
             ),
@@ -94,16 +92,14 @@ impl MainBoardSubsystem {
             spawner,
             CrystalFilter::new(
                 i2c_mutex,
-                main_i2c_map.filter_mcp4725,
                 main_i2c_map.filter_pca9534,
                 main_i2c_map.filter_nb_mcp4725,
             ),
         );
         spawner.must_spawn(detector_tasks(Detector::new(
             i2c_mutex,
-            main_i2c_map.detector_sc18is602,
+            main_i2c_map.detector_pca9534,
+            main_i2c_map.detector_mcp4725,
         )));
-
-        // TODO load settings and apply them
     }
 }

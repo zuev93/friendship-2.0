@@ -1,1 +1,5 @@
 pub const AUDIO_BUFFER_SIZE: usize = 512;
+pub const ADC_BUFFER_SIZE: usize = 4096;
+pub const ADC_SAMPLE_RATE: u32 = 192_000;
+pub const DSP_SAMPLE_RATE: u32 = 48_000;
+pub const DECIMATION_FACTOR: u32 = ADC_SAMPLE_RATE / DSP_SAMPLE_RATE;
