@@ -1,6 +1,6 @@
 use super::types::{FftResult, FFT_BINS, FFT_SIZE};
-use crate::app::cordic_math::{with_cordic, CordicMutex};
 use crate::consts::ADC_BUFFER_SIZE;
+use crate::cordic_math::{with_cordic, CordicMutex};
 
 const HANN_TABLE_SIZE: usize = FFT_SIZE;
 

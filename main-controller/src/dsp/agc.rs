@@ -1,6 +1,6 @@
 use super::types::{AgcPreset, IqBuffer, DSP_BLOCK_SIZE};
-use crate::app::cordic_math::{with_cordic, CordicMutex};
 use crate::consts::DSP_SAMPLE_RATE;
+use crate::cordic_math::{with_cordic, CordicMutex};
 
 const MAX_GAIN_DB: f32 = 80.0;
 const NOISE_GATE: f32 = 1e-6;
@@ -100,7 +100,7 @@ impl DigitalAgc {
     fn process_auto(&mut self, iq: &mut IqBuffer) {
         for idx in 0..DSP_BLOCK_SIZE {
             let mag_sq = iq.i[idx] * iq.i[idx] + iq.q[idx] * iq.q[idx];
-            let mag = Self::fast_sqrt(mag_sq);
+            let mag = with_cordic(self.cordic, |c| c.sqrtf(mag_sq));
 
             if mag > self.envelope {
                 self.envelope += self.attack_coeff * (mag - self.envelope);
@@ -127,7 +127,8 @@ impl DigitalAgc {
         }
 
         if self.envelope > NOISE_GATE {
-            self.current_level_db = 20.0 * Self::log2_approx(self.envelope) * 0.30103;
+            let ln_val = with_cordic(self.cordic, |c| c.lnf(self.envelope));
+            self.current_level_db = 20.0 * ln_val * (1.0 / 2.302_585);
         } else {
             self.current_level_db = -120.0;
         }
@@ -135,26 +136,6 @@ impl DigitalAgc {
 
     pub fn current_level_db(&self) -> f32 {
         self.current_level_db
-    }
-
-    fn fast_sqrt(x: f32) -> f32 {
-        if x <= 0.0 {
-            return 0.0;
-        }
-        let mut y = f32::from_bits((x.to_bits() >> 1) + 0x1FC0_0000);
-        y = 0.5 * (y + x / y);
-        y = 0.5 * (y + x / y);
-        y
-    }
-
-    fn log2_approx(x: f32) -> f32 {
-        if x <= 0.0 {
-            return -120.0;
-        }
-        let bits = x.to_bits();
-        let exp = ((bits >> 23) & 0xFF) as f32 - 127.0;
-        let mant = f32::from_bits((bits & 0x007F_FFFF) | 0x3F80_0000);
-        exp + (mant - 1.0) * 1.4427
     }
 }
 

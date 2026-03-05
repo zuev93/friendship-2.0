@@ -1,4 +1,4 @@
-use crate::app::cordic_math::{with_cordic, CordicMutex};
+use crate::cordic_math::{with_cordic, CordicMutex};
 
 pub const MAX_FIR_TAPS: usize = 255;
 

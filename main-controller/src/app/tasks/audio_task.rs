@@ -46,7 +46,7 @@ pub fn spawn_tasks(
     static DSP: StaticCell<Mutex<ThreadModeRawMutex, DspPipeline>> = StaticCell::new();
     let dsp = DSP.init(Mutex::new(DspPipeline::new(cordic, fmac_peri)));
 
-    spawner.must_spawn(audio_task(mixer, dsp, tone_generator));
+    spawner.must_spawn(audio_task(mixer, dsp, tone_generator, cordic));
     spawner.must_spawn(controls_task(mixer));
     spawner.must_spawn(dsp_controls_task(mixer));
     spawner.must_spawn(dsp_pipeline_controls_task(dsp));
@@ -63,6 +63,7 @@ async fn audio_task(
     mixer: &'static Mutex<ThreadModeRawMutex, AudioMixer>,
     dsp: &'static Mutex<ThreadModeRawMutex, DspPipeline>,
     tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>,
+    cordic: &'static CordicMutex,
 ) {
     let mut rx_rcv = AUDIO_RX_BUFFER.receiver().unwrap();
     let mut mic_rcv = AUDIO_MIC_BUFFER.receiver().unwrap();
@@ -87,7 +88,7 @@ async fn audio_task(
             let mut pipeline = dsp.lock().await;
             let result = pipeline.process_rx_with_fft(&adc_rx);
 
-            let peak_dbfs = adc_peak_dbfs(&adc_rx);
+            let peak_dbfs = adc_peak_dbfs(&adc_rx, cordic);
             let agc_dac = pipeline.process_adc_peak(peak_dbfs);
             AGC_DAC_VALUE.sender().send(agc_dac);
 
@@ -406,7 +407,8 @@ fn squelch_to_dbm(raw: i16) -> i8 {
     (DBM_MIN + (raw as i32 * (DBM_MAX - DBM_MIN) / RAW_MAX)) as i8
 }
 
-fn adc_peak_dbfs(adc_buffer: &[u32; ADC_BUFFER_SIZE]) -> f32 {
+fn adc_peak_dbfs(adc_buffer: &[u32; ADC_BUFFER_SIZE], cordic: &'static CordicMutex) -> f32 {
+    use crate::app::cordic_math::with_cordic;
     let mut max_abs: i32 = 0;
     let mono_samples = ADC_BUFFER_SIZE / 2;
     for frame in 0..mono_samples {
@@ -421,17 +423,8 @@ fn adc_peak_dbfs(adc_buffer: &[u32; ADC_BUFFER_SIZE]) -> f32 {
         return -120.0;
     }
     let normalized = max_abs as f32 / 8_388_607.0;
-    20.0 * log2_approx(normalized) * 0.30103
-}
-
-fn log2_approx(x: f32) -> f32 {
-    if x <= 0.0 {
-        return -40.0;
-    }
-    let bits = x.to_bits();
-    let exp = ((bits >> 23) & 0xFF) as f32 - 127.0;
-    let mant = f32::from_bits((bits & 0x007F_FFFF) | 0x3F80_0000);
-    exp + (mant - 1.0) * 1.4427
+    let ln_val = with_cordic(cordic, |c| c.lnf(normalized));
+    20.0 * ln_val * (1.0 / 2.302_585)
 }
 
 fn emit_composite_waterfall(fft: &FftResult, sweep_cache: &[i8; WATERFALL_BINS], span_hz: u32) {

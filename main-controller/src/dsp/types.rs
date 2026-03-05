@@ -123,7 +123,7 @@ impl FilterPreset {
     pub const FM_NARROW: Self = Self {
         bw_hz: 12000.0,
         shift_hz: 0.0,
-        taps: 63,
+        taps: 127,
     };
     pub const FM_WIDE: Self = Self {
         bw_hz: 15000.0,

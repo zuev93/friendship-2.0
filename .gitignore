@@ -22,6 +22,9 @@ Cargo.lock
 *~
 .DS_Store
 
+# Test output (generated WAVs)
+main-controller/test-output/
+
 # Temporary files
 *.tmp
 *.bak

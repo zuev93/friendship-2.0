@@ -1,7 +1,7 @@
 use super::fir::{SoftwareFir, MAX_FIR_TAPS};
 use super::types::{DemodMode, DSP_BLOCK_SIZE};
-use crate::app::cordic_math::{with_cordic, CordicMutex};
 use crate::consts::{ADC_BUFFER_SIZE, ADC_SAMPLE_RATE, DSP_SAMPLE_RATE};
+use crate::cordic_math::{with_cordic, CordicMutex};
 
 const TX_INTERP_TAPS: usize = 63;
 const CW_ENVELOPE_MS: f32 = 5.0;
@@ -30,6 +30,7 @@ pub struct TxModulator {
     hpf_prev_in: f32,
     hpf_prev_out: f32,
     comp_envelope: f32,
+    compressor_enabled: bool,
     fm_mod_phase: f32,
 }
 
@@ -53,6 +54,7 @@ impl TxModulator {
             hpf_prev_in: 0.0,
             hpf_prev_out: 0.0,
             comp_envelope: 0.0,
+            compressor_enabled: true,
             fm_mod_phase: 0.0,
         };
         tx.init_hilbert();
@@ -74,13 +76,18 @@ impl TxModulator {
         self.cw_target_envelope = if down { 1.0 } else { 0.0 };
     }
 
+    pub fn set_compressor_enabled(&mut self, enabled: bool) {
+        self.compressor_enabled = enabled;
+    }
+
     pub fn process(
         &mut self,
         audio_in: &[f32; DSP_BLOCK_SIZE],
         dac_out: &mut [u32; ADC_BUFFER_SIZE],
     ) {
         match self.mode {
-            DemodMode::Usb | DemodMode::Sam => self.modulate_ssb(audio_in, dac_out, false),
+            DemodMode::Usb => self.modulate_ssb(audio_in, dac_out, false),
+            DemodMode::Sam => self.modulate_am(audio_in, dac_out),
             DemodMode::Lsb => self.modulate_ssb(audio_in, dac_out, true),
             DemodMode::Cw => self.modulate_cw(dac_out),
             DemodMode::Am => self.modulate_am(audio_in, dac_out),
@@ -92,6 +99,10 @@ impl TxModulator {
         let hpf_out = TX_HPF_ALPHA * (self.hpf_prev_out + sample - self.hpf_prev_in);
         self.hpf_prev_in = sample;
         self.hpf_prev_out = hpf_out;
+
+        if !self.compressor_enabled {
+            return hpf_out;
+        }
 
         let abs_val = if hpf_out < 0.0 { -hpf_out } else { hpf_out };
         let coeff = if abs_val > self.comp_envelope {

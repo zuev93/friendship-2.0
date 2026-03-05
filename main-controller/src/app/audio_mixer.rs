@@ -1,11 +1,18 @@
-use crate::{
-    app::{
-        cordic_math::{with_cordic, CordicMath, CordicMutex},
-        types::{Compression, EqGain, NrLevel, Volume},
-        vox::VoxProcessor,
-    },
-    consts::AUDIO_BUFFER_SIZE,
+#[cfg(feature = "target")]
+use crate::app::{
+    cordic_math::{with_cordic, CordicMath, CordicMutex},
+    types::{Compression, EqGain, NrLevel, Volume},
+    vox::VoxProcessor,
 };
+
+#[cfg(not(feature = "target"))]
+use crate::{
+    cordic_math::{with_cordic, CordicMath, CordicMutex},
+    mixer_types::{Compression, EqGain, NrLevel, Volume},
+    vox::VoxProcessor,
+};
+
+use crate::consts::AUDIO_BUFFER_SIZE;
 
 const NR_TAPS: usize = 64;
 const NR_DELAY: usize = 1;
@@ -341,11 +348,11 @@ impl AudioMixer {
 
     fn compute_low_shelf(&mut self, freq: f32, gain_db: f32, sr: f32) -> BiquadState {
         let pi = core::f32::consts::PI;
-        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db));
+        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db * 0.5));
         let w0 = 2.0 * pi * freq / sr;
         let (sin_w0, cos_w0) = with_cordic(self.cordic, |c| c.sin_cos(w0));
         let alpha = sin_w0 / 2.0 * CordicMath::sqrt_2();
-        let sqrt_a = with_cordic(self.cordic, |c| c.sqrtf(a.clamp(0.027, 0.75)));
+        let sqrt_a = with_cordic(self.cordic, |c| c.sqrtf(a));
         let two_sqrt_a_alpha = 2.0 * sqrt_a * alpha;
 
         let b0 = a * ((a + 1.0) - (a - 1.0) * cos_w0 + two_sqrt_a_alpha);
@@ -370,7 +377,7 @@ impl AudioMixer {
 
     fn compute_peak_eq(&mut self, freq: f32, gain_db: f32, q: f32, sr: f32) -> BiquadState {
         let pi = core::f32::consts::PI;
-        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db));
+        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db * 0.5));
         let w0 = 2.0 * pi * freq / sr;
         let (sin_w0, cos_w0) = with_cordic(self.cordic, |c| c.sin_cos(w0));
         let alpha = sin_w0 / (2.0 * q);
@@ -397,11 +404,11 @@ impl AudioMixer {
 
     fn compute_high_shelf(&mut self, freq: f32, gain_db: f32, sr: f32) -> BiquadState {
         let pi = core::f32::consts::PI;
-        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db));
+        let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db * 0.5));
         let w0 = 2.0 * pi * freq / sr;
         let (sin_w0, cos_w0) = with_cordic(self.cordic, |c| c.sin_cos(w0));
         let alpha = sin_w0 / 2.0 * CordicMath::sqrt_2();
-        let sqrt_a = with_cordic(self.cordic, |c| c.sqrtf(a.clamp(0.027, 0.75)));
+        let sqrt_a = with_cordic(self.cordic, |c| c.sqrtf(a));
         let two_sqrt_a_alpha = 2.0 * sqrt_a * alpha;
 
         let b0 = a * ((a + 1.0) + (a - 1.0) * cos_w0 + two_sqrt_a_alpha);
@@ -460,6 +467,7 @@ impl AudioMixer {
             mu,
             NR_TAPS,
             NR_DELAY,
+            true,
         );
 
         for (i, sample) in self.rx.iter_mut().enumerate() {
@@ -485,6 +493,7 @@ impl AudioMixer {
             mu,
             ANF_TAPS,
             ANF_DELAY,
+            false,
         );
 
         for (i, sample) in self.rx.iter_mut().enumerate() {
@@ -576,6 +585,7 @@ impl AudioMixer {
         mu: f32,
         taps: usize,
         delay: usize,
+        output_prediction: bool,
     ) {
         let hist_len = taps + delay;
 
@@ -598,7 +608,7 @@ impl AudioMixer {
                 weights[k] += mu * error * history[delay_idx];
             }
 
-            *sample = error;
+            *sample = if output_prediction { y } else { error };
         }
     }
 

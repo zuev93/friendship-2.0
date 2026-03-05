@@ -4,18 +4,39 @@ version = "0.1.0"
 authors = ["Zuev"]
 edition = "2021"
 
+[features]
+default = ["target"]
+target = [
+    "dep:embassy-stm32",
+    "dep:embassy-executor",
+    "dep:embassy-time",
+    "dep:embassy-futures",
+    "dep:embassy-usb",
+    "dep:embedded-hal",
+    "dep:embedded-hal-async",
+    "dep:embedded-hal-bus",
+    "dep:cortex-m",
+    "dep:cortex-m-rt",
+    "dep:druzhba-common",
+    "dep:druzhba-macros",
+    "dep:ufmt",
+    "dep:heapless",
+    "dep:usbpd",
+    "dep:usbpd-traits",
+]
+
 [dependencies]
 # Common crate with shared drivers
-druzhba-common = { path = "../common" }
-druzhba-macros = { path = "../common/macros" }
+druzhba-common = { path = "../common", optional = true }
+druzhba-macros = { path = "../common/macros", optional = true }
 
 # Embassy async runtime
-embassy-executor = { workspace = true }
-embassy-time = { workspace = true }
+embassy-executor = { workspace = true, optional = true }
+embassy-time = { workspace = true, optional = true }
 embassy-sync = { workspace = true }
-embassy-futures = { workspace = true }
-embassy-usb = { workspace = true }
-embassy-stm32 = { version = "0.5", features = [
+embassy-futures = { workspace = true, optional = true }
+embassy-usb = { workspace = true, optional = true }
+embassy-stm32 = { version = "0.5", optional = true, features = [
     "stm32h563vi",
     "memory-x",
     "time-driver-any",
@@ -24,28 +45,36 @@ embassy-stm32 = { version = "0.5", features = [
 ] }
 
 # HAL traits
-embedded-hal = { workspace = true }
-embedded-hal-async = { workspace = true }
-embedded-hal-bus = { workspace = true }
+embedded-hal = { workspace = true, optional = true }
+embedded-hal-async = { workspace = true, optional = true }
+embedded-hal-bus = { workspace = true, optional = true }
 
 # Core
-cortex-m = { workspace = true }
-cortex-m-rt = { workspace = true }
-
-# Panic handler
+cortex-m = { workspace = true, optional = true }
+cortex-m-rt = { workspace = true, optional = true }
 
 # Utilities
-ufmt = { workspace = true }
-heapless = { workspace = true }
+ufmt = { workspace = true, optional = true }
+heapless = { workspace = true, optional = true }
 static_cell = { workspace = true }
 
 # USB PD 3.1 EPR sink negotiation
-usbpd = { version = "2", default-features = false }
-usbpd-traits = { version = "2", default-features = false }
+usbpd = { version = "2", default-features = false, optional = true }
+usbpd-traits = { version = "2", default-features = false, optional = true }
+
+# Software math for host-side testing
+libm = "0.2"
+
+[dev-dependencies]
+hound = "3.5"
+
+[target.'cfg(not(target_os = "none"))'.dev-dependencies]
+critical-section = { version = "1", features = ["std"] }
 
 [[bin]]
 name = "druzhba-main-controller"
 path = "src/main.rs"
+required-features = ["target"]
 
 [lints.rust]
 warnings = "deny"

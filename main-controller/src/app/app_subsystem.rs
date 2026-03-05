@@ -43,7 +43,7 @@ impl AppSubsystem {
     ) {
         static TONE_GENERATOR: StaticCell<Mutex<ThreadModeRawMutex, ToneGenerator>> =
             StaticCell::new();
-        let mutex = TONE_GENERATOR.init(Mutex::new(ToneGenerator::new()));
+        let mutex = TONE_GENERATOR.init(Mutex::new(ToneGenerator::new(cordic)));
 
         spawner.must_spawn(idle_counter_task());
         spawner.must_spawn(stats_task());

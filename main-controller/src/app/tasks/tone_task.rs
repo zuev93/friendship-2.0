@@ -5,6 +5,7 @@ use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 
 use crate::app::events::{BUTTON_BEEP, CW_PITCH, CW_SIDETONE_ACTIVE, MODE, TONE};
 use crate::app::tone_generator::ToneGenerator;
+use crate::app::types::Mode;
 use crate::runtime_stats::TaskId;
 
 pub fn spawn(spawner: Spawner, tone_generator: &'static Mutex<ThreadModeRawMutex, ToneGenerator>) {
@@ -29,7 +30,7 @@ async fn tone_control_task(tone_generator: &'static Mutex<ThreadModeRawMutex, To
         )
         .await
         {
-            Either5::First(mode) => tone_generator.lock().await.set_mode(mode),
+            Either5::First(mode) => tone_generator.lock().await.set_warmup(mode == Mode::WarmUp),
             Either5::Second(active) => tone_generator.lock().await.set_tone_active(active),
             Either5::Third(_) => tone_generator.lock().await.trigger_beep(),
             Either5::Fourth(active) => tone_generator.lock().await.set_sidetone_active(active),

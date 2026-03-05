@@ -1,4 +1,6 @@
+#[cfg(feature = "target")]
 use embassy_stm32::peripherals::FMAC;
+#[cfg(feature = "target")]
 use embassy_stm32::Peri;
 
 use super::agc::{AnalogAgc, DigitalAgc};
@@ -10,9 +12,9 @@ use super::nb::NoiseBlanker;
 use super::smeter::Smeter;
 use super::tx::TxModulator;
 use super::types::{AgcPreset, DemodMode, FftResult, FilterPreset, IqBuffer, DSP_BLOCK_SIZE};
-use crate::app::cordic_math::CordicMutex;
-use crate::app::fmac_fir::{FmacFir, FIR_TAPS};
 use crate::consts::{ADC_BUFFER_SIZE, AUDIO_BUFFER_SIZE, DSP_SAMPLE_RATE};
+use crate::cordic_math::CordicMutex;
+use crate::fmac_fir::{FmacFir, FIR_TAPS};
 
 pub struct DspPipeline {
     ddc: Ddc,
@@ -41,10 +43,20 @@ pub struct DspPipeline {
 }
 
 impl DspPipeline {
+    #[cfg(feature = "target")]
     pub fn new(cordic: &'static CordicMutex, fmac_peri: Peri<'static, FMAC>) -> Self {
+        Self::init(cordic, FmacFir::new(fmac_peri))
+    }
+
+    #[cfg(not(feature = "target"))]
+    pub fn new(cordic: &'static CordicMutex) -> Self {
+        Self::init(cordic, FmacFir::new())
+    }
+
+    fn init(cordic: &'static CordicMutex, fmac: FmacFir) -> Self {
         let mut pipeline = Self {
             ddc: Ddc::new(cordic),
-            fmac: FmacFir::new(fmac_peri),
+            fmac,
             fir_q: SoftwareFir::new(),
             nb: NoiseBlanker::new(),
             agc: DigitalAgc::new(cordic),
@@ -75,6 +87,16 @@ impl DspPipeline {
     }
 
     pub fn process_rx(&mut self, adc_buffer: &[u32; ADC_BUFFER_SIZE]) -> [u16; AUDIO_BUFFER_SIZE] {
+        self.process_rx_common(adc_buffer);
+        self.float_to_u16()
+    }
+
+    pub fn process_rx_raw(&mut self, adc_buffer: &[u32; ADC_BUFFER_SIZE]) -> [f32; DSP_BLOCK_SIZE] {
+        self.process_rx_common(adc_buffer);
+        self.demod_buf
+    }
+
+    fn process_rx_common(&mut self, adc_buffer: &[u32; ADC_BUFFER_SIZE]) {
         self.detect_adc_overload(adc_buffer);
 
         self.ddc.process(adc_buffer, &mut self.iq_buf);
@@ -102,8 +124,6 @@ impl DspPipeline {
         let analog_gain_db = self.analog_agc.gain_db();
         self.smeter
             .update(self.agc.current_level_db(), analog_gain_db);
-
-        self.float_to_u16()
     }
 
     pub fn process_rx_with_fft(
@@ -206,6 +226,10 @@ impl DspPipeline {
 
     pub fn set_rit_offset(&mut self, offset_hz: i32) {
         self.ddc.set_rit_offset(offset_hz);
+    }
+
+    pub fn set_compressor_enabled(&mut self, enabled: bool) {
+        self.tx.set_compressor_enabled(enabled);
     }
 
     pub fn set_cw_key(&mut self, down: bool) {
@@ -330,23 +354,8 @@ impl DspPipeline {
 
     fn float_to_u16(&self) -> [u16; AUDIO_BUFFER_SIZE] {
         let mut out = [0u16; AUDIO_BUFFER_SIZE];
-        let mut peak = 0.0f32;
-        for i in 0..DSP_BLOCK_SIZE {
-            let abs = if self.demod_buf[i] < 0.0 {
-                -self.demod_buf[i]
-            } else {
-                self.demod_buf[i]
-            };
-            if abs > peak {
-                peak = abs;
-            }
-        }
-
-        let scale = if peak > 1.0 { 1.0 / peak } else { 1.0 };
-
         for i in 0..AUDIO_BUFFER_SIZE {
-            let normalized = self.demod_buf[i] * scale;
-            out[i] = ((normalized + 1.0) * 32768.0).clamp(0.0, 65535.0) as u16;
+            out[i] = ((self.demod_buf[i] + 1.0) * 32768.0).clamp(0.0, 65535.0) as u16;
         }
         out
     }

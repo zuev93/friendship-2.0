@@ -10,7 +10,7 @@ fn main() -> ExitCode {
             if !run("cargo", &["build"]) {
                 return ExitCode::FAILURE;
             }
-            clean_screenshots();
+            clean_generated();
             if !run_tests() {
                 return ExitCode::FAILURE;
             }
@@ -18,7 +18,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         "test" => {
-            clean_screenshots();
+            clean_generated();
             if !run_tests() {
                 return ExitCode::FAILURE;
             }
@@ -26,8 +26,8 @@ fn main() -> ExitCode {
         }
         _ => {
             eprintln!("Usage: cargo xtask [build|test]");
-            eprintln!("  build  - firmware build + screenshot tests (default)");
-            eprintln!("  test   - screenshot tests only");
+            eprintln!("  build  - firmware build + all tests (default)");
+            eprintln!("  test   - screenshot + DSP tests only");
             ExitCode::FAILURE
         }
     }
@@ -50,7 +50,7 @@ fn project_root() -> PathBuf {
         .to_path_buf()
 }
 
-fn clean_screenshots() {
+fn clean_generated() {
     let docs = project_root().join("docs");
     if let Ok(entries) = std::fs::read_dir(&docs) {
         for entry in entries.flatten() {
@@ -63,10 +63,15 @@ fn clean_screenshots() {
             }
         }
     }
+    let test_output = project_root().join("main-controller/test-output");
+    if test_output.exists() {
+        let _ = std::fs::remove_dir_all(&test_output);
+        eprintln!("Cleaned: {}", test_output.display());
+    }
 }
 
 fn run_tests() -> bool {
-    run(
+    if !run(
         "cargo",
         &[
             "test",
@@ -77,6 +82,40 @@ fn run_tests() -> bool {
             "--no-default-features",
             "--test",
             "screenshots",
+        ],
+    ) {
+        return false;
+    }
+    if !run(
+        "cargo",
+        &[
+            "test",
+            "--target",
+            host_target(),
+            "-p",
+            "druzhba-main-controller",
+            "--no-default-features",
+            "--test",
+            "dsp_loopback",
+            "--",
+            "--nocapture",
+        ],
+    ) {
+        return false;
+    }
+    run(
+        "cargo",
+        &[
+            "test",
+            "--target",
+            host_target(),
+            "-p",
+            "druzhba-main-controller",
+            "--no-default-features",
+            "--test",
+            "dsp_features",
+            "--",
+            "--nocapture",
         ],
     )
 }

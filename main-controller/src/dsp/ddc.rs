@@ -1,6 +1,6 @@
 use super::types::{IqBuffer, DSP_BLOCK_SIZE, NCO_CENTER_HZ};
-use crate::app::cordic_math::{with_cordic, CordicMutex};
 use crate::consts::ADC_BUFFER_SIZE;
+use crate::cordic_math::{with_cordic, CordicMutex};
 
 const CIC_GAIN: f32 = 64.0;
 const DECIMATION: usize = 4;

@@ -66,6 +66,25 @@ impl CordicMath {
         }
     }
 
+    pub fn atan2f(&mut self, y: f32, x: f32) -> f32 {
+        if x == 0.0 && y == 0.0 {
+            return 0.0;
+        }
+        self.configure(Function::Phase, Scale::Arg1Res1);
+        let abs_x = if x < 0.0 { -x } else { x };
+        let abs_y = if y < 0.0 { -y } else { y };
+        let max_val = if abs_x > abs_y { abs_x } else { abs_y };
+        let xn = (x / max_val) as f64;
+        let yn = (y / max_val) as f64;
+        let x_q = f64_to_q1_31(xn.clamp(-0.9999999, 0.9999999)).unwrap();
+        let y_q = f64_to_q1_31(yn.clamp(-0.9999999, 0.9999999)).unwrap();
+        let mut res = [0u32; 1];
+        self.cordic
+            .blocking_calc_32bit(&[x_q, y_q], &mut res, false, true)
+            .unwrap();
+        (q1_31_to_f64(res[0]) * PI) as f32
+    }
+
     pub fn sinf(&mut self, radians: f32) -> f32 {
         self.configure(Function::Sin, Scale::Arg1Res1);
         let q = f64_to_q1_31(wrap_to_q1(radians as f64 / PI)).unwrap();
@@ -103,13 +122,28 @@ impl CordicMath {
             return 0.0;
         }
         self.configure(Function::Sqrt, Scale::Arg1Res1);
-        let normalized = (x as f64).clamp(0.027, 0.75);
-        let q = f64_to_q1_31(normalized).unwrap();
+        let bits = x.to_bits();
+        let raw_exp = ((bits >> 23) & 0xFF) as i32 - 127;
+        let mantissa_bits = (bits & 0x007F_FFFF) | 0x3F80_0000;
+        let mantissa = f32::from_bits(mantissa_bits) as f64;
+        let (m, k) = if raw_exp & 1 == 0 {
+            (mantissa * 0.25, (raw_exp + 2) / 2)
+        } else if mantissa < 1.5 {
+            (mantissa * 0.5, (raw_exp + 1) / 2)
+        } else {
+            (mantissa * 0.125, (raw_exp + 3) / 2)
+        };
+        let q = f64_to_q1_31(m).unwrap();
         let mut res = [0u32; 1];
         self.cordic
             .blocking_calc_32bit(&[q], &mut res, true, true)
             .unwrap();
-        q1_31_to_f64(res[0]) as f32
+        let sqrt_m = q1_31_to_f64(res[0]) as f32;
+        if k >= 0 {
+            sqrt_m * ((1u32 << k) as f32)
+        } else {
+            sqrt_m / ((1u32 << (-k)) as f32)
+        }
     }
 
     fn coshf(&mut self, x: f32) -> f32 {
