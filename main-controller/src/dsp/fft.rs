@@ -79,7 +79,7 @@ impl FftEngine {
             let im = self.work_im[k];
             let mag_sq = re * re + im * im;
             let db = if mag_sq > 1e-20 {
-                10.0 * log2_fast(mag_sq) * 0.30103
+                10.0 * Self::log2_fast(mag_sq) * 0.30103
             } else {
                 -120.0
             };
@@ -144,14 +144,14 @@ impl FftEngine {
             stage_len <<= 1;
         }
     }
-}
 
-fn log2_fast(x: f32) -> f32 {
-    if x <= 0.0 {
-        return -40.0;
+    fn log2_fast(x: f32) -> f32 {
+        if x <= 0.0 {
+            return -40.0;
+        }
+        let bits = x.to_bits();
+        let exp = ((bits >> 23) & 0xFF) as f32 - 127.0;
+        let mant = f32::from_bits((bits & 0x007F_FFFF) | 0x3F80_0000);
+        exp + (mant - 1.0) * 1.4427
     }
-    let bits = x.to_bits();
-    let exp = ((bits >> 23) & 0xFF) as f32 - 127.0;
-    let mant = f32::from_bits((bits & 0x007F_FFFF) | 0x3F80_0000);
-    exp + (mant - 1.0) * 1.4427
 }

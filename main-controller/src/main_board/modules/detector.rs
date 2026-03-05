@@ -116,11 +116,26 @@ impl Detector {
                 .set_raw(dac_value)
                 .await
                 .map_err(|_| "Failed to set AD8367 gain")?;
+        } else if self.mode == Mode::Rx {
+            self.gain_dac
+                .set_raw(2048)
+                .await
+                .map_err(|_| "Failed to set AD8367 default RX gain")?;
         } else {
             self.gain_dac
                 .write_eeprom_power_down()
                 .await
                 .map_err(|_| "Failed to power down gain DAC")?;
+        }
+        Ok(())
+    }
+
+    pub async fn set_rx_gain_dac(&mut self, dac_value: u16) -> Result<(), &'static str> {
+        if self.mode == Mode::Rx {
+            self.gain_dac
+                .set_raw(dac_value)
+                .await
+                .map_err(|_| "Failed to set AD8367 RX gain")?;
         }
         Ok(())
     }

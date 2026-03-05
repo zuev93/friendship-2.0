@@ -387,7 +387,7 @@ impl PacketSerializable for MenuCommand {
 }
 
 pub const WATERFALL_BINS: usize = 240;
-const WATERFALL_CMD_SIZE: usize = 4 + 4 + 1 + WATERFALL_BINS;
+const WATERFALL_CMD_SIZE: usize = 4 + 4 + 1 + 1 + 1 + WATERFALL_BINS;
 const _: () = assert!(WATERFALL_CMD_SIZE <= PACKET_SIZE - 3);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -413,6 +413,8 @@ pub struct WaterfallLineCommand {
     pub center_freq: u32,
     pub span_hz: u32,
     pub sweep_status: SweepStatus,
+    pub live_start: u8,
+    pub live_end: u8,
     pub bins: [i8; WATERFALL_BINS],
 }
 
@@ -431,9 +433,11 @@ impl PacketSerializable for WaterfallLineCommand {
         payload[6] = sp[2];
         payload[7] = sp[3];
         payload[8] = self.sweep_status as u8;
+        payload[9] = self.live_start;
+        payload[10] = self.live_end;
         let mut i = 0;
         while i < WATERFALL_BINS {
-            payload[9 + i] = self.bins[i] as u8;
+            payload[11 + i] = self.bins[i] as u8;
             i += 1;
         }
     }
@@ -445,16 +449,20 @@ impl PacketSerializable for WaterfallLineCommand {
         let center_freq = u32::from_be_bytes([payload[0], payload[1], payload[2], payload[3]]);
         let span_hz = u32::from_be_bytes([payload[4], payload[5], payload[6], payload[7]]);
         let sweep_status = SweepStatus::from_u8(payload[8]);
+        let live_start = payload[9];
+        let live_end = payload[10];
         let mut bins = [0i8; WATERFALL_BINS];
         let mut i = 0;
         while i < WATERFALL_BINS {
-            bins[i] = payload[9 + i] as i8;
+            bins[i] = payload[11 + i] as i8;
             i += 1;
         }
         Some(Self {
             center_freq,
             span_hz,
             sweep_status,
+            live_start,
+            live_end,
             bins,
         })
     }

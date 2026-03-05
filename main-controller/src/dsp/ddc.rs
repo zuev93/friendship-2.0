@@ -1,10 +1,51 @@
 use super::types::{IqBuffer, DSP_BLOCK_SIZE, NCO_CENTER_HZ};
 use crate::app::cordic_math::{with_cordic, CordicMutex};
-use crate::consts::{ADC_BUFFER_SIZE, DSP_SAMPLE_RATE};
+use crate::consts::ADC_BUFFER_SIZE;
 
 const CIC_GAIN: f32 = 64.0;
 const DECIMATION: usize = 4;
 const ADC_MONO_SAMPLES: usize = ADC_BUFFER_SIZE / 2;
+
+const CIC_COMP_TAPS: usize = 15;
+const CIC_COMP_COEFFS: [f32; CIC_COMP_TAPS] = [
+    -0.0018, 0.0042, -0.0103, 0.0223, -0.0455, 0.0935, -0.2108, 0.6968, -0.2108, 0.0935, -0.0455,
+    0.0223, -0.0103, 0.0042, -0.0018,
+];
+
+struct CicCompFir {
+    delay: [f32; CIC_COMP_TAPS],
+    idx: usize,
+}
+
+impl CicCompFir {
+    const fn new() -> Self {
+        Self {
+            delay: [0.0; CIC_COMP_TAPS],
+            idx: 0,
+        }
+    }
+
+    fn process(&mut self, input: f32) -> f32 {
+        self.delay[self.idx] = input;
+        let mut acc = 0.0f32;
+        let mut di = self.idx;
+        let mut ci = 0;
+        while ci < CIC_COMP_TAPS {
+            acc += CIC_COMP_COEFFS[ci] * self.delay[di];
+            if di == 0 {
+                di = CIC_COMP_TAPS - 1;
+            } else {
+                di -= 1;
+            }
+            ci += 1;
+        }
+        self.idx += 1;
+        if self.idx >= CIC_COMP_TAPS {
+            self.idx = 0;
+        }
+        acc
+    }
+}
 
 struct Cic3State {
     integ1: i32,
@@ -47,32 +88,56 @@ impl Cic3State {
 pub struct Ddc {
     nco_phase: u32,
     nco_phase_step: u32,
+    base_phase_step: u32,
+    rit_phase_step: i32,
     cic_i: Cic3State,
     cic_q: Cic3State,
+    comp_i: CicCompFir,
+    comp_q: CicCompFir,
     decim_counter: usize,
     cordic: &'static CordicMutex,
 }
 
 impl Ddc {
     pub fn new(cordic: &'static CordicMutex) -> Self {
-        let phase_step = compute_phase_step(NCO_CENTER_HZ, crate::consts::ADC_SAMPLE_RATE);
+        let phase_step = Self::compute_phase_step(NCO_CENTER_HZ, crate::consts::ADC_SAMPLE_RATE);
         Self {
             nco_phase: 0,
             nco_phase_step: phase_step,
+            base_phase_step: phase_step,
+            rit_phase_step: 0,
             cic_i: Cic3State::new(),
             cic_q: Cic3State::new(),
+            comp_i: CicCompFir::new(),
+            comp_q: CicCompFir::new(),
             decim_counter: 0,
             cordic,
         }
     }
 
     pub fn set_frequency(&mut self, freq_hz: u32) {
-        self.nco_phase_step = compute_phase_step(freq_hz, crate::consts::ADC_SAMPLE_RATE);
+        self.base_phase_step = Self::compute_phase_step(freq_hz, crate::consts::ADC_SAMPLE_RATE);
+        self.update_phase_step();
     }
 
-    pub fn set_rit_offset(&mut self, offset_hz: i16) {
-        let freq = (NCO_CENTER_HZ as i32 + offset_hz as i32).max(0) as u32;
-        self.set_frequency(freq);
+    pub fn set_rit_offset(&mut self, offset_hz: i32) {
+        let abs_hz = if offset_hz < 0 {
+            (-offset_hz) as u32
+        } else {
+            offset_hz as u32
+        };
+        let abs_step = Self::compute_phase_step(abs_hz, crate::consts::ADC_SAMPLE_RATE);
+        self.rit_phase_step = if offset_hz < 0 {
+            -(abs_step as i32)
+        } else {
+            abs_step as i32
+        };
+        self.update_phase_step();
+    }
+
+    fn update_phase_step(&mut self) {
+        self.nco_phase_step =
+            (self.base_phase_step as i32).wrapping_add(self.rit_phase_step) as u32;
     }
 
     pub fn process(&mut self, adc_buffer: &[u32; ADC_BUFFER_SIZE], output: &mut IqBuffer) {
@@ -82,7 +147,7 @@ impl Ddc {
             let raw = adc_buffer[frame * 2];
             let signed_24 = ((raw << 8) as i32) >> 8;
 
-            let phase_rad = phase_to_radians(self.nco_phase);
+            let phase_rad = Self::phase_to_radians(self.nco_phase);
             let (sin_val, cos_val) = with_cordic(self.cordic, |c| c.sin_cos(phase_rad));
             self.nco_phase = self.nco_phase.wrapping_add(self.nco_phase_step);
 
@@ -99,20 +164,22 @@ impl Ddc {
                 if out_idx < DSP_BLOCK_SIZE {
                     let ci = self.cic_i.comb();
                     let cq = self.cic_q.comb();
-                    output.i[out_idx] = ci as f32 / CIC_GAIN;
-                    output.q[out_idx] = cq as f32 / CIC_GAIN;
+                    let i_raw = ci as f32 / CIC_GAIN;
+                    let q_raw = cq as f32 / CIC_GAIN;
+                    output.i[out_idx] = self.comp_i.process(i_raw);
+                    output.q[out_idx] = self.comp_q.process(q_raw);
                     out_idx += 1;
                 }
             }
         }
     }
-}
 
-fn compute_phase_step(freq_hz: u32, sample_rate: u32) -> u32 {
-    ((freq_hz as u64 * (1u64 << 32)) / sample_rate as u64) as u32
-}
+    fn compute_phase_step(freq_hz: u32, sample_rate: u32) -> u32 {
+        ((freq_hz as u64 * (1u64 << 32)) / sample_rate as u64) as u32
+    }
 
-fn phase_to_radians(phase: u32) -> f32 {
-    let signed = phase as i32;
-    signed as f32 * (core::f32::consts::PI / 2_147_483_648.0)
+    fn phase_to_radians(phase: u32) -> f32 {
+        let signed = phase as i32;
+        signed as f32 * (core::f32::consts::PI / 2_147_483_648.0)
+    }
 }

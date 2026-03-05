@@ -95,10 +95,20 @@ impl AudioPanel {
 
     pub async fn set_mode(&mut self, mode: Mode) -> Result<(), &'static str> {
         match mode {
-            Mode::Rx => self.set_signal_detector_to_adc().await,
-            Mode::Tx => self.set_signal_detector_to_dac().await,
-            Mode::WarmUp => self.init().await,
-            Mode::StandBy => Ok(()),
+            Mode::Rx => {
+                self.set_mute(false).await?;
+                self.set_signal_detector_to_adc().await
+            }
+            Mode::Tx => {
+                self.set_signal_detector_to_dac().await
+            }
+            Mode::WarmUp => {
+                self.init().await?;
+                self.set_hpf(false).await
+            }
+            Mode::StandBy => {
+                self.set_mute(true).await
+            }
         }
     }
 
@@ -159,6 +169,27 @@ impl AudioPanel {
             .map_err(|_| "Failed to set CS4272 reset high")?;
 
         Ok(())
+    }
+
+    pub async fn set_dac_volume(&mut self, attenuation_half_db: u8) -> Result<(), &'static str> {
+        self.audio_codec
+            .set_dac_volume(attenuation_half_db)
+            .await
+            .map_err(|_| "Failed to set DAC volume")
+    }
+
+    pub async fn set_mute(&mut self, mute: bool) -> Result<(), &'static str> {
+        self.audio_codec
+            .set_mute(mute)
+            .await
+            .map_err(|_| "Failed to set DAC mute")
+    }
+
+    pub async fn set_hpf(&mut self, enabled: bool) -> Result<(), &'static str> {
+        self.audio_codec
+            .set_hpf(enabled)
+            .await
+            .map_err(|_| "Failed to set HPF")
     }
 
     async fn set_signal_detector_to_adc(&mut self) -> Result<(), &'static str> {

@@ -22,6 +22,8 @@ pub static SWEEP_ACTIVE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
 pub static RSSI_FAST_MODE: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
 pub static IF_GAIN_MODE: Watch<ThreadModeRawMutex, IfGainMode, 4> = Watch::new();
 pub static WATERFALL_LINE: Watch<ThreadModeRawMutex, WaterfallLine, 2> = Watch::new();
+pub static WATERFALL_SPAN: Watch<ThreadModeRawMutex, u32, 4> = Watch::new();
+pub static SWEEP_DATA: Watch<ThreadModeRawMutex, WaterfallLine, 2> = Watch::new();
 
 pub static VOLUME: Watch<ThreadModeRawMutex, Volume, 4> = Watch::new();
 pub static MICROPHONE: Watch<ThreadModeRawMutex, Microphone, 2> = Watch::new();
@@ -58,6 +60,7 @@ pub static CW_PEAK_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
 pub static CW_PEAK_WIDTH: Watch<ThreadModeRawMutex, CwPeakWidth, 2> = Watch::new();
 pub static CW_PITCH: Watch<ThreadModeRawMutex, CwPitch, 2> = Watch::new();
 pub static AUDIO_AGC_MODE: Watch<ThreadModeRawMutex, AudioAgcMode, 2> = Watch::new();
+pub static DEMOD_MODE_OVERRIDE: Watch<ThreadModeRawMutex, u8, 2> = Watch::new();
 pub static TX_EQ_ENABLED: Watch<ThreadModeRawMutex, bool, 2> = Watch::new();
 pub static TX_EQ_LOW: Watch<ThreadModeRawMutex, EqGain, 2> = Watch::new();
 pub static TX_EQ_MID: Watch<ThreadModeRawMutex, EqGain, 2> = Watch::new();

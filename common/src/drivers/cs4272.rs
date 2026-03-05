@@ -23,12 +23,19 @@ const MODE_CTRL1_RATIO_128: u8 = 0x00 << 5;
 const DAC_I2S_24BIT: u8 = 0x09;
 const ADC_I2S_24BIT: u8 = 0x00;
 
+const DAC_CTRL_MUTE_A: u8 = 1 << 3;
+const DAC_CTRL_MUTE_B: u8 = 1 << 4;
+
+const ADC_CTRL_HPF_FREEZE: u8 = 1 << 5;
+
 pub struct Cs4272<I2C>
 where
     I2C: I2c + 'static,
 {
     i2c_addr: u8,
     i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
+    dac_ctrl_cache: u8,
+    adc_ctrl_cache: u8,
 }
 
 impl<I2C> Cs4272<I2C>
@@ -36,7 +43,12 @@ where
     I2C: I2c + 'static,
 {
     pub fn new(i2c_addr: u8, i2c: &'static Mutex<ThreadModeRawMutex, I2C>) -> Self {
-        Self { i2c_addr, i2c }
+        Self {
+            i2c_addr,
+            i2c,
+            dac_ctrl_cache: DAC_I2S_24BIT,
+            adc_ctrl_cache: ADC_I2S_24BIT,
+        }
     }
 
     pub async fn write_register(&mut self, reg: Register, value: u8) -> Result<(), I2C::Error> {
@@ -67,18 +79,47 @@ where
         self.write_register(Register::ModeControl1, MASTER_QUAD_128)
             .await?;
 
-        self.write_register(Register::DacControl, DAC_I2S_24BIT)
+        self.dac_ctrl_cache = DAC_I2S_24BIT;
+        self.write_register(Register::DacControl, self.dac_ctrl_cache)
             .await?;
 
         self.write_register(Register::DacVolumeA, 0x00).await?;
         self.write_register(Register::DacVolumeB, 0x00).await?;
 
-        self.write_register(Register::AdcControl, ADC_I2S_24BIT)
+        self.adc_ctrl_cache = ADC_I2S_24BIT;
+        self.write_register(Register::AdcControl, self.adc_ctrl_cache)
             .await?;
 
         self.write_register(Register::ModeControl2, MODE_CTRL2_CP_EN)
             .await?;
 
         Ok(())
+    }
+
+    pub async fn set_dac_volume(&mut self, attenuation_half_db: u8) -> Result<(), I2C::Error> {
+        self.write_register(Register::DacVolumeA, attenuation_half_db)
+            .await?;
+        self.write_register(Register::DacVolumeB, attenuation_half_db)
+            .await
+    }
+
+    pub async fn set_mute(&mut self, mute: bool) -> Result<(), I2C::Error> {
+        if mute {
+            self.dac_ctrl_cache |= DAC_CTRL_MUTE_A | DAC_CTRL_MUTE_B;
+        } else {
+            self.dac_ctrl_cache &= !(DAC_CTRL_MUTE_A | DAC_CTRL_MUTE_B);
+        }
+        self.write_register(Register::DacControl, self.dac_ctrl_cache)
+            .await
+    }
+
+    pub async fn set_hpf(&mut self, enabled: bool) -> Result<(), I2C::Error> {
+        if enabled {
+            self.adc_ctrl_cache &= !ADC_CTRL_HPF_FREEZE;
+        } else {
+            self.adc_ctrl_cache |= ADC_CTRL_HPF_FREEZE;
+        }
+        self.write_register(Register::AdcControl, self.adc_ctrl_cache)
+            .await
     }
 }

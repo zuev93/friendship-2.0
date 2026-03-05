@@ -29,6 +29,19 @@ pub enum DemodMode {
     Sam,
 }
 
+impl DemodMode {
+    pub fn from_index(idx: u8) -> Self {
+        match idx {
+            0 => Self::Usb,
+            1 => Self::Lsb,
+            2 => Self::Cw,
+            3 => Self::Am,
+            4 => Self::Fm,
+            _ => Self::Sam,
+        }
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum AgcPreset {
     SsbFast,
@@ -66,6 +79,77 @@ impl AgcPreset {
             Self::SsbSlow => 300.0,
             Self::Cw => 200.0,
             Self::Am | Self::Manual | Self::Off => 0.0,
+        }
+    }
+}
+
+pub struct FilterPreset {
+    pub bw_hz: f32,
+    pub shift_hz: f32,
+    pub taps: usize,
+}
+
+impl FilterPreset {
+    pub const CW_NARROW: Self = Self {
+        bw_hz: 200.0,
+        shift_hz: 700.0,
+        taps: 255,
+    };
+    pub const CW_WIDE: Self = Self {
+        bw_hz: 500.0,
+        shift_hz: 700.0,
+        taps: 127,
+    };
+    pub const SSB: Self = Self {
+        bw_hz: 2400.0,
+        shift_hz: 1500.0,
+        taps: 127,
+    };
+    pub const SSB_WIDE: Self = Self {
+        bw_hz: 3100.0,
+        shift_hz: 1650.0,
+        taps: 95,
+    };
+    pub const AM: Self = Self {
+        bw_hz: 6000.0,
+        shift_hz: 0.0,
+        taps: 63,
+    };
+    pub const AM_WIDE: Self = Self {
+        bw_hz: 9000.0,
+        shift_hz: 0.0,
+        taps: 63,
+    };
+    pub const FM_NARROW: Self = Self {
+        bw_hz: 12000.0,
+        shift_hz: 0.0,
+        taps: 63,
+    };
+    pub const FM_WIDE: Self = Self {
+        bw_hz: 15000.0,
+        shift_hz: 0.0,
+        taps: 47,
+    };
+
+    pub fn for_mode(mode: DemodMode) -> Self {
+        match mode {
+            DemodMode::Usb | DemodMode::Lsb => Self::SSB,
+            DemodMode::Cw => Self::CW_WIDE,
+            DemodMode::Am | DemodMode::Sam => Self::AM,
+            DemodMode::Fm => Self::FM_NARROW,
+        }
+    }
+
+    pub fn by_index(idx: u8) -> Self {
+        match idx {
+            0 => Self::CW_NARROW,
+            1 => Self::CW_WIDE,
+            2 => Self::SSB,
+            3 => Self::SSB_WIDE,
+            4 => Self::AM,
+            5 => Self::AM_WIDE,
+            6 => Self::FM_NARROW,
+            _ => Self::FM_WIDE,
         }
     }
 }

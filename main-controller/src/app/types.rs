@@ -494,11 +494,12 @@ pub struct CouplerMetrics {
 }
 
 pub const WATERFALL_BINS: usize = 240;
-pub const WATERFALL_LINES: usize = 90;
 
 #[derive(Clone, Copy)]
 pub struct WaterfallLine {
     pub bins: [i8; WATERFALL_BINS],
+    pub live_start: u8,
+    pub live_end: u8,
     pub complete: bool,
 }
 
@@ -506,27 +507,10 @@ impl WaterfallLine {
     pub const fn new() -> Self {
         Self {
             bins: [0; WATERFALL_BINS],
+            live_start: 0,
+            live_end: WATERFALL_BINS as u8,
             complete: false,
         }
-    }
-}
-
-pub struct WaterfallBuffer {
-    pub lines: [WaterfallLine; WATERFALL_LINES],
-    pub write_index: usize,
-}
-
-impl WaterfallBuffer {
-    pub const fn new() -> Self {
-        Self {
-            lines: [WaterfallLine::new(); WATERFALL_LINES],
-            write_index: 0,
-        }
-    }
-
-    pub fn push(&mut self, line: WaterfallLine) {
-        self.lines[self.write_index] = line;
-        self.write_index = (self.write_index + 1) % WATERFALL_LINES;
     }
 }
 

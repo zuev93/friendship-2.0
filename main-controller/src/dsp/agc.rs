@@ -71,8 +71,16 @@ impl DigitalAgc {
         self.hang_counter = 0;
     }
 
-    pub fn set_manual_gain_db(&mut self, db: f32) {
-        self.manual_gain = with_cordic(self.cordic, |c| c.db_to_amplitude(db.clamp(-20.0, 80.0)));
+    pub fn set_manual_gain_db(&mut self, gain_db: f32) {
+        self.manual_gain = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db));
+    }
+
+    pub fn current_gain(&self) -> f32 {
+        match self.preset {
+            AgcPreset::Manual => self.manual_gain,
+            AgcPreset::Off => 1.0,
+            _ => self.gain,
+        }
     }
 
     pub fn process(&mut self, iq: &mut IqBuffer) {
@@ -92,7 +100,7 @@ impl DigitalAgc {
     fn process_auto(&mut self, iq: &mut IqBuffer) {
         for idx in 0..DSP_BLOCK_SIZE {
             let mag_sq = iq.i[idx] * iq.i[idx] + iq.q[idx] * iq.q[idx];
-            let mag = fast_sqrt(mag_sq);
+            let mag = Self::fast_sqrt(mag_sq);
 
             if mag > self.envelope {
                 self.envelope += self.attack_coeff * (mag - self.envelope);
@@ -119,7 +127,7 @@ impl DigitalAgc {
         }
 
         if self.envelope > NOISE_GATE {
-            self.current_level_db = 20.0 * log2_approx(self.envelope) * 0.30103;
+            self.current_level_db = 20.0 * Self::log2_approx(self.envelope) * 0.30103;
         } else {
             self.current_level_db = -120.0;
         }
@@ -129,65 +137,65 @@ impl DigitalAgc {
         self.current_level_db
     }
 
-    pub fn current_gain(&self) -> f32 {
-        self.gain
+    fn fast_sqrt(x: f32) -> f32 {
+        if x <= 0.0 {
+            return 0.0;
+        }
+        let mut y = f32::from_bits((x.to_bits() >> 1) + 0x1FC0_0000);
+        y = 0.5 * (y + x / y);
+        y = 0.5 * (y + x / y);
+        y
+    }
+
+    fn log2_approx(x: f32) -> f32 {
+        if x <= 0.0 {
+            return -120.0;
+        }
+        let bits = x.to_bits();
+        let exp = ((bits >> 23) & 0xFF) as f32 - 127.0;
+        let mant = f32::from_bits((bits & 0x007F_FFFF) | 0x3F80_0000);
+        exp + (mant - 1.0) * 1.4427
     }
 }
 
+const ANALOG_AGC_ATTACK_RATE: f32 = 0.02;
+const ANALOG_AGC_RELEASE_RATE: f32 = 0.005;
+const ANALOG_AGC_TARGET_DBFS: f32 = -12.0;
+
 pub struct AnalogAgc {
-    target_dbfs: f32,
     current_gain_dac: u16,
-    attack_step: u16,
-    release_step: u16,
+    target_dbfs: f32,
+    attack_step: f32,
+    release_step: f32,
 }
 
 impl AnalogAgc {
     pub const fn new() -> Self {
         Self {
-            target_dbfs: -12.0,
             current_gain_dac: 2048,
-            attack_step: 100,
-            release_step: 10,
+            target_dbfs: ANALOG_AGC_TARGET_DBFS,
+            attack_step: ANALOG_AGC_ATTACK_RATE,
+            release_step: ANALOG_AGC_RELEASE_RATE,
         }
-    }
-
-    pub fn process_adc_peak(&mut self, peak_24bit: i32) -> u16 {
-        let dbfs = if peak_24bit > 0 {
-            20.0 * log2_approx(peak_24bit as f32 / 8_388_607.0) * 0.30103
-        } else {
-            -120.0
-        };
-
-        if dbfs > -3.0 {
-            self.current_gain_dac = self.current_gain_dac.saturating_sub(self.attack_step);
-        } else if dbfs < -20.0 {
-            self.current_gain_dac = (self.current_gain_dac + self.release_step).min(4095);
-        }
-
-        self.current_gain_dac
     }
 
     pub fn gain_db(&self) -> f32 {
         (self.current_gain_dac as f32 / 4095.0) * 45.0 - 2.5
     }
-}
 
-fn fast_sqrt(x: f32) -> f32 {
-    if x <= 0.0 {
-        return 0.0;
-    }
-    let mut y = f32::from_bits((x.to_bits() >> 1) + 0x1FC0_0000);
-    y = 0.5 * (y + x / y);
-    y = 0.5 * (y + x / y);
-    y
-}
+    pub fn process_adc_peak(&mut self, peak_dbfs: f32) -> u16 {
+        let error = self.target_dbfs - peak_dbfs;
 
-fn log2_approx(x: f32) -> f32 {
-    if x <= 0.0 {
-        return -120.0;
+        if error < -1.0 {
+            let step = ((-error) * self.attack_step * 4095.0 / 45.0) as i32;
+            let new_dac = (self.current_gain_dac as i32 - step).max(0) as u16;
+            self.current_gain_dac = new_dac;
+        } else if error > 1.0 {
+            let step = (error * self.release_step * 4095.0 / 45.0) as i32;
+            let new_dac = (self.current_gain_dac as i32 + step).min(4095) as u16;
+            self.current_gain_dac = new_dac;
+        }
+
+        self.current_gain_dac
     }
-    let bits = x.to_bits();
-    let exp = ((bits >> 23) & 0xFF) as f32 - 127.0;
-    let mant = f32::from_bits((bits & 0x007F_FFFF) | 0x3F80_0000);
-    exp + (mant - 1.0) * 1.4427
 }

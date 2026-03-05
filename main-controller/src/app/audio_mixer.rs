@@ -1,11 +1,7 @@
-use embassy_stm32::peripherals::FMAC;
-use embassy_stm32::Peri;
-
 use crate::{
     app::{
         cordic_math::{with_cordic, CordicMath, CordicMutex},
-        fmac_fir::{FmacFir, FIR_TAPS},
-        types::{AudioAgcMode, Compression, EqGain, NrLevel, Volume},
+        types::{Compression, EqGain, NrLevel, Volume},
         vox::VoxProcessor,
     },
     consts::AUDIO_BUFFER_SIZE,
@@ -89,40 +85,6 @@ impl BiquadState {
     }
 }
 
-fn lms_filter(
-    buffer: &mut [f32],
-    weights: &mut [f32],
-    history: &mut [f32],
-    hist_idx: &mut usize,
-    mu: f32,
-    taps: usize,
-    delay: usize,
-) {
-    let hist_len = taps + delay;
-
-    for sample in buffer.iter_mut() {
-        let x = *sample;
-
-        history[*hist_idx] = x;
-        *hist_idx = (*hist_idx + 1) % hist_len;
-
-        let mut y: f32 = 0.0;
-        for k in 0..taps {
-            let delay_idx = (*hist_idx + hist_len - delay - 1 - k) % hist_len;
-            y += weights[k] * history[delay_idx];
-        }
-
-        let error = x - y;
-
-        for k in 0..taps {
-            let delay_idx = (*hist_idx + hist_len - delay - 1 - k) % hist_len;
-            weights[k] += mu * error * history[delay_idx];
-        }
-
-        *sample = error;
-    }
-}
-
 pub struct AudioMixer {
     rx: [u16; AUDIO_BUFFER_SIZE],
     generator: [u16; AUDIO_BUFFER_SIZE],
@@ -146,19 +108,10 @@ pub struct AudioMixer {
     usb_tx: [u16; AUDIO_BUFFER_SIZE],
     usb_tx_active: bool,
     usb_tx_timeout: u16,
-    dsp_filter_enabled: bool,
-    fir_coeffs: [f32; FIR_TAPS],
-    bw_hz: u16,
-    pbt_hz: i16,
-    cw_peak_enabled: bool,
-    cw_peak_bq: BiquadState,
     anf_enabled: bool,
     anf_weights: [f32; ANF_TAPS],
     anf_history: [f32; ANF_TAPS + ANF_DELAY],
     anf_hist_idx: usize,
-    audio_agc_mode: AudioAgcMode,
-    agc_envelope: f32,
-    agc_gain: f32,
     tx_eq_enabled: bool,
     tx_eq_low_db: i8,
     tx_eq_mid_db: i8,
@@ -169,17 +122,12 @@ pub struct AudioMixer {
     rx_eq_mid_db: i8,
     rx_eq_high_db: i8,
     rx_eq_biquads: [BiquadState; 3],
-    cw_pitch_hz: u16,
-    sam_enabled: bool,
-    sam_pll_phase: f32,
-    sam_pll_freq: f32,
     cordic: &'static CordicMutex,
-    fmac: FmacFir,
     vox: VoxProcessor,
 }
 
 impl AudioMixer {
-    pub fn new(cordic: &'static CordicMutex, fmac_peri: Peri<'static, FMAC>) -> Self {
+    pub fn new(cordic: &'static CordicMutex) -> Self {
         Self {
             rx: [0; AUDIO_BUFFER_SIZE],
             generator: [0; AUDIO_BUFFER_SIZE],
@@ -203,19 +151,10 @@ impl AudioMixer {
             usb_tx: [32768; AUDIO_BUFFER_SIZE],
             usb_tx_active: false,
             usb_tx_timeout: 0,
-            dsp_filter_enabled: false,
-            fir_coeffs: [0.0; FIR_TAPS],
-            bw_hz: 2700,
-            pbt_hz: 0,
-            cw_peak_enabled: false,
-            cw_peak_bq: BiquadState::zero(),
             anf_enabled: false,
             anf_weights: [0.0; ANF_TAPS],
             anf_history: [0.0; ANF_TAPS + ANF_DELAY],
             anf_hist_idx: 0,
-            audio_agc_mode: AudioAgcMode::Off,
-            agc_envelope: 0.0,
-            agc_gain: 1.0,
             tx_eq_enabled: false,
             tx_eq_low_db: 0,
             tx_eq_mid_db: 0,
@@ -226,12 +165,7 @@ impl AudioMixer {
             rx_eq_mid_db: 0,
             rx_eq_high_db: 0,
             rx_eq_biquads: [BiquadState::zero(); 3],
-            cw_pitch_hz: 700,
-            sam_enabled: false,
-            sam_pll_phase: 0.0,
-            sam_pll_freq: 0.0,
             cordic,
-            fmac: FmacFir::new(fmac_peri),
             vox: VoxProcessor::new(),
         }
     }
@@ -304,66 +238,12 @@ impl AudioMixer {
         self.gain_reduction
     }
 
-    pub fn set_dsp_filter_enabled(&mut self, enabled: bool) {
-        self.dsp_filter_enabled = enabled;
-        if enabled {
-            self.recompute_fir();
-        } else {
-            self.fmac.stop();
-        }
-    }
-
-    pub fn set_dsp_bandwidth(&mut self, bw: u16) {
-        self.bw_hz = bw;
-        if self.dsp_filter_enabled {
-            self.recompute_fir();
-        }
-    }
-
-    pub fn set_dsp_shift(&mut self, pbt: i16) {
-        self.pbt_hz = pbt;
-        if self.dsp_filter_enabled {
-            self.recompute_fir();
-        }
-    }
-
-    pub fn set_cw_peak_enabled(&mut self, enabled: bool) {
-        self.cw_peak_enabled = enabled;
-        if enabled {
-            self.recompute_cw_peak();
-        } else {
-            self.cw_peak_bq.reset();
-        }
-    }
-
-    pub fn set_cw_peak_width(&mut self, width: u16) {
-        if self.cw_peak_enabled {
-            self.cw_peak_bq =
-                self.compute_biquad_bandpass(self.cw_pitch_hz as f32, width as f32, SAMPLE_RATE);
-        }
-    }
-
-    pub fn set_cw_pitch(&mut self, pitch: u16) {
-        self.cw_pitch_hz = pitch;
-        if self.cw_peak_enabled {
-            self.recompute_cw_peak();
-        }
-    }
-
     pub fn set_anf_enabled(&mut self, enabled: bool) {
         self.anf_enabled = enabled;
         if !enabled {
             self.anf_weights = [0.0; ANF_TAPS];
             self.anf_history = [0.0; ANF_TAPS + ANF_DELAY];
             self.anf_hist_idx = 0;
-        }
-    }
-
-    pub fn set_audio_agc_mode(&mut self, mode: AudioAgcMode) {
-        self.audio_agc_mode = mode;
-        if mode == AudioAgcMode::Off {
-            self.agc_envelope = 0.0;
-            self.agc_gain = 1.0;
         }
     }
 
@@ -459,117 +339,6 @@ impl AudioMixer {
         self.vox.set_voice_mode(voice);
     }
 
-    pub fn set_sam_enabled(&mut self, enabled: bool) {
-        self.sam_enabled = enabled;
-        if !enabled {
-            self.sam_pll_phase = 0.0;
-            self.sam_pll_freq = 0.0;
-        }
-    }
-
-    fn apply_sam(&mut self) {
-        if !self.sam_enabled {
-            return;
-        }
-
-        const ALPHA: f32 = 0.0093;
-        const BETA: f32 = 0.0000043;
-        const MAX_FREQ: f32 = 0.0262;
-        let pi = core::f32::consts::PI;
-
-        for sample in &mut self.rx {
-            let x = *sample as f32 / 32768.0 - 1.0;
-
-            let (sin_p, cos_p) = with_cordic(self.cordic, |c| c.sin_cos(self.sam_pll_phase));
-            let i = x * cos_p;
-            let q = x * (-sin_p);
-
-            let phase_error = if i >= 0.0 { q } else { -q };
-
-            self.sam_pll_freq += BETA * phase_error;
-            if self.sam_pll_freq > MAX_FREQ {
-                self.sam_pll_freq = MAX_FREQ;
-            } else if self.sam_pll_freq < -MAX_FREQ {
-                self.sam_pll_freq = -MAX_FREQ;
-            }
-
-            self.sam_pll_phase += self.sam_pll_freq + ALPHA * phase_error;
-            if self.sam_pll_phase > pi {
-                self.sam_pll_phase -= 2.0 * pi;
-            } else if self.sam_pll_phase < -pi {
-                self.sam_pll_phase += 2.0 * pi;
-            }
-
-            *sample = ((i + 1.0) * 32768.0).clamp(0.0, 65535.0) as u16;
-        }
-    }
-
-    fn compute_fir_bandpass(&mut self, bw_hz: u16, pbt_hz: i16, sr: f32) -> [f32; FIR_TAPS] {
-        let mut coeffs = [0.0f32; FIR_TAPS];
-        let half = (FIR_TAPS / 2) as f32;
-        let bw = bw_hz as f32;
-        let shift = pbt_hz as f32;
-        let f_low = (shift - bw / 2.0) / sr;
-        let f_high = (shift + bw / 2.0) / sr;
-        let pi = core::f32::consts::PI;
-
-        let mut sum = 0.0f32;
-        for i in 0..FIR_TAPS {
-            let n = i as f32 - half + 0.5;
-            let sinc_high = if n == 0.0 {
-                2.0 * f_high
-            } else {
-                with_cordic(self.cordic, |c| c.sinf(2.0 * pi * f_high * n)) / (pi * n)
-            };
-            let sinc_low = if n == 0.0 {
-                2.0 * f_low
-            } else {
-                with_cordic(self.cordic, |c| c.sinf(2.0 * pi * f_low * n)) / (pi * n)
-            };
-            let window = 0.54
-                - 0.46
-                    * with_cordic(self.cordic, |c| {
-                        c.cosf(2.0 * pi * i as f32 / (FIR_TAPS as f32 - 1.0))
-                    });
-            coeffs[i] = (sinc_high - sinc_low) * window;
-            sum += coeffs[i];
-        }
-
-        if sum.abs() > 1e-6 {
-            for c in &mut coeffs {
-                *c /= sum;
-            }
-        }
-        coeffs
-    }
-
-    fn compute_biquad_bandpass(&mut self, center_hz: f32, width_hz: f32, sr: f32) -> BiquadState {
-        let pi = core::f32::consts::PI;
-        let w0 = 2.0 * pi * center_hz / sr;
-        let q = center_hz / width_hz;
-        let (sin_w0, cos_w0) = with_cordic(self.cordic, |c| c.sin_cos(w0));
-        let alpha = sin_w0 / (2.0 * q);
-
-        let b0 = alpha;
-        let b1 = 0.0;
-        let b2 = -alpha;
-        let a0 = 1.0 + alpha;
-        let a1 = -2.0 * cos_w0;
-        let a2 = 1.0 - alpha;
-
-        BiquadState {
-            b0: b0 / a0,
-            b1: b1 / a0,
-            b2: b2 / a0,
-            a1: a1 / a0,
-            a2: a2 / a0,
-            x1: 0.0,
-            x2: 0.0,
-            y1: 0.0,
-            y2: 0.0,
-        }
-    }
-
     fn compute_low_shelf(&mut self, freq: f32, gain_db: f32, sr: f32) -> BiquadState {
         let pi = core::f32::consts::PI;
         let a = with_cordic(self.cordic, |c| c.db_to_amplitude(gain_db));
@@ -655,17 +424,6 @@ impl AudioMixer {
         }
     }
 
-    fn recompute_fir(&mut self) {
-        self.fir_coeffs = self.compute_fir_bandpass(self.bw_hz, self.pbt_hz, SAMPLE_RATE);
-        self.fmac.stop();
-        self.fmac.load_coefficients(&self.fir_coeffs);
-        self.fmac.start_fir();
-    }
-
-    fn recompute_cw_peak(&mut self) {
-        self.cw_peak_bq = self.compute_biquad_bandpass(self.cw_pitch_hz as f32, 200.0, SAMPLE_RATE);
-    }
-
     fn recompute_tx_eq(&mut self) {
         self.tx_eq_biquads[0] =
             self.compute_low_shelf(300.0, self.tx_eq_low_db as f32, SAMPLE_RATE);
@@ -684,28 +442,6 @@ impl AudioMixer {
             self.compute_high_shelf(3000.0, self.rx_eq_high_db as f32, SAMPLE_RATE);
     }
 
-    fn apply_bandpass(&mut self) {
-        if !self.dsp_filter_enabled {
-            return;
-        }
-        for sample in &mut self.rx {
-            let x_q15 = (*sample as i32 - 32768) as i16;
-            let y_q15 = self.fmac.process_sample(x_q15);
-            *sample = (y_q15 as i32 + 32768).clamp(0, 65535) as u16;
-        }
-    }
-
-    fn apply_cw_peak(&mut self) {
-        if !self.cw_peak_enabled {
-            return;
-        }
-        for sample in &mut self.rx {
-            let x = *sample as f32 / 32768.0 - 1.0;
-            let y = self.cw_peak_bq.process(x);
-            *sample = ((y + 1.0) * 32768.0).clamp(0.0, 65535.0) as u16;
-        }
-    }
-
     fn denoise_rx(&mut self) {
         if !self.nr_enabled {
             return;
@@ -716,7 +452,7 @@ impl AudioMixer {
             buf[i] = *sample as f32 / 32768.0 - 1.0;
         }
 
-        lms_filter(
+        Self::lms_filter(
             &mut buf,
             &mut self.nr_weights,
             &mut self.nr_history,
@@ -741,7 +477,7 @@ impl AudioMixer {
             buf[i] = *sample as f32 / 32768.0 - 1.0;
         }
 
-        lms_filter(
+        Self::lms_filter(
             &mut buf,
             &mut self.anf_weights,
             &mut self.anf_history,
@@ -753,60 +489,6 @@ impl AudioMixer {
 
         for (i, sample) in self.rx.iter_mut().enumerate() {
             *sample = ((buf[i] + 1.0) * 32768.0).clamp(0.0, 65535.0) as u16;
-        }
-    }
-
-    fn apply_audio_agc(&mut self) {
-        if self.audio_agc_mode == AudioAgcMode::Off {
-            return;
-        }
-
-        let attack_ms = 5.0f32;
-        let release_ms = match self.audio_agc_mode {
-            AudioAgcMode::Fast => 500.0,
-            AudioAgcMode::Med => 1000.0,
-            AudioAgcMode::Slow => 2000.0,
-            AudioAgcMode::Off => return,
-        };
-
-        let attack_coeff = 1.0
-            - with_cordic(self.cordic, |c| {
-                c.expf(-1.0 / (attack_ms * SAMPLE_RATE / 1000.0))
-            });
-        let release_coeff = 1.0
-            - with_cordic(self.cordic, |c| {
-                c.expf(-1.0 / (release_ms * SAMPLE_RATE / 1000.0))
-            });
-        let max_gain = 31.62f32;
-        let noise_gate = 0.001f32;
-
-        for sample in &mut self.rx {
-            let x = *sample as f32 / 32768.0 - 1.0;
-            let abs_x = if x < 0.0 { -x } else { x };
-
-            if abs_x > self.agc_envelope {
-                self.agc_envelope += attack_coeff * (abs_x - self.agc_envelope);
-            } else {
-                self.agc_envelope += release_coeff * (abs_x - self.agc_envelope);
-            }
-
-            if self.agc_envelope < noise_gate {
-                self.agc_gain = 1.0;
-            } else {
-                let target = 0.5 / self.agc_envelope;
-                self.agc_gain = if target > max_gain { max_gain } else { target };
-            }
-
-            let y = x * self.agc_gain;
-            let y_clamped = if y > 1.0 {
-                1.0f32
-            } else if y < -1.0 {
-                -1.0f32
-            } else {
-                y
-            };
-
-            *sample = ((y_clamped + 1.0) * 32768.0).clamp(0.0, 65535.0) as u16;
         }
     }
 
@@ -886,16 +568,56 @@ impl AudioMixer {
         }
     }
 
+    fn lms_filter(
+        buffer: &mut [f32],
+        weights: &mut [f32],
+        history: &mut [f32],
+        hist_idx: &mut usize,
+        mu: f32,
+        taps: usize,
+        delay: usize,
+    ) {
+        let hist_len = taps + delay;
+
+        for sample in buffer.iter_mut() {
+            let x = *sample;
+
+            history[*hist_idx] = x;
+            *hist_idx = (*hist_idx + 1) % hist_len;
+
+            let mut y: f32 = 0.0;
+            for k in 0..taps {
+                let delay_idx = (*hist_idx + hist_len - delay - 1 - k) % hist_len;
+                y += weights[k] * history[delay_idx];
+            }
+
+            let error = x - y;
+
+            for k in 0..taps {
+                let delay_idx = (*hist_idx + hist_len - delay - 1 - k) % hist_len;
+                weights[k] += mu * error * history[delay_idx];
+            }
+
+            *sample = error;
+        }
+    }
+
+    #[inline(always)]
+    fn scale_u8(sample: u16, gain: u8) -> u16 {
+        ((sample as u32 * gain as u32) / 255).min(u16::MAX as u32) as u16
+    }
+
+    #[inline(always)]
+    fn sat_add(a: u16, b: u16) -> u16 {
+        a.saturating_add(b)
+    }
+
     pub fn mix(&mut self) {
         self.compress_mic();
         self.apply_tx_eq();
 
-        self.apply_bandpass();
-        self.apply_sam();
-        self.apply_cw_peak();
         self.denoise_rx();
         self.denoise_notch();
-        self.apply_audio_agc();
         self.apply_rx_eq();
 
         if self.usb_tx_active {
@@ -908,7 +630,7 @@ impl AudioMixer {
         let g = self.gains;
         let rx_gain = if self.squelch_open { 255 } else { 0u8 };
         for i in 0..AUDIO_BUFFER_SIZE {
-            let rx = scale_u8(self.rx[i], rx_gain);
+            let rx = Self::scale_u8(self.rx[i], rx_gain);
             let gen = self.generator[i];
             let mic_or_usb = if self.usb_tx_active {
                 self.usb_tx[i]
@@ -916,14 +638,20 @@ impl AudioMixer {
                 self.mic[i]
             };
 
-            let hp = sat_add(scale_u8(rx, g.rx_to_hp), scale_u8(gen, g.gen_to_hp));
-            let spk = scale_u8(
-                sat_add(scale_u8(rx, g.rx_to_spk), scale_u8(gen, g.gen_to_spk)),
+            let hp = Self::sat_add(
+                Self::scale_u8(rx, g.rx_to_hp),
+                Self::scale_u8(gen, g.gen_to_hp),
+            );
+            let spk = Self::scale_u8(
+                Self::sat_add(
+                    Self::scale_u8(rx, g.rx_to_spk),
+                    Self::scale_u8(gen, g.gen_to_spk),
+                ),
                 self.volume_gain,
             );
-            let tx = sat_add(
-                scale_u8(mic_or_usb, g.mic_to_tx),
-                scale_u8(gen, g.gen_to_tx),
+            let tx = Self::sat_add(
+                Self::scale_u8(mic_or_usb, g.mic_to_tx),
+                Self::scale_u8(gen, g.gen_to_tx),
             );
 
             self.out_headphones[i] = if self.headphones_connected { hp } else { 0 };
@@ -931,14 +659,4 @@ impl AudioMixer {
             self.out_tx[i] = tx;
         }
     }
-}
-
-#[inline(always)]
-fn scale_u8(sample: u16, gain: u8) -> u16 {
-    ((sample as u32 * gain as u32) / 255).min(u16::MAX as u32) as u16
-}
-
-#[inline(always)]
-fn sat_add(a: u16, b: u16) -> u16 {
-    a.saturating_add(b)
 }

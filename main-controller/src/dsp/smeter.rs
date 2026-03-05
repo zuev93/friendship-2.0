@@ -1,6 +1,6 @@
+const SMOOTHING_ALPHA: f32 = 0.1;
 const S9_DBM: f32 = -73.0;
 const S_STEP_DB: f32 = 6.0;
-const SMOOTHING_ALPHA: f32 = 0.1;
 
 pub struct Smeter {
     smoothed_dbm: f32,
@@ -23,31 +23,27 @@ impl Smeter {
         self.smoothed_dbm = SMOOTHING_ALPHA * dbm + (1.0 - SMOOTHING_ALPHA) * self.smoothed_dbm;
     }
 
-    pub fn set_calibration(&mut self, offset: f32) {
-        self.calibration_offset = offset;
-    }
-
     pub fn dbm(&self) -> f32 {
         self.smoothed_dbm
     }
 
     pub fn s_units(&self) -> f32 {
         let diff = self.smoothed_dbm - S9_DBM;
-        if diff <= 0.0 {
-            9.0 + diff / S_STEP_DB
-        } else {
-            9.0 + diff / 10.0
-        }
+        9.0 + diff / S_STEP_DB
     }
 
     pub fn s_string(&self) -> (u8, i8) {
         let s = self.s_units();
         if s <= 9.0 {
-            let s_val = (s.max(0.0) as u8).min(9);
+            let s_val = (s.clamp(0.0, 9.0)) as u8;
             (s_val, 0)
         } else {
-            let over = ((s - 9.0) * 10.0) as i8;
-            (9, over.min(60))
+            let over_db = ((s - 9.0) * S_STEP_DB) as i8;
+            (9, over_db)
         }
+    }
+
+    pub fn set_calibration(&mut self, offset: f32) {
+        self.calibration_offset = offset;
     }
 }

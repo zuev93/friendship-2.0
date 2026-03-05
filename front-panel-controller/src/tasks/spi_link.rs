@@ -118,6 +118,8 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
             center_freq: cmd.center_freq,
             span_hz: cmd.span_hz,
             sweep_status: cmd.sweep_status,
+            live_start: cmd.live_start,
+            live_end: cmd.live_end,
             bins: cmd.bins,
         });
     } else if let Some(cmd) = MenuCommand::deserialize(packet) {

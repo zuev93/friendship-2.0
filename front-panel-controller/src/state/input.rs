@@ -46,6 +46,8 @@ pub struct WaterfallLineData {
     pub center_freq: u32,
     pub span_hz: u32,
     pub sweep_status: SweepStatus,
+    pub live_start: u8,
+    pub live_end: u8,
     pub bins: [i8; WATERFALL_BINS],
 }
 
