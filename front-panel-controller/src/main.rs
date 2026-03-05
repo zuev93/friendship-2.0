@@ -4,9 +4,7 @@
 mod constants;
 mod crc;
 mod hardware;
-mod state;
 mod tasks;
-mod ui;
 
 use embassy_executor::Spawner;
 use embassy_time::Timer;
@@ -14,7 +12,7 @@ use panic_halt as _;
 use static_cell::StaticCell;
 
 use crate::crc::HardwareCrc16Modbus;
-use crate::state::input::InputState;
+use druzhba_front_panel_controller::state::input::InputState;
 
 static INPUT_STATE: StaticCell<InputState> = StaticCell::new();
 static HW_CRC: StaticCell<HardwareCrc16Modbus> = StaticCell::new();
@@ -34,9 +32,9 @@ async fn main(spawner: Spawner) {
     tasks::spi_link::spawn_tasks(&spawner, hw.spi_link, input_state, hw_crc);
     tasks::render_meter::spawn_tasks(&spawner, hw.displays, &input_state.radio_state, 0);
     tasks::render_spectrum::spawn_tasks(&spawner, hw.displays, &input_state.waterfall_line, 1);
-    tasks::menu::spawn_tasks(&spawner, &input_state.menu_screen);
-    tasks::render_main::spawn_tasks(&spawner, hw.displays, &input_state.radio_state, &input_state.menu_screen, 2);
-    tasks::error_display::spawn_tasks(&spawner, hw.displays, &input_state.crash_info);
+    tasks::menu::spawn_tasks(&spawner, &input_state.menu_screen, &input_state.error_log);
+    tasks::render_main::spawn_tasks(&spawner, hw.displays, &input_state.radio_state, &input_state.menu_screen, &input_state.error_log, 2);
+    tasks::error_display::spawn_tasks(&spawner, hw.displays, &input_state.fatal, &input_state.error_log);
     tasks::fps_task::spawn_tasks(&spawner);
 
     loop {

@@ -1,9 +1,7 @@
 use embassy_executor::Spawner;
 
-use crate::{
-    hardware::{Led, Leds},
-    state::input::{LedSignal, LedState},
-};
+use crate::hardware::{Led, Leds};
+use druzhba_front_panel_controller::state::input::{LedSignal, LedState};
 
 pub fn spawn_tasks(spawner: &Spawner, leds: Leds, leds_signal: &'static LedSignal) {
     spawner.must_spawn(leds_task(leds, leds_signal));

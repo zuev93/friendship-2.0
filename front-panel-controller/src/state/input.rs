@@ -1,11 +1,21 @@
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
+use druzhba_common::PlatformMutex;
+use embassy_sync::signal::Signal;
 
+use super::error_log::ErrorLog;
 use super::menu::MenuScreenSignal;
 
 pub use druzhba_common::protocol_types::{
     CrashInfoCommand, IfGainMode, LedState, Mode, RfGainMode, SweepStatus, TransmitMode,
     Wm8940Command as Wm8940Config, WATERFALL_BINS,
 };
+
+use druzhba_common::error::BsodError;
+
+#[derive(Clone, Copy)]
+pub enum FatalError {
+    Init(BsodError),
+    Crash(CrashInfoCommand),
+}
 
 #[derive(Debug, Clone, Copy)]
 pub struct LedUpdate {
@@ -35,11 +45,11 @@ pub struct RadioState {
     pub cursor_editing: bool,
 }
 
-pub type LedSignal = Signal<ThreadModeRawMutex, LedUpdate>;
+pub type LedSignal = Signal<PlatformMutex, LedUpdate>;
 
-pub type Wm8940Signal = Signal<ThreadModeRawMutex, Wm8940Config>;
+pub type Wm8940Signal = Signal<PlatformMutex, Wm8940Config>;
 
-pub type RadioStateSignal = Signal<ThreadModeRawMutex, RadioState>;
+pub type RadioStateSignal = Signal<PlatformMutex, RadioState>;
 
 #[derive(Clone, Copy)]
 pub struct WaterfallLineData {
@@ -51,9 +61,9 @@ pub struct WaterfallLineData {
     pub bins: [i8; WATERFALL_BINS],
 }
 
-pub type WaterfallLineSignal = Signal<ThreadModeRawMutex, WaterfallLineData>;
+pub type WaterfallLineSignal = Signal<PlatformMutex, WaterfallLineData>;
 
-pub type CrashInfoSignal = Signal<ThreadModeRawMutex, CrashInfoCommand>;
+pub type FatalSignal = Signal<PlatformMutex, FatalError>;
 
 pub struct InputState {
     pub leds: LedSignal,
@@ -61,7 +71,8 @@ pub struct InputState {
     pub radio_state: RadioStateSignal,
     pub waterfall_line: WaterfallLineSignal,
     pub menu_screen: MenuScreenSignal,
-    pub crash_info: CrashInfoSignal,
+    pub fatal: FatalSignal,
+    pub error_log: ErrorLog,
 }
 
 impl InputState {
@@ -72,7 +83,8 @@ impl InputState {
             radio_state: Signal::new(),
             waterfall_line: Signal::new(),
             menu_screen: Signal::new(),
-            crash_info: Signal::new(),
+            fatal: Signal::new(),
+            error_log: ErrorLog::new(),
         }
     }
 }

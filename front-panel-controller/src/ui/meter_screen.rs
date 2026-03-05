@@ -10,7 +10,10 @@ use embedded_graphics::{
 use heapless::String;
 
 use crate::state::input::{IfGainMode, Mode, RadioState, RfGainMode, TransmitMode};
-use crate::ui::{meter_bar, BLACK, BLUE, BRIGHT_GREEN, CYAN, DARK_GRAY, DIM_WHITE, GRAY, GREEN, ORANGE, RED, WHITE, YELLOW};
+use crate::ui::{
+    meter_bar, BLACK, BLUE, BRIGHT_GREEN, CYAN, DARK_GRAY, DIM_WHITE, GRAY, GREEN, ORANGE, RED,
+    WHITE, YELLOW,
+};
 
 const DBM_MIN: i8 = -120;
 const DBM_S9: i8 = -73;
@@ -58,7 +61,14 @@ fn cursor_highlight_color(state: &RadioState, index: u8) -> Option<Rgb565> {
     }
 }
 
-fn draw_cursor_outline(target: &mut impl DrawTarget<Color = Rgb565>, x: i32, y: i32, w: u32, h: u32, color: Rgb565) {
+fn draw_cursor_outline(
+    target: &mut impl DrawTarget<Color = Rgb565>,
+    x: i32,
+    y: i32,
+    w: u32,
+    h: u32,
+    color: Rgb565,
+) {
     let _ = Rectangle::new(Point::new(x - 1, y), Size::new(w + 2, h))
         .into_styled(PrimitiveStyle::with_stroke(color, 1))
         .draw(target);
@@ -79,7 +89,9 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
         TransmitMode::Am => "AM",
     };
     let tm_w = (tx_mode.len() as u32) * 6;
-    Text::new(tx_mode, Point::new(2, 10), mode_style).draw(target).ok();
+    Text::new(tx_mode, Point::new(2, 10), mode_style)
+        .draw(target)
+        .ok();
     if let Some(color) = cursor_highlight_color(state, 1) {
         draw_cursor_outline(target, 2, 0, tm_w, 14, color);
     }
@@ -97,12 +109,19 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
 
     let mut bw_str: String<8> = String::new();
     if state.filter_bw_hz >= 1000 {
-        let _ = write!(bw_str, "{}.{}k", state.filter_bw_hz / 1000, (state.filter_bw_hz % 1000) / 100);
+        let _ = write!(
+            bw_str,
+            "{}.{}k",
+            state.filter_bw_hz / 1000,
+            (state.filter_bw_hz % 1000) / 100
+        );
     } else {
         let _ = write!(bw_str, "{}Hz", state.filter_bw_hz);
     }
     let bw_w = (bw_str.len() as u32) * 6;
-    Text::new(&bw_str, Point::new(96, 10), style).draw(target).ok();
+    Text::new(&bw_str, Point::new(96, 10), style)
+        .draw(target)
+        .ok();
     if let Some(color) = cursor_highlight_color(state, 5) {
         draw_cursor_outline(target, 96, 0, bw_w, 14, color);
     }
@@ -130,19 +149,29 @@ fn draw_status_bar(target: &mut impl DrawTarget<Color = Rgb565>, state: &RadioSt
         Mode::Tx => ("TX", RED),
     };
     let mode_rx_style = MonoTextStyle::new(&FONT_6X10, mode_color);
-    Text::new(mode_label, Point::new(210, 10), mode_rx_style).draw(target).ok();
+    Text::new(mode_label, Point::new(210, 10), mode_rx_style)
+        .draw(target)
+        .ok();
 }
 
 fn draw_scale(target: &mut impl DrawTarget<Color = Rgb565>) {
     let style = MonoTextStyle::new(&FONT_6X10, GRAY);
 
     let labels: &[(i32, &str)] = &[
-        (0, "1"), (20, "3"), (41, "5"), (61, "7"), (82, "9"),
-        (107, "+20"), (132, "+40"), (157, "+60"),
+        (0, "1"),
+        (20, "3"),
+        (41, "5"),
+        (61, "7"),
+        (82, "9"),
+        (107, "+20"),
+        (132, "+40"),
+        (157, "+60"),
     ];
     let base_x = BAR_X;
     for &(offset, label) in labels {
-        Text::new(label, Point::new(base_x + offset, 26), style).draw(target).ok();
+        Text::new(label, Point::new(base_x + offset, 26), style)
+            .draw(target)
+            .ok();
     }
 
     let tick_y: i32 = 28;
@@ -159,21 +188,23 @@ fn draw_smeter_bar(target: &mut impl DrawTarget<Color = Rgb565>, dbm: i8, peak_d
 
     meter_bar::draw_gradient_meter(
         target,
-        BAR_X, y, BAR_WIDTH, height,
-        value, 4095,
+        BAR_X,
+        y,
+        BAR_WIDTH,
+        height,
+        value,
+        4095,
         s9_bar(),
-        GREEN, YELLOW,
+        GREEN,
+        YELLOW,
         DARK_GRAY,
     );
 
     if peak > value.saturating_add(40) {
         let peak_x = (peak as u32 * BAR_WIDTH) / 4095;
-        let _ = Rectangle::new(
-            Point::new(BAR_X + peak_x as i32, y),
-            Size::new(2, height),
-        )
-        .into_styled(PrimitiveStyle::with_fill(WHITE))
-        .draw(target);
+        let _ = Rectangle::new(Point::new(BAR_X + peak_x as i32, y), Size::new(2, height))
+            .into_styled(PrimitiveStyle::with_fill(WHITE))
+            .draw(target);
     }
 }
 
@@ -198,27 +229,42 @@ fn draw_smeter_readout(target: &mut impl DrawTarget<Color = Rgb565>, dbm: i8) {
         let _ = write!(s_str, "S9+{}", over);
     }
 
-    Text::new(&s_str, Point::new(130, y), style).draw(target).ok();
+    Text::new(&s_str, Point::new(130, y), style)
+        .draw(target)
+        .ok();
 
     let mut dbm_str: String<12> = String::new();
     let _ = write!(dbm_str, "{} dBm", dbm);
-    Text::new(&dbm_str, Point::new(190, y), dim_style).draw(target).ok();
+    Text::new(&dbm_str, Point::new(190, y), dim_style)
+        .draw(target)
+        .ok();
 }
 
-fn draw_power_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_mw: u16, rf_power_centipercent: u16) {
+fn draw_power_bar(
+    target: &mut impl DrawTarget<Color = Rgb565>,
+    forward_power_mw: u16,
+    rf_power_centipercent: u16,
+) {
     let y: i32 = 78;
     let bar_x: i32 = 26;
     let bar_w: u32 = 144;
     let label_style = MonoTextStyle::new(&FONT_6X10, DIM_WHITE);
     let val_style = MonoTextStyle::new(&FONT_6X10, WHITE);
 
-    Text::new("PWR", Point::new(2, y + 10), label_style).draw(target).ok();
+    Text::new("PWR", Point::new(2, y + 10), label_style)
+        .draw(target)
+        .ok();
 
     meter_bar::draw_meter_bar(
         target,
-        bar_x, y, bar_w, BAR_HEIGHT,
-        forward_power_mw, MAX_POWER_MW,
-        BLUE, DARK_GRAY,
+        bar_x,
+        y,
+        bar_w,
+        BAR_HEIGHT,
+        forward_power_mw,
+        MAX_POWER_MW,
+        BLUE,
+        DARK_GRAY,
     );
 
     let target_mw = (rf_power_centipercent as u32 * MAX_POWER_MW as u32 / 10000) as u16;
@@ -234,7 +280,9 @@ fn draw_power_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_mw
     let watts = forward_power_mw / 1000;
     let frac = (forward_power_mw % 1000) / 100;
     let _ = write!(pwr_str, "{}.{} W", watts, frac);
-    Text::new(&pwr_str, Point::new(176, y + 10), val_style).draw(target).ok();
+    Text::new(&pwr_str, Point::new(176, y + 10), val_style)
+        .draw(target)
+        .ok();
 }
 
 fn draw_swr_bar(target: &mut impl DrawTarget<Color = Rgb565>, vswr_x100: u16) {
@@ -242,14 +290,13 @@ fn draw_swr_bar(target: &mut impl DrawTarget<Color = Rgb565>, vswr_x100: u16) {
     let label_style = MonoTextStyle::new(&FONT_6X10, DIM_WHITE);
     let val_style = MonoTextStyle::new(&FONT_6X10, WHITE);
 
-    Text::new("SWR", Point::new(2, y + 10), label_style).draw(target).ok();
+    Text::new("SWR", Point::new(2, y + 10), label_style)
+        .draw(target)
+        .ok();
 
     let bar_color = if vswr_x100 > SWR_WARN { RED } else { GREEN };
     meter_bar::draw_meter_bar(
-        target,
-        26, y, 144, BAR_HEIGHT,
-        vswr_x100, MAX_SWR,
-        bar_color, DARK_GRAY,
+        target, 26, y, 144, BAR_HEIGHT, vswr_x100, MAX_SWR, bar_color, DARK_GRAY,
     );
 
     let mut swr_str: String<10> = String::new();
@@ -260,10 +307,16 @@ fn draw_swr_bar(target: &mut impl DrawTarget<Color = Rgb565>, vswr_x100: u16) {
     } else {
         let _ = write!(swr_str, "{}.{}:1", whole, frac / 10);
     }
-    Text::new(&swr_str, Point::new(176, y + 10), val_style).draw(target).ok();
+    Text::new(&swr_str, Point::new(176, y + 10), val_style)
+        .draw(target)
+        .ok();
 }
 
-fn draw_detail_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_mw: u16, vswr_x100: u16) {
+fn draw_detail_bar(
+    target: &mut impl DrawTarget<Color = Rgb565>,
+    forward_power_mw: u16,
+    vswr_x100: u16,
+) {
     let y: i32 = 125;
     let style = MonoTextStyle::new(&FONT_6X10, DIM_WHITE);
 
@@ -273,7 +326,9 @@ fn draw_detail_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_m
 
     let mut fwd_str: String<12> = String::new();
     let _ = write!(fwd_str, "FWD:{}W", forward_power_mw / 1000);
-    Text::new(&fwd_str, Point::new(2, y), style).draw(target).ok();
+    Text::new(&fwd_str, Point::new(2, y), style)
+        .draw(target)
+        .ok();
 
     let reflected_mw = if vswr_x100 > 100 {
         let gamma_num = (vswr_x100 as u32).saturating_sub(100);
@@ -286,5 +341,7 @@ fn draw_detail_bar(target: &mut impl DrawTarget<Color = Rgb565>, forward_power_m
     let ref_w = reflected_mw / 1000;
     let ref_frac = (reflected_mw % 1000) / 100;
     let _ = write!(ref_str, "REF:{}.{}W", ref_w, ref_frac);
-    Text::new(&ref_str, Point::new(72, y), style).draw(target).ok();
+    Text::new(&ref_str, Point::new(72, y), style)
+        .draw(target)
+        .ok();
 }

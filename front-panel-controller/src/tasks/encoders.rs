@@ -4,7 +4,7 @@ use embassy_time::Timer;
 
 use crate::constants::QEI_POLL_INTERVAL;
 use crate::hardware::{ExtiEncoder, ExtiEncoders, QeiEncoder, QeiEncoders};
-use crate::state::output::{EncoderDirection, EncoderEvent, OutputEvent, OUTPUT_EVENTS};
+use druzhba_front_panel_controller::state::output::{EncoderDirection, EncoderEvent, OutputEvent, OUTPUT_EVENTS};
 
 const QEI_BASE_ID: u8 = 0;
 const EXTI_BASE_ID: u8 = 4;

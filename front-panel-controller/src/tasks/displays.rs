@@ -1,6 +1,6 @@
 use druzhba_common::error;
 use embassy_executor::Spawner;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Timer;
 
@@ -10,14 +10,14 @@ const DISPLAY_RESET_DELAY_MS: u64 = 10;
 
 pub fn spawn_tasks(
     spawner: &Spawner,
-    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    displays: &'static Mutex<PlatformMutex, Displays>,
 ) {
     spawner.must_spawn(init_task(displays));
 }
 
 #[embassy_executor::task]
 async fn init_task(
-    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    displays: &'static Mutex<PlatformMutex, Displays>,
 ) {
     let mut d = displays.lock().await;
 

@@ -19,9 +19,12 @@ pub fn render(target: &mut impl DrawTarget<Color = Rgb565>, screen: &MenuScreen)
         .into_styled(PrimitiveStyle::with_fill(BLACK))
         .draw(target);
 
-    let _ = Rectangle::new(Point::new(0, 0), Size::new(DISPLAY_WIDTH, TITLE_HEIGHT as u32))
-        .into_styled(PrimitiveStyle::with_fill(DARK_GRAY))
-        .draw(target);
+    let _ = Rectangle::new(
+        Point::new(0, 0),
+        Size::new(DISPLAY_WIDTH, TITLE_HEIGHT as u32),
+    )
+    .into_styled(PrimitiveStyle::with_fill(DARK_GRAY))
+    .draw(target);
 
     let title_style = MonoTextStyle::new(&FONT_6X10, WHITE);
     Text::new(screen.title, Point::new(2, 10), title_style)

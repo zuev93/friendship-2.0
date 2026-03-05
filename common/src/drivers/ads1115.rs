@@ -1,5 +1,6 @@
 use core::result::Result;
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use embassy_sync::mutex::Mutex;
+use crate::PlatformMutex;
 use embassy_time::Timer;
 use embedded_hal_async::i2c::I2c;
 
@@ -54,7 +55,7 @@ where
     address: u8,
     config: ADS1115Config,
     current_mux: u16,
-    i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
+    i2c: &'static Mutex<PlatformMutex, I2C>,
 }
 
 impl<I2C> ADS1115<I2C>
@@ -64,7 +65,7 @@ where
     pub fn new(
         address: u8,
         config: ADS1115Config,
-        i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
+        i2c: &'static Mutex<PlatformMutex, I2C>,
     ) -> Self {
         Self {
             address,

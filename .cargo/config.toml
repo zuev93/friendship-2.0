@@ -1,3 +1,6 @@
+[alias]
+xtask = "run --manifest-path xtask/Cargo.toml --target x86_64-pc-windows-msvc --"
+
 [build]
 target = "thumbv8m.main-none-eabihf"
 

@@ -1,17 +1,17 @@
 use embassy_executor::Spawner;
 use embassy_futures::select::{select, Either};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Timer;
 
 use crate::hardware::Displays;
-use crate::state::input::WaterfallLineSignal;
-use crate::ui;
-use crate::ui::spectrum_screen::WaterfallDisplayBuffer;
+use druzhba_front_panel_controller::state::input::WaterfallLineSignal;
+use druzhba_front_panel_controller::ui;
+use druzhba_front_panel_controller::ui::spectrum_screen::WaterfallDisplayBuffer;
 
 pub fn spawn_tasks(
     spawner: &Spawner,
-    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    displays: &'static Mutex<PlatformMutex, Displays>,
     waterfall_signal: &'static WaterfallLineSignal,
     display_index: usize,
 ) {
@@ -20,7 +20,7 @@ pub fn spawn_tasks(
 
 #[embassy_executor::task]
 async fn render_spectrum_task(
-    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    displays: &'static Mutex<PlatformMutex, Displays>,
     waterfall_signal: &'static WaterfallLineSignal,
     display_index: usize,
 ) {

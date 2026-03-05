@@ -2,11 +2,11 @@ use core::cell::RefCell;
 use druzhba_common::spi_protocol::Crc16;
 use embassy_stm32::crc::{self, Crc, InputReverseConfig, PolySize};
 use embassy_stm32::Peri;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::blocking_mutex::Mutex;
 
 pub struct HardwareCrc16Modbus {
-    crc: Mutex<ThreadModeRawMutex, RefCell<Crc<'static>>>,
+    crc: Mutex<PlatformMutex, RefCell<Crc<'static>>>,
 }
 
 impl HardwareCrc16Modbus {

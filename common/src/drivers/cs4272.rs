@@ -1,4 +1,5 @@
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use embassy_sync::mutex::Mutex;
+use crate::PlatformMutex;
 use embedded_hal_async::i2c::I2c;
 
 #[repr(u8)]
@@ -33,7 +34,7 @@ where
     I2C: I2c + 'static,
 {
     i2c_addr: u8,
-    i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
+    i2c: &'static Mutex<PlatformMutex, I2C>,
     dac_ctrl_cache: u8,
     adc_ctrl_cache: u8,
 }
@@ -42,7 +43,7 @@ impl<I2C> Cs4272<I2C>
 where
     I2C: I2c + 'static,
 {
-    pub fn new(i2c_addr: u8, i2c: &'static Mutex<ThreadModeRawMutex, I2C>) -> Self {
+    pub fn new(i2c_addr: u8, i2c: &'static Mutex<PlatformMutex, I2C>) -> Self {
         Self {
             i2c_addr,
             i2c,

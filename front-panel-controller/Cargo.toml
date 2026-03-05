@@ -4,15 +4,25 @@ version = "0.1.0"
 authors = ["Zuev"]
 edition = "2021"
 
+[features]
+default = ["target"]
+target = [
+    "dep:embassy-stm32",
+    "dep:cortex-m",
+    "dep:cortex-m-rt",
+    "dep:panic-halt",
+    "dep:embassy-executor",
+]
+
 [dependencies]
 druzhba-common = { path = "../common" }
 
-embassy-executor = { workspace = true }
+embassy-executor = { workspace = true, optional = true }
 embassy-time = { workspace = true }
 embassy-sync = { workspace = true }
 embassy-futures = { workspace = true }
 
-embassy-stm32 = { version = "0.5", features = [
+embassy-stm32 = { version = "0.5", optional = true, features = [
     "stm32h563vi",
     "memory-x",
     "time-driver-any",
@@ -24,10 +34,10 @@ embedded-hal = { workspace = true }
 embedded-hal-async = { workspace = true }
 embedded-hal-bus = { workspace = true }
 
-cortex-m = { workspace = true }
-cortex-m-rt = { workspace = true }
+cortex-m = { workspace = true, optional = true }
+cortex-m-rt = { workspace = true, optional = true }
 
-panic-halt = { workspace = true }
+panic-halt = { workspace = true, optional = true }
 
 ufmt = { workspace = true }
 heapless = { workspace = true }
@@ -35,9 +45,16 @@ static_cell = { workspace = true }
 embedded-graphics = { workspace = true }
 embedded-graphics-core = { workspace = true }
 
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[target.'cfg(not(target_os = "none"))'.dev-dependencies]
+critical-section = { version = "1", features = ["std"] }
+
 [[bin]]
 name = "druzhba-front-panel-controller"
 path = "src/main.rs"
+required-features = ["target"]
 
 [lints.rust]
 warnings = "deny"

@@ -4,7 +4,7 @@ use embassy_executor::Spawner;
 use embassy_stm32::i2c::{self, I2c};
 use embassy_stm32::mode;
 
-use crate::state::input::Wm8940Signal;
+use druzhba_front_panel_controller::state::input::Wm8940Signal;
 
 pub fn spawn_tasks(
     spawner: &Spawner,

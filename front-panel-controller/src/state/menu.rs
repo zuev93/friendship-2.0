@@ -1,11 +1,11 @@
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
 use heapless::String;
 
 pub use druzhba_common::protocol_types::MenuCommand;
 
-pub static MENU_EVENTS: Channel<ThreadModeRawMutex, MenuCommand, 8> = Channel::new();
+pub static MENU_EVENTS: Channel<PlatformMutex, MenuCommand, 8> = Channel::new();
 
 pub struct MenuItemView {
     pub label: &'static str,
@@ -20,4 +20,4 @@ pub struct MenuScreen {
     pub active: bool,
 }
 
-pub type MenuScreenSignal = Signal<ThreadModeRawMutex, MenuScreen>;
+pub type MenuScreenSignal = Signal<PlatformMutex, MenuScreen>;

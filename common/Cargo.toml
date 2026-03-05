@@ -18,6 +18,9 @@ embedded-hal-bus = { workspace = true }
 ufmt = { workspace = true }
 heapless = { workspace = true }
 
+[target.'cfg(not(target_os = "none"))'.dependencies]
+critical-section = { version = "1", features = ["std"] }
+
 [lints.rust]
 warnings = "deny"
 

@@ -1,4 +1,5 @@
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use embassy_sync::mutex::Mutex;
+use crate::PlatformMutex;
 use embedded_hal_async::i2c::I2c;
 
 const REG_CONFIG: u8 = 0x00;
@@ -32,7 +33,7 @@ where
     address: u8,
     shunt_cal: u16,
     current_lsb_na: u32,
-    i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
+    i2c: &'static Mutex<PlatformMutex, I2C>,
 }
 
 impl<I2C> Ina228<I2C>
@@ -43,7 +44,7 @@ where
         address: u8,
         shunt_resistor_mohm: u16,
         max_current_ma: u32,
-        i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
+        i2c: &'static Mutex<PlatformMutex, I2C>,
     ) -> Self {
         let current_lsb_na = (max_current_ma as u64 * 1_000_000) / (1u64 << 19);
         let current_lsb_na = current_lsb_na.max(1) as u32;

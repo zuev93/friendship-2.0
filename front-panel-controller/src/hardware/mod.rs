@@ -24,7 +24,7 @@ use embassy_stm32::{
     timer::qei::Qei,
     Config, Peri,
 };
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::mutex::Mutex;
 
 bind_interrupts!(struct ExtiIrqs {
@@ -49,7 +49,7 @@ pub struct Hardware {
     pub headphones_detect: ExtiInput<'static>,
     pub wm8940: Wm8940<I2c<'static, mode::Async, i2c::Master>>,
     pub spi_link: SpiLink,
-    pub displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    pub displays: &'static Mutex<PlatformMutex, Displays>,
     pub crc_peripheral: Peri<'static, CRC_PERI>,
 }
 

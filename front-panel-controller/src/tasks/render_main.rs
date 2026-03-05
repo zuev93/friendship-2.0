@@ -1,33 +1,37 @@
 use embassy_executor::Spawner;
 use embassy_futures::select::{select, Either};
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::mutex::Mutex;
 
 use crate::hardware::Displays;
-use crate::state::input::RadioStateSignal;
-use crate::state::menu::MenuScreenSignal;
-use crate::ui;
+use druzhba_front_panel_controller::state::error_log::ErrorLog;
+use druzhba_front_panel_controller::state::input::RadioStateSignal;
+use druzhba_front_panel_controller::state::menu::MenuScreenSignal;
+use druzhba_front_panel_controller::ui;
 
 pub fn spawn_tasks(
     spawner: &Spawner,
-    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    displays: &'static Mutex<PlatformMutex, Displays>,
     radio_state_signal: &'static RadioStateSignal,
     menu_screen_signal: &'static MenuScreenSignal,
+    error_log: &'static ErrorLog,
     display_index: usize,
 ) {
     spawner.must_spawn(render_main_task(
         displays,
         radio_state_signal,
         menu_screen_signal,
+        error_log,
         display_index,
     ));
 }
 
 #[embassy_executor::task]
 async fn render_main_task(
-    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    displays: &'static Mutex<PlatformMutex, Displays>,
     radio_state_signal: &'static RadioStateSignal,
     menu_screen_signal: &'static MenuScreenSignal,
+    error_log: &'static ErrorLog,
     display_index: usize,
 ) {
     let mut menu_active = false;
@@ -40,9 +44,10 @@ async fn render_main_task(
                 if menu_active {
                     continue;
                 }
+                let error_count = error_log.total();
                 let mut d = displays.lock().await;
                 let display = &mut d.displays[display_index];
-                ui::main_screen::render(&mut display.fb, &state);
+                ui::main_screen::render(&mut display.fb, &state, error_count);
                 let front = display.fb.swap();
                 if display.driver.draw(front).await.is_ok() {
             display.count_frame();
@@ -55,7 +60,8 @@ async fn render_main_task(
                 if menu.active {
                     ui::menu_screen::render(&mut display.fb, &menu);
                 } else if let Some(state) = &last_radio_state {
-                    ui::main_screen::render(&mut display.fb, state);
+                    let error_count = error_log.total();
+                    ui::main_screen::render(&mut display.fb, state, error_count);
                 } else {
                     continue;
                 }

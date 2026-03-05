@@ -51,12 +51,7 @@ async fn main(spawner: Spawner) {
 
     if let Some(crash) = crash_info::check_and_take() {
         crash_info::LAST_CRASH.sender().send(crash);
-        let bsod_err = match crash_info::ResetReason::from_u8(crash.reset_reason) {
-            crash_info::ResetReason::HardFault => common::error::BsodError::CrashHardFault,
-            crash_info::ResetReason::Panic => common::error::BsodError::CrashPanic,
-            _ => common::error::BsodError::CrashWatchdog,
-        };
-        common::error::BSOD.signal(bsod_err);
+        common::error::BSOD.signal(common::error::BsodError::Crash);
     }
 
     loop {

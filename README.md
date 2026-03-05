@@ -105,6 +105,45 @@ Three small color IPS displays (ST7789, 240x135 each) show: main tuning screen w
 
 Headphone audio goes through a WM8940 mono codec on the front panel, receiving its stream from the main controller over SAI2.
 
+### Display Screens
+
+Each display has a dedicated render task and shows a fixed screen type. All rendering uses double-buffered framebuffers pushed over SPI DMA.
+
+> Screenshots generated from actual render code. Run:
+> `cargo test -p druzhba-front-panel-controller --no-default-features --test screenshots --target x86_64-pc-windows-msvc`
+
+**Display 1 — Main Tuning** (240x135, ST7789)
+
+<img src="docs/screen-main.png" width="480" alt="Main Screen (RX)">
+
+<img src="docs/screen-main-tx.png" width="480" alt="Main Screen (TX)">
+
+Status bar (band, mode, AGC, RF gain, NB, RX/TX state), large frequency readout, RIT/XIT offset, filter bandwidth, RF power setting, S-meter bar with dBm/S-unit readout, volume and squelch bars. Navigable cursor highlights active parameter in cyan (selected) or yellow (editing).
+
+**Display 2 — Spectrum + Waterfall** (240x135, ST7789)
+
+<img src="docs/screen-spectrum.png" width="480" alt="Spectrum + Waterfall Screen">
+
+Frequency labels (left edge, center, right edge), sweep status indicator (green=sweeping, yellow=listening, gray=idle). Top third: real-time spectrum plot (green line + fill, dimmed for stale/swept bins). Bottom two-thirds: scrolling waterfall spectrogram with 4-segment color mapping (dark blue -> green -> yellow -> red-orange, -120 to -20 dBm). Center frequency marker. Live and stale regions visually differentiated.
+
+**Display 3 — Meter** (240x135, ST7789)
+
+<img src="docs/screen-meter.png" width="480" alt="Meter Screen">
+
+S-meter with classic scale (S1-S9, +20/+40/+60), gradient bar (green below S9, yellow above) with peak hold marker, dBm readout. Forward power bar (blue, 0-50W) with target marker. SWR bar (green normal, red above 2.0:1). Detail bar with FWD/REF power values.
+
+**Menu Overlay** (replaces main screen when active)
+
+<img src="docs/screen-menu.png" width="480" alt="Menu Screen">
+
+Title bar, scrollable item list (max 8 visible), blue highlight on selected item. Submenu items marked with `>`. Currently: Radio Info (frequency, mode, band) and Hardware (FW version) submenus.
+
+**Fatal Error** (shown on all 3 displays simultaneously)
+
+<img src="docs/screen-fatal.png" width="480" alt="Fatal Error Screen">
+
+Red background, fatal error info: init failure message or crash details from main controller (reset reason, PC/LR registers or panic file:line, uptime). Enters infinite loop — requires hardware reset. Non-fatal errors are logged silently and shown via a red "E:N" indicator in the status bar; the error log is accessible through the menu.
+
 ## Power System
 
 Three INA228 high-side monitors track VBUS input, PA supply, and 3.3V rail in real time. Overcurrent protection with automatic shutdown. The 50V PA supply is enabled only when transmitting, with mode-based sequencing. PWM-controlled fan responds to PA temperature.

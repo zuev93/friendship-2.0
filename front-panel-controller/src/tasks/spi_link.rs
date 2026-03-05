@@ -6,19 +6,19 @@ use druzhba_common::protocol_types::{
 use druzhba_common::spi_protocol::{Crc16, Packet, PacketSerializable, PacketType};
 use embassy_executor::Spawner;
 use embassy_stm32::gpio::Output;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::channel::Channel;
 use embassy_sync::signal::Signal;
 
 use crate::constants::TX_QUEUE_SIZE;
 use crate::crc::HardwareCrc16Modbus;
 use crate::hardware::{SpiLink, SpiSlaveInstance};
-use crate::state::input::InputState;
-use crate::state::menu::MENU_EVENTS;
-use crate::state::output::OUTPUT_EVENTS;
+use druzhba_front_panel_controller::state::input::InputState;
+use druzhba_front_panel_controller::state::menu::MENU_EVENTS;
+use druzhba_front_panel_controller::state::output::OUTPUT_EVENTS;
 
-static TX_QUEUE: Channel<ThreadModeRawMutex, Packet, TX_QUEUE_SIZE> = Channel::new();
-static QUEUE_EMPTY: Signal<ThreadModeRawMutex, ()> = Signal::new();
+static TX_QUEUE: Channel<PlatformMutex, Packet, TX_QUEUE_SIZE> = Channel::new();
+static QUEUE_EMPTY: Signal<PlatformMutex, ()> = Signal::new();
 
 pub fn spawn_tasks(
     spawner: &Spawner,
@@ -85,7 +85,7 @@ async fn spi_link_task(
 async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
     if let Some(led_cmd) = LedCommand::deserialize(packet) {
         if led_cmd.led_id < 7 {
-            input_state.leds.signal(crate::state::input::LedUpdate {
+            input_state.leds.signal(druzhba_front_panel_controller::state::input::LedUpdate {
                 led_id: led_cmd.led_id,
                 state: led_cmd.state,
             });
@@ -93,7 +93,7 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
     } else if let Some(wm8940_cmd) = Wm8940Command::deserialize(packet) {
         input_state.wm8940.signal(wm8940_cmd);
     } else if let Some(cmd) = RadioStateCommand::deserialize(packet) {
-        input_state.radio_state.signal(crate::state::input::RadioState {
+        input_state.radio_state.signal(druzhba_front_panel_controller::state::input::RadioState {
             rssi_dbm: cmd.rssi_dbm,
             forward_power_mw: cmd.forward_power_mw,
             vswr_x100: cmd.vswr_x100,
@@ -114,7 +114,7 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
             cursor_editing: cmd.cursor_editing,
         });
     } else if let Some(cmd) = WaterfallLineCommand::deserialize(packet) {
-        input_state.waterfall_line.signal(crate::state::input::WaterfallLineData {
+        input_state.waterfall_line.signal(druzhba_front_panel_controller::state::input::WaterfallLineData {
             center_freq: cmd.center_freq,
             span_hz: cmd.span_hz,
             sweep_status: cmd.sweep_status,
@@ -125,12 +125,12 @@ async fn handle_rx_packet(packet: &Packet, input_state: &'static InputState) {
     } else if let Some(cmd) = MenuCommand::deserialize(packet) {
         let _ = MENU_EVENTS.try_send(cmd);
     } else if let Some(cmd) = CrashInfoCommand::deserialize(packet) {
-        input_state.crash_info.signal(cmd);
+        input_state.fatal.signal(druzhba_front_panel_controller::state::input::FatalError::Crash(cmd));
     }
 }
 
-fn serialize_event(event: &crate::state::output::OutputEvent, packet: &mut Packet, crc: &impl Crc16) {
-    use crate::state::output::OutputEvent;
+fn serialize_event(event: &druzhba_front_panel_controller::state::output::OutputEvent, packet: &mut Packet, crc: &impl Crc16) {
+    use druzhba_front_panel_controller::state::output::OutputEvent;
     match event {
         OutputEvent::Button(btn) => btn.serialize(packet, crc),
         OutputEvent::Encoder(enc) => enc.serialize(packet, crc),

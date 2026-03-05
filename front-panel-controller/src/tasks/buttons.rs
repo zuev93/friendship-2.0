@@ -3,7 +3,7 @@ use embassy_time::Timer;
 
 use crate::constants::BUTTON_POLL_INTERVAL;
 use crate::hardware::Buttons;
-use crate::state::output::{ButtonEvent, ButtonState, OutputEvent, OUTPUT_EVENTS};
+use druzhba_front_panel_controller::state::output::{ButtonEvent, ButtonState, OutputEvent, OUTPUT_EVENTS};
 
 const DEBOUNCE_COUNT: u8 = 4;
 

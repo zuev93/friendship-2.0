@@ -9,48 +9,10 @@ use embedded_graphics::{
 use druzhba_common::error::BsodError;
 use druzhba_common::protocol_types::CrashInfoCommand;
 
+use crate::state::input::FatalError;
 use crate::ui::{BLACK, RED, WHITE};
 
-pub fn render_bsod(target: &mut impl DrawTarget<Color = Rgb565>, error: BsodError) {
-    let _ = Rectangle::new(Point::zero(), Size::new(240, 135))
-        .into_styled(PrimitiveStyle::with_fill(RED))
-        .draw(target);
-
-    let title_style = MonoTextStyle::new(&FONT_6X10, WHITE);
-    Text::new("FATAL ERROR", Point::new(72, 50), title_style)
-        .draw(target)
-        .ok();
-
-    let msg = match error {
-        BsodError::FrontPanelInitFailed => "Front panel init failed",
-        BsodError::DisplayInitFailed => "Display init failed",
-        BsodError::MainBoardInitFailed => "Main board init failed",
-        BsodError::CrashHardFault => "Main board: HardFault",
-        BsodError::CrashPanic => "Main board: Panic",
-        BsodError::CrashWatchdog => "Main board: Watchdog",
-    };
-
-    let msg_style = MonoTextStyle::new(&FONT_6X10, BLACK);
-    Text::new(msg, Point::new(30, 75), msg_style).draw(target).ok();
-}
-
-pub fn render_error(target: &mut impl DrawTarget<Color = Rgb565>, message: &str) {
-    let _ = Rectangle::new(Point::zero(), Size::new(240, 135))
-        .into_styled(PrimitiveStyle::with_fill(BLACK))
-        .draw(target);
-
-    let label_style = MonoTextStyle::new(&FONT_6X10, RED);
-    Text::new("ERROR", Point::new(90, 50), label_style)
-        .draw(target)
-        .ok();
-
-    let msg_style = MonoTextStyle::new(&FONT_6X10, WHITE);
-    Text::new(message, Point::new(10, 75), msg_style)
-        .draw(target)
-        .ok();
-}
-
-pub fn render_crash_bsod(target: &mut impl DrawTarget<Color = Rgb565>, cmd: &CrashInfoCommand) {
+pub fn render_fatal(target: &mut impl DrawTarget<Color = Rgb565>, error: &FatalError) {
     let _ = Rectangle::new(Point::zero(), Size::new(240, 135))
         .into_styled(PrimitiveStyle::with_fill(RED))
         .draw(target);
@@ -58,19 +20,48 @@ pub fn render_crash_bsod(target: &mut impl DrawTarget<Color = Rgb565>, cmd: &Cra
     let title_style = MonoTextStyle::new(&FONT_6X10, WHITE);
     let detail_style = MonoTextStyle::new(&FONT_6X10, BLACK);
 
+    match error {
+        FatalError::Init(bsod) => {
+            Text::new("FATAL ERROR", Point::new(72, 50), title_style)
+                .draw(target)
+                .ok();
+
+            let msg = match bsod {
+                BsodError::FrontPanelInitFailed => "Front panel init failed",
+                BsodError::DisplayInitFailed => "Display init failed",
+                BsodError::MainBoardInitFailed => "Main board init failed",
+                BsodError::Crash => "Main board crashed",
+            };
+
+            Text::new(msg, Point::new(30, 75), detail_style)
+                .draw(target)
+                .ok();
+        }
+        FatalError::Crash(cmd) => {
+            render_crash_detail(target, cmd, title_style, detail_style);
+        }
+    }
+}
+
+fn render_crash_detail(
+    target: &mut impl DrawTarget<Color = Rgb565>,
+    cmd: &CrashInfoCommand,
+    title_style: MonoTextStyle<'_, Rgb565>,
+    detail_style: MonoTextStyle<'_, Rgb565>,
+) {
     let title = match cmd.reset_reason {
         1 => "CRASH: HardFault",
         2 => "CRASH: Panic",
         3 => "CRASH: Watchdog",
         _ => "CRASH: Unknown",
     };
-    Text::new(title, Point::new(60, 20), title_style).draw(target).ok();
+    Text::new(title, Point::new(60, 20), title_style)
+        .draw(target)
+        .ok();
 
     let mut line2 = [0u8; 40];
     let line2_len = match cmd.reset_reason {
-        1 => {
-            fmt_hex_line(&mut line2, b"PC:", cmd.pc, b" LR:", cmd.lr)
-        }
+        1 => fmt_hex_line(&mut line2, b"PC:", cmd.pc, b" LR:", cmd.lr),
         2 => {
             let file_len = cmd.panic_file.iter().position(|&b| b == 0).unwrap_or(64);
             let file = &cmd.panic_file[..file_len.min(28)];
@@ -87,7 +78,9 @@ pub fn render_crash_bsod(target: &mut impl DrawTarget<Color = Rgb565>, cmd: &Cra
 
     if line2_len > 0 {
         if let Ok(s) = core::str::from_utf8(&line2[..line2_len]) {
-            Text::new(s, Point::new(10, 55), detail_style).draw(target).ok();
+            Text::new(s, Point::new(10, 55), detail_style)
+                .draw(target)
+                .ok();
         }
     }
 
@@ -99,7 +92,9 @@ pub fn render_crash_bsod(target: &mut impl DrawTarget<Color = Rgb565>, cmd: &Cra
     line3[pos] = b's';
     pos += 1;
     if let Ok(s) = core::str::from_utf8(&line3[..pos]) {
-        Text::new(s, Point::new(10, 90), detail_style).draw(target).ok();
+        Text::new(s, Point::new(10, 90), detail_style)
+            .draw(target)
+            .ok();
     }
 }
 
@@ -120,7 +115,11 @@ fn fmt_hex32(buf: &mut [u8], val: u32) -> usize {
     let mut i = 0;
     while i < 8 {
         let nibble = ((val >> (28 - i * 4)) & 0xF) as u8;
-        buf[2 + i] = if nibble < 10 { b'0' + nibble } else { b'A' + nibble - 10 };
+        buf[2 + i] = if nibble < 10 {
+            b'0' + nibble
+        } else {
+            b'A' + nibble - 10
+        };
         i += 1;
     }
     10

@@ -1,14 +1,14 @@
 use embassy_executor::Spawner;
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::mutex::Mutex;
 
 use crate::hardware::Displays;
-use crate::state::input::RadioStateSignal;
-use crate::ui;
+use druzhba_front_panel_controller::state::input::RadioStateSignal;
+use druzhba_front_panel_controller::ui;
 
 pub fn spawn_tasks(
     spawner: &Spawner,
-    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    displays: &'static Mutex<PlatformMutex, Displays>,
     radio_state_signal: &'static RadioStateSignal,
     display_index: usize,
 ) {
@@ -17,7 +17,7 @@ pub fn spawn_tasks(
 
 #[embassy_executor::task]
 async fn render_meter_task(
-    displays: &'static Mutex<ThreadModeRawMutex, Displays>,
+    displays: &'static Mutex<PlatformMutex, Displays>,
     radio_state_signal: &'static RadioStateSignal,
     display_index: usize,
 ) {

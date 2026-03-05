@@ -1,7 +1,7 @@
 use embassy_executor::Spawner;
 use embassy_stm32::exti::ExtiInput;
 
-use crate::state::output::{HeadphonesEvent, OutputEvent, OUTPUT_EVENTS};
+use druzhba_front_panel_controller::state::output::{HeadphonesEvent, OutputEvent, OUTPUT_EVENTS};
 
 pub fn spawn_tasks(spawner: &Spawner, headphones_detect: ExtiInput<'static>) {
     spawner.must_spawn(headphones_detect_task(headphones_detect));

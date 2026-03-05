@@ -15,7 +15,8 @@
  */
 
 use core::result::Result;
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use embassy_sync::mutex::Mutex;
+use crate::PlatformMutex;
 use embedded_hal_async::i2c::I2c;
 
 const REG_INPUT_PORT0: u8 = 0x00;
@@ -50,14 +51,14 @@ where
     I2C: I2c + 'static,
 {
     address: u8,
-    i2c: &'static Mutex<ThreadModeRawMutex, I2C>,
+    i2c: &'static Mutex<PlatformMutex, I2C>,
 }
 
 impl<I2C> TCA9555<I2C>
 where
     I2C: I2c + 'static,
 {
-    pub fn new(i2c_addr: u8, i2c: &'static Mutex<ThreadModeRawMutex, I2C>) -> Self {
+    pub fn new(i2c_addr: u8, i2c: &'static Mutex<PlatformMutex, I2C>) -> Self {
         Self {
             address: i2c_addr,
             i2c,

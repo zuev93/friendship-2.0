@@ -1,4 +1,5 @@
-use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
+use embassy_sync::mutex::Mutex;
+use crate::PlatformMutex;
 use embassy_time::Timer;
 use embedded_hal::digital::OutputPin;
 use embedded_hal_async::spi::SpiBus;
@@ -87,8 +88,8 @@ where
     DC: OutputPin + 'static,
     CS: OutputPin + 'static,
 {
-    spi: &'static Mutex<ThreadModeRawMutex, SPI>,
-    dc: &'static Mutex<ThreadModeRawMutex, DC>,
+    spi: &'static Mutex<PlatformMutex, SPI>,
+    dc: &'static Mutex<PlatformMutex, DC>,
     cs: CS,
     rotation: Rotation,
     col_offset: u16,
@@ -102,8 +103,8 @@ where
     CS: OutputPin + 'static,
 {
     pub fn new(
-        spi: &'static Mutex<ThreadModeRawMutex, SPI>,
-        dc: &'static Mutex<ThreadModeRawMutex, DC>,
+        spi: &'static Mutex<PlatformMutex, SPI>,
+        dc: &'static Mutex<PlatformMutex, DC>,
         cs: CS,
         rotation: Rotation,
     ) -> Self {

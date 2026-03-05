@@ -11,7 +11,7 @@ use embassy_stm32::{
     time::Hertz,
     Peri,
 };
-use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use druzhba_common::PlatformMutex;
 use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
@@ -44,7 +44,7 @@ impl Display {
     }
 
     pub fn count_frame(&self) {
-        crate::state::fps::increment(self.index);
+        druzhba_front_panel_controller::state::fps::increment(self.index);
     }
 }
 
@@ -55,8 +55,8 @@ pub struct Displays {
 }
 
 impl Displays {
-    pub fn as_mutex(self) -> &'static Mutex<ThreadModeRawMutex, Self> {
-        static DISPLAYS_MUTEX: StaticCell<Mutex<ThreadModeRawMutex, Displays>> = StaticCell::new();
+    pub fn as_mutex(self) -> &'static Mutex<PlatformMutex, Self> {
+        static DISPLAYS_MUTEX: StaticCell<Mutex<PlatformMutex, Displays>> = StaticCell::new();
         DISPLAYS_MUTEX.init(Mutex::new(self))
     }
 
@@ -79,18 +79,18 @@ impl Displays {
         let spi2 = Spi::new_txonly(spi2, sck, mosi, tx_dma, spi_config);
 
         let spi2_mutex: &'static Mutex<
-            ThreadModeRawMutex,
+            PlatformMutex,
             Spi<'static, mode::Async, spi::mode::Master>,
         > = {
             static SPI2_MUTEX: StaticCell<
-                Mutex<ThreadModeRawMutex, Spi<'static, mode::Async, spi::mode::Master>>,
+                Mutex<PlatformMutex, Spi<'static, mode::Async, spi::mode::Master>>,
             > = StaticCell::new();
             SPI2_MUTEX.init(Mutex::new(spi2))
         };
 
         let dc = Output::new(dc_pin, Level::Low, Speed::Medium);
-        let dc_mutex: &'static Mutex<ThreadModeRawMutex, Output<'static>> = {
-            static DC_MUTEX: StaticCell<Mutex<ThreadModeRawMutex, Output<'static>>> =
+        let dc_mutex: &'static Mutex<PlatformMutex, Output<'static>> = {
+            static DC_MUTEX: StaticCell<Mutex<PlatformMutex, Output<'static>>> =
                 StaticCell::new();
             DC_MUTEX.init(Mutex::new(dc))
         };
