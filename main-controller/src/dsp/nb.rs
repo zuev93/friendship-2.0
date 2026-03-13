@@ -1,6 +1,6 @@
 use super::types::{IqBuffer, DSP_BLOCK_SIZE};
 
-const NB_WINDOW_SAMPLES: usize = 48;
+const NB_WINDOW_SAMPLES: usize = 8;
 const NB_AVG_ALPHA: f32 = 0.001;
 
 pub struct NoiseBlanker {

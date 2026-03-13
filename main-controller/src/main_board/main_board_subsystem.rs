@@ -16,11 +16,11 @@ use static_cell::StaticCell;
 use crate::i2c_map::MainI2cMap;
 use crate::main_board::{
     modules::{
-        audio_panel::AudioPanel, crystal_filter::CrystalFilter, detector::Detector,
+        audio_panel::AudioPanel, crystal_filter::CrystalFilter,
         if_amplifier::IfAmplifier, mixer::Mixer,
     },
     tasks::{
-        audio::audio_panel_task, crystal_filter, detector_tasks::detector_tasks,
+        audio::audio_panel_task, crystal_filter,
         if_amplifier_tasks, mixer_tasks::mixer_tasks,
     },
 };
@@ -66,9 +66,8 @@ impl MainBoardSubsystem {
             spawner,
             IfAmplifier::new(
                 i2c_mutex,
-                main_i2c_map.if_amp_mcp4725,
+                main_i2c_map.if_amp_mcp4728,
                 main_i2c_map.if_amp_ads1015_rssi,
-                main_i2c_map.if_amp_pca9534,
             ),
         );
         audio_panel_task::create_tasks(
@@ -92,14 +91,10 @@ impl MainBoardSubsystem {
             spawner,
             CrystalFilter::new(
                 i2c_mutex,
-                main_i2c_map.filter_pca9534,
+                main_i2c_map.filter_pca9536,
                 main_i2c_map.filter_nb_mcp4725,
             ),
         );
-        spawner.must_spawn(detector_tasks(Detector::new(
-            i2c_mutex,
-            main_i2c_map.detector_pca9534,
-            main_i2c_map.detector_mcp4725,
-        )));
+
     }
 }

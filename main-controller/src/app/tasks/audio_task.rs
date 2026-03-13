@@ -30,7 +30,7 @@ use crate::{
     consts::ADC_BUFFER_SIZE,
     dsp::{types::FftResult, DspPipeline},
     front_panel::events::{AUDIO_MIC_BUFFER, HEADPHONES_CONNECTED},
-    main_board::events::{AGC_DAC_VALUE, AUDIO_RX_BUFFER, CURRENT_RSSI2},
+    main_board::events::{AUDIO_RX_BUFFER, CURRENT_RSSI2},
     main_board::types::RssiDbm,
 };
 
@@ -89,8 +89,7 @@ async fn audio_task(
             let result = pipeline.process_rx_with_fft(&adc_rx);
 
             let peak_dbfs = adc_peak_dbfs(&adc_rx, cordic);
-            let agc_dac = pipeline.process_adc_peak(peak_dbfs);
-            AGC_DAC_VALUE.sender().send(agc_dac);
+            let _agc_dac = pipeline.process_adc_peak(peak_dbfs);
 
             let dbm = pipeline.smeter_dbm();
             let _s_units = pipeline.smeter_s_units();

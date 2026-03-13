@@ -2,11 +2,14 @@ use crate::app::types::{Mode, NbLevel};
 use crate::i2c_map::I2cAddress;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex, RssiDbm};
 use common::drivers::mcp4725::MCP4725;
-use common::drivers::pca9534::{Pin, PCA9534};
+use common::drivers::pca9536::{Pin, PCA9536};
 
 const DAC_12BIT_MAX: u32 = 4095;
 
-const IO_NB_ACTIVITY_PIN: Pin = Pin::Pin0;
+const IO_NB_OK: Pin = Pin::IO0;
+const IO_NB_ON: Pin = Pin::IO1;
+
+const IO_CONFIG: u8 = 0b0001;
 
 const VDD_MV: u32 = 3300;
 const NB_DELTA_MIN_MV: u32 = 50;
@@ -16,9 +19,10 @@ const ADC_MAX_RAW: i32 = 1656;
 const ADC_FS_MV: i32 = 4096;
 
 pub struct CrystalFilter {
-    io: PCA9534<MainBoardI2C>,
+    io: PCA9536<MainBoardI2C>,
     nb_dac: MCP4725<MainBoardI2C>,
     mode: Mode,
+    nb_enabled: bool,
     nb_level: NbLevel,
     last_rssi: RssiDbm,
 }
@@ -26,15 +30,16 @@ pub struct CrystalFilter {
 impl CrystalFilter {
     pub fn new(
         i2c: &'static MainBoardI2CMutex,
-        pca9534_addr: I2cAddress,
+        pca9536_addr: I2cAddress,
         nb_mcp4725_addr: I2cAddress,
     ) -> Self {
-        let io = PCA9534::new(pca9534_addr.into(), i2c);
+        let io = PCA9536::new(pca9536_addr.into(), i2c);
         let nb_dac = MCP4725::new(nb_mcp4725_addr.into(), i2c);
         Self {
             io,
             nb_dac,
             mode: Mode::StandBy,
+            nb_enabled: false,
             nb_level: NbLevel::new(0),
             last_rssi: RssiDbm { dbm: -120 },
         }
@@ -46,7 +51,12 @@ impl CrystalFilter {
         if mode == Mode::WarmUp && prev != Mode::WarmUp {
             self.init().await?;
         }
-        self.update_nb_threshold().await
+        self.update_nb().await
+    }
+
+    pub async fn set_nb_enabled(&mut self, enabled: bool) -> Result<(), &'static str> {
+        self.nb_enabled = enabled;
+        self.update_nb().await
     }
 
     pub async fn set_nb_level(&mut self, nb_level: NbLevel) -> Result<(), &'static str> {
@@ -60,16 +70,23 @@ impl CrystalFilter {
     }
 
     pub async fn read_nb_activity(&self) -> Result<bool, &'static str> {
-        let pin_high = self
-            .io
-            .read_pin(IO_NB_ACTIVITY_PIN)
+        self.io
+            .read_pin(IO_NB_OK)
             .await
-            .map_err(|_| "Failed to read NB activity")?;
-        Ok(!pin_high)
+            .map_err(|_| "Failed to read NB activity")
+    }
+
+    async fn update_nb(&mut self) -> Result<(), &'static str> {
+        let nb_on = self.nb_enabled && self.mode == Mode::Rx;
+        self.io
+            .write_pin(IO_NB_ON, nb_on)
+            .await
+            .map_err(|_| "Failed to set NB_ON")?;
+        self.update_nb_threshold().await
     }
 
     async fn update_nb_threshold(&mut self) -> Result<(), &'static str> {
-        if self.mode == Mode::Tx || self.mode == Mode::StandBy {
+        if !self.nb_enabled || self.mode == Mode::Tx || self.mode == Mode::StandBy {
             self.nb_dac
                 .set_raw(DAC_12BIT_MAX as u16)
                 .await
@@ -92,11 +109,7 @@ impl CrystalFilter {
 
     async fn init(&mut self) -> Result<(), &'static str> {
         self.io
-            .init()
-            .await
-            .map_err(|_| "Failed to init crystal filter IO")?;
-        self.io
-            .set_direction(0x01)
+            .init(IO_CONFIG)
             .await
             .map_err(|_| "Failed to init crystal filter IO")?;
         Ok(())

@@ -27,6 +27,10 @@ pub mod tone_generator;
 pub mod mixer_types;
 
 #[cfg(not(feature = "target"))]
+#[path = "app/spectral_nr.rs"]
+pub mod spectral_nr;
+
+#[cfg(not(feature = "target"))]
 #[path = "app/vox.rs"]
 pub mod vox;
 

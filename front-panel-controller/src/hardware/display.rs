@@ -1,8 +1,10 @@
 use druzhba_common::drivers::st7789::{Rotation, ST7789};
+use druzhba_common::PlatformMutex;
 use embassy_stm32::gpio::{OutputType, Pin};
+use embassy_stm32::spi::{MosiPin, SckPin};
 use embassy_stm32::timer::low_level::CountingMode;
 use embassy_stm32::timer::simple_pwm::{PwmPin, SimplePwm};
-use embassy_stm32::timer::Channel;
+use embassy_stm32::timer::{Ch1, Channel, TimerPin};
 use embassy_stm32::{
     gpio::{Level, Output, Speed},
     mode,
@@ -11,7 +13,6 @@ use embassy_stm32::{
     time::Hertz,
     Peri,
 };
-use druzhba_common::PlatformMutex;
 use embassy_sync::mutex::Mutex;
 use static_cell::StaticCell;
 
@@ -51,7 +52,7 @@ impl Display {
 pub struct Displays {
     pub displays: [Display; 3],
     pub reset: Output<'static>,
-    backlight: SimplePwm<'static, TIM17>,
+    backlight: SimplePwm<'static, TIM2>,
 }
 
 impl Displays {
@@ -62,16 +63,16 @@ impl Displays {
 
     pub fn new(
         spi2: Peri<'static, SPI2>,
-        sck: Peri<'static, PB10>,
-        mosi: Peri<'static, PB15>,
+        sck: Peri<'static, impl SckPin<SPI2>>,
+        mosi: Peri<'static, impl MosiPin<SPI2>>,
         tx_dma: Peri<'static, GPDMA1_CH2>,
         dc_pin: Peri<'static, impl Pin>,
         cs1_pin: Peri<'static, impl Pin>,
         cs2_pin: Peri<'static, impl Pin>,
         cs3_pin: Peri<'static, impl Pin>,
         reset_pin: Peri<'static, impl Pin>,
-        backlight_tim: Peri<'static, TIM17>,
-        backlight_pin: Peri<'static, PB9>,
+        backlight_tim: Peri<'static, TIM2>,
+        backlight_pin: Peri<'static, impl TimerPin<TIM2, Ch1>>,
     ) -> Self {
         let mut spi_config = spi::Config::default();
         spi_config.frequency = DISPLAY_SPI_FREQUENCY;
@@ -90,8 +91,7 @@ impl Displays {
 
         let dc = Output::new(dc_pin, Level::Low, Speed::Medium);
         let dc_mutex: &'static Mutex<PlatformMutex, Output<'static>> = {
-            static DC_MUTEX: StaticCell<Mutex<PlatformMutex, Output<'static>>> =
-                StaticCell::new();
+            static DC_MUTEX: StaticCell<Mutex<PlatformMutex, Output<'static>>> = StaticCell::new();
             DC_MUTEX.init(Mutex::new(dc))
         };
 

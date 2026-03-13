@@ -3,7 +3,6 @@ use embassy_stm32::Peri;
 
 use crate::i2c_map::MainI2cMap;
 use crate::main_board::modules::crystal_filter::CrystalFilter;
-use crate::main_board::modules::detector::Detector;
 use crate::main_board::types::{MainBoardI2C, MainBoardI2CMutex};
 
 use super::modules::audio_panel::AudioPanel;
@@ -16,7 +15,6 @@ pub struct MainBoard {
     pub mixer: Mixer,
     pub crystal_filter: CrystalFilter,
     pub if_amplifier: IfAmplifier,
-    pub detector: Detector,
     pub audio_panel: AudioPanel,
 }
 
@@ -36,27 +34,22 @@ impl MainBoard {
     ) -> Self {
         let MainI2cMap {
             si5351: _,
-            filter_pca9534,
-            if_amp_pca9534,
+            filter_pca9536,
+            if_amp_mcp4728,
             if_amp_ads1015_rssi,
-            if_amp_mcp4725,
-            detector_pca9534,
-            detector_mcp4725,
-            audio_pcm3060,
+            audio_cs4272,
             audio_panel_pca9534,
             filter_nb_mcp4725,
         } = i2c_map;
 
         Self {
             mixer: Mixer::new(si5351),
-            crystal_filter: CrystalFilter::new(i2c, filter_pca9534, filter_nb_mcp4725),
+            crystal_filter: CrystalFilter::new(i2c, filter_pca9536, filter_nb_mcp4725),
             if_amplifier: IfAmplifier::new(
                 i2c,
-                if_amp_mcp4725,
+                if_amp_mcp4728,
                 if_amp_ads1015_rssi,
-                if_amp_pca9534,
             ),
-            detector: Detector::new(i2c, detector_pca9534, detector_mcp4725),
             audio_panel: AudioPanel::new(
                 i2c,
                 audio_cs4272,

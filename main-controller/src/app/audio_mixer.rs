@@ -1,6 +1,7 @@
 #[cfg(feature = "target")]
 use crate::app::{
     cordic_math::{with_cordic, CordicMath, CordicMutex},
+    spectral_nr::SpectralNr,
     types::{Compression, EqGain, NrLevel, Volume},
     vox::VoxProcessor,
 };
@@ -9,13 +10,11 @@ use crate::app::{
 use crate::{
     cordic_math::{with_cordic, CordicMath, CordicMutex},
     mixer_types::{Compression, EqGain, NrLevel, Volume},
+    spectral_nr::SpectralNr,
     vox::VoxProcessor,
 };
 
 use crate::consts::AUDIO_BUFFER_SIZE;
-
-const NR_TAPS: usize = 64;
-const NR_DELAY: usize = 1;
 const ANF_TAPS: usize = 48;
 const ANF_DELAY: usize = 8;
 const SAMPLE_RATE: f32 = 48000.0;
@@ -108,10 +107,7 @@ pub struct AudioMixer {
     envelope: u32,
     gain_reduction: u8,
     nr_enabled: bool,
-    nr_mu: u16,
-    nr_weights: [f32; NR_TAPS],
-    nr_history: [f32; NR_TAPS + NR_DELAY],
-    nr_hist_idx: usize,
+    spectral_nr: SpectralNr,
     usb_tx: [u16; AUDIO_BUFFER_SIZE],
     usb_tx_active: bool,
     usb_tx_timeout: u16,
@@ -151,10 +147,7 @@ impl AudioMixer {
             envelope: 0,
             gain_reduction: 0,
             nr_enabled: false,
-            nr_mu: 0,
-            nr_weights: [0.0; NR_TAPS],
-            nr_history: [0.0; NR_TAPS + NR_DELAY],
-            nr_hist_idx: 0,
+            spectral_nr: SpectralNr::new(cordic),
             usb_tx: [32768; AUDIO_BUFFER_SIZE],
             usb_tx_active: false,
             usb_tx_timeout: 0,
@@ -224,11 +217,6 @@ impl AudioMixer {
 
     pub fn set_nr_enabled(&mut self, enabled: bool) {
         self.nr_enabled = enabled;
-        if !enabled {
-            self.nr_weights = [0.0; NR_TAPS];
-            self.nr_history = [0.0; NR_TAPS + NR_DELAY];
-            self.nr_hist_idx = 0;
-        }
     }
 
     pub fn set_buffer_usb_tx(&mut self, buffer: [u16; AUDIO_BUFFER_SIZE]) {
@@ -238,7 +226,7 @@ impl AudioMixer {
     }
 
     pub fn set_nr_level(&mut self, level: NrLevel) {
-        self.nr_mu = level.raw() as u16;
+        self.spectral_nr.set_level(level.raw());
     }
 
     pub fn gain_reduction(&self) -> u8 {
@@ -453,22 +441,12 @@ impl AudioMixer {
         if !self.nr_enabled {
             return;
         }
-        let mu = self.nr_mu as f32 / 32768.0;
         let mut buf = [0.0f32; AUDIO_BUFFER_SIZE];
         for (i, sample) in self.rx.iter().enumerate() {
             buf[i] = *sample as f32 / 32768.0 - 1.0;
         }
 
-        Self::lms_filter(
-            &mut buf,
-            &mut self.nr_weights,
-            &mut self.nr_history,
-            &mut self.nr_hist_idx,
-            mu,
-            NR_TAPS,
-            NR_DELAY,
-            true,
-        );
+        self.spectral_nr.process(&mut buf);
 
         for (i, sample) in self.rx.iter_mut().enumerate() {
             *sample = ((buf[i] + 1.0) * 32768.0).clamp(0.0, 65535.0) as u16;
@@ -479,7 +457,7 @@ impl AudioMixer {
         if !self.anf_enabled {
             return;
         }
-        let mu = 0.0001f32;
+        let mu = 0.003f32;
         let mut buf = [0.0f32; AUDIO_BUFFER_SIZE];
         for (i, sample) in self.rx.iter().enumerate() {
             buf[i] = *sample as f32 / 32768.0 - 1.0;
@@ -494,6 +472,7 @@ impl AudioMixer {
             ANF_TAPS,
             ANF_DELAY,
             false,
+            0.0,
         );
 
         for (i, sample) in self.rx.iter_mut().enumerate() {
@@ -586,8 +565,11 @@ impl AudioMixer {
         taps: usize,
         delay: usize,
         output_prediction: bool,
+        leakage: f32,
     ) {
         let hist_len = taps + delay;
+        const NLMS_EPS: f32 = 1e-6;
+        let decay = 1.0 - leakage;
 
         for sample in buffer.iter_mut() {
             let x = *sample;
@@ -596,16 +578,20 @@ impl AudioMixer {
             *hist_idx = (*hist_idx + 1) % hist_len;
 
             let mut y: f32 = 0.0;
+            let mut norm: f32 = 0.0;
             for k in 0..taps {
                 let delay_idx = (*hist_idx + hist_len - delay - 1 - k) % hist_len;
-                y += weights[k] * history[delay_idx];
+                let h = history[delay_idx];
+                y += weights[k] * h;
+                norm += h * h;
             }
 
             let error = x - y;
+            let step = mu * error / (norm + NLMS_EPS);
 
             for k in 0..taps {
                 let delay_idx = (*hist_idx + hist_len - delay - 1 - k) % hist_len;
-                weights[k] += mu * error * history[delay_idx];
+                weights[k] = decay * weights[k] + step * history[delay_idx];
             }
 
             *sample = if output_prediction { y } else { error };
@@ -614,7 +600,9 @@ impl AudioMixer {
 
     #[inline(always)]
     fn scale_u8(sample: u16, gain: u8) -> u16 {
-        ((sample as u32 * gain as u32) / 255).min(u16::MAX as u32) as u16
+        let centered = sample as i32 - 32768;
+        let scaled = centered * gain as i32 / 255;
+        (scaled + 32768).clamp(0, u16::MAX as i32) as u16
     }
 
     #[inline(always)]

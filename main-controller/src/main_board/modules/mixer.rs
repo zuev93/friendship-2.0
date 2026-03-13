@@ -97,9 +97,9 @@ impl Mixer {
             Mode::Rx | Mode::Tx => {
                 let bfo_frequency = self.calculate_bfo_frequency();
                 self.si5351
-                    .set_frequency(PllSource::PllB, ClkOutput::Clk1, bfo_frequency)
+                    .set_frequency_iq_pair(PllSource::PllB, bfo_frequency)
                     .await
-                    .map_err(|_| "Failed to set BFO frequency")
+                    .map_err(|_| "Failed to set BFO I/Q frequency")
             }
             Mode::WarmUp | Mode::StandBy => Ok(()),
         }

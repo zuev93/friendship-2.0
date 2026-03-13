@@ -13,9 +13,9 @@ mod crc;
 mod fault_handler;
 mod front_panel;
 mod hardware;
-mod mpu;
 mod i2c_map;
 mod main_board;
+mod mpu;
 mod panic_handler;
 mod peripherals;
 pub mod runtime_stats;
@@ -27,6 +27,7 @@ pub mod runtime_stats;
 // TODO tests
 // EEPROM settings
 // TODO Number of buttons and encoders/config is error prone.
+// TODO move logic out of audio mixer - it is a mixer, not a dsp engine
 
 use core::sync::atomic::Ordering;
 use embassy_executor::Spawner;

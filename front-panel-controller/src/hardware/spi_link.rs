@@ -2,7 +2,7 @@ use embassy_stm32::{
     gpio::{Level, Output, Pin, Speed},
     mode,
     peripherals::*,
-    spi::{self, Spi},
+    spi::{self, CsPin, MisoPin, MosiPin, SckPin, Spi},
     Peri,
 };
 
@@ -16,10 +16,10 @@ pub struct SpiLink {
 impl SpiLink {
     pub fn new(
         spi1: Peri<'static, SPI1>,
-        sck: Peri<'static, PA5>,
-        mosi: Peri<'static, PB5>,
-        miso: Peri<'static, PA6>,
-        nss: Peri<'static, PA15>,
+        sck: Peri<'static, impl SckPin<SPI1>>,
+        mosi: Peri<'static, impl MosiPin<SPI1>>,
+        miso: Peri<'static, impl MisoPin<SPI1>>,
+        nss: Peri<'static, impl CsPin<SPI1>>,
         tx_dma: Peri<'static, GPDMA1_CH3>,
         rx_dma: Peri<'static, GPDMA1_CH4>,
         link_alert_pin: Peri<'static, impl Pin>,

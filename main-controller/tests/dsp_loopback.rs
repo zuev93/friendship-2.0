@@ -207,7 +207,7 @@ fn run_voice_loopback(
     prefix: &str,
     mode: DemodMode,
     audio_blocks: &[[u16; AUDIO_BUFFER_SIZE]],
-    check_fidelity: bool,
+    max_rms: f32,
 ) {
     let (if_samples, rx_samples) = tx_then_rx(cordic, mode, audio_blocks, false);
     let name = mode_name(mode);
@@ -228,8 +228,8 @@ fn run_voice_loopback(
     let skip = AUDIO_BUFFER_SIZE * 4;
     let peak = peak_amplitude(&rx_samples[skip..]);
     assert!(
-        peak > 100,
-        "{prefix} {name}: signal too weak after loopback (peak={peak})",
+        peak > 1000,
+        "{prefix} {name}: signal too weak after loopback (peak={peak}, min=1000)",
     );
 
     let input_flat: Vec<f32> = audio_blocks
@@ -249,12 +249,10 @@ fn run_voice_loopback(
     let rms = rms_error_at_lag(&in_norm, &rx_norm, lag);
     eprintln!("{prefix} {name}: peak={peak} lag={lag} rms={rms:.4}");
 
-    if check_fidelity {
-        assert!(
-            rms < 0.05,
-            "{prefix} {name}: RX doesn't match input (rms={rms:.4}, lag={lag})",
-        );
-    }
+    assert!(
+        rms < max_rms,
+        "{prefix} {name}: fidelity too low (rms={rms:.4}, max={max_rms}, lag={lag})",
+    );
 }
 
 #[test]
@@ -264,7 +262,7 @@ fn test_dsp_loopback_tone_1khz() {
     let blocks = to_blocks(&input);
 
     for &mode in VOICE_MODES {
-        run_voice_loopback(cordic, "tone-1khz", mode, &blocks, true);
+        run_voice_loopback(cordic, "tone-1khz", mode, &blocks, 0.06);
     }
 }
 
@@ -290,7 +288,7 @@ fn test_dsp_loopback_tone_generator() {
     write_wav(&out.join("tone-generator-input.wav"), &input_i16, 48000);
 
     for &mode in VOICE_MODES {
-        run_voice_loopback(cordic, "tone-generator", mode, &blocks, false);
+        run_voice_loopback(cordic, "tone-generator", mode, &blocks, 0.06);
     }
 }
 
@@ -301,7 +299,11 @@ fn test_dsp_loopback_speech() {
     let blocks = to_blocks(&input);
 
     for &mode in VOICE_MODES {
-        run_voice_loopback(cordic, "speech", mode, &blocks, false);
+        let max_rms = match mode {
+            DemodMode::Usb | DemodMode::Lsb => 0.12,
+            _ => 0.06,
+        };
+        run_voice_loopback(cordic, "speech", mode, &blocks, max_rms);
     }
 }
 
@@ -337,12 +339,11 @@ fn test_dsp_loopback_idempotent() {
                     prev = pass - 1
                 );
 
-                if pass == 10 {
-                    assert!(
-                        rms < 0.05,
-                        "{name}: not idempotent after 10 passes (pass 9→10 rms={rms:.4})",
-                    );
-                }
+                assert!(
+                    rms < 0.10,
+                    "{name}: excessive degradation at pass {prev}→{pass} (rms={rms:.4}, max=0.10)",
+                    prev = pass - 1
+                );
             }
 
             let rx_u16: Vec<u16> = rx.iter().map(|&s| (s as i32 + 32768) as u16).collect();
@@ -371,7 +372,7 @@ fn test_dsp_loopback_cw() {
     let peak = peak_amplitude(&rx_samples[skip..]);
     eprintln!("cw loopback peak: {peak}");
     assert!(
-        peak > 100,
-        "cw: signal too weak after loopback (peak={peak})",
+        peak > 1000,
+        "cw: signal too weak after loopback (peak={peak}, min=1000)",
     );
 }

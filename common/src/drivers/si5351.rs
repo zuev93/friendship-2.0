@@ -7,10 +7,15 @@ const REG_DEVICE_STATUS: u8 = 0;
 const REG_OUTPUT_ENABLE: u8 = 3;
 const REG_CLK0_CONTROL: u8 = 16;
 const REG_CLK1_CONTROL: u8 = 17;
+const REG_CLK2_CONTROL: u8 = 18;
 const REG_MSNA_BASE: u8 = 26;
 const REG_MSNB_BASE: u8 = 34;
 const REG_MS0_BASE: u8 = 42;
 const REG_MS1_BASE: u8 = 50;
+const REG_MS2_BASE: u8 = 58;
+const REG_CLK0_PHASE: u8 = 165;
+const REG_CLK1_PHASE: u8 = 166;
+const REG_CLK2_PHASE: u8 = 167;
 const REG_PLL_RESET: u8 = 177;
 const REG_CRYSTAL_LOAD: u8 = 183;
 
@@ -35,6 +40,7 @@ pub enum PllSource {
 pub enum ClkOutput {
     Clk0,
     Clk1,
+    Clk2,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -79,8 +85,10 @@ where
     pllb_freq: u32,
     clk0_enabled: bool,
     clk1_enabled: bool,
+    clk2_enabled: bool,
     clk0_drive: DriveStrength,
     clk1_drive: DriveStrength,
+    clk2_drive: DriveStrength,
 }
 
 impl<I2C> Si5351<I2C>
@@ -95,8 +103,10 @@ where
             pllb_freq: 0,
             clk0_enabled: false,
             clk1_enabled: false,
+            clk2_enabled: false,
             clk0_drive: DriveStrength::Drive8mA,
             clk1_drive: DriveStrength::Drive8mA,
+            clk2_drive: DriveStrength::Drive8mA,
         }
     }
 
@@ -107,7 +117,11 @@ where
 
         self.write_reg(REG_CLK0_CONTROL, 0x80).await?;
         self.write_reg(REG_CLK1_CONTROL, 0x80).await?;
-        self.write_reg(18, 0x80).await?;
+        self.write_reg(REG_CLK2_CONTROL, 0x80).await?;
+
+        self.write_reg(REG_CLK0_PHASE, 0).await?;
+        self.write_reg(REG_CLK1_PHASE, 0).await?;
+        self.write_reg(REG_CLK2_PHASE, 0).await?;
 
         self.write_reg(REG_CRYSTAL_LOAD, CRYSTAL_LOAD_8PF).await?;
 
@@ -142,16 +156,19 @@ where
         let ms_base = match output {
             ClkOutput::Clk0 => REG_MS0_BASE,
             ClkOutput::Clk1 => REG_MS1_BASE,
+            ClkOutput::Clk2 => REG_MS2_BASE,
         };
         self.write_ms_params(ms_base, &ms_params).await?;
 
         let clk_reg = match output {
             ClkOutput::Clk0 => REG_CLK0_CONTROL,
             ClkOutput::Clk1 => REG_CLK1_CONTROL,
+            ClkOutput::Clk2 => REG_CLK2_CONTROL,
         };
         let drive = match output {
             ClkOutput::Clk0 => self.clk0_drive,
             ClkOutput::Clk1 => self.clk1_drive,
+            ClkOutput::Clk2 => self.clk2_drive,
         };
         let pll_bit = match pll {
             PllSource::PllA => 0x00,
@@ -171,7 +188,68 @@ where
         match output {
             ClkOutput::Clk0 => self.clk0_enabled = true,
             ClkOutput::Clk1 => self.clk1_enabled = true,
+            ClkOutput::Clk2 => self.clk2_enabled = true,
         }
+        self.update_output_enable().await?;
+
+        Ok(())
+    }
+
+    pub async fn set_frequency_iq_pair(
+        &mut self,
+        pll: PllSource,
+        freq_hz: u32,
+    ) -> Result<(), I2C::Error> {
+        let divider = self.calculate_even_divider(freq_hz);
+        let target_vco = freq_hz * divider;
+
+        let pll_params = self.calculate_pll_params(target_vco);
+        let actual_vco = self.pll_frequency(&pll_params);
+
+        let ms_params = MsParams {
+            a: divider,
+            b: 0,
+            c: 1,
+            r_div: 0,
+        };
+
+        let (pll_base, pll_reset_bit) = match pll {
+            PllSource::PllA => (REG_MSNA_BASE, PLL_RESET_A),
+            PllSource::PllB => (REG_MSNB_BASE, PLL_RESET_B),
+        };
+
+        let old_pll_freq = match pll {
+            PllSource::PllA => self.plla_freq,
+            PllSource::PllB => self.pllb_freq,
+        };
+
+        self.write_pll_params(pll_base, &pll_params).await?;
+        self.write_ms_params(REG_MS1_BASE, &ms_params).await?;
+        self.write_ms_params(REG_MS2_BASE, &ms_params).await?;
+
+        let phase_offset = (divider / 4) as u8;
+        self.write_reg(REG_CLK1_PHASE, 0).await?;
+        self.write_reg(REG_CLK2_PHASE, phase_offset).await?;
+
+        let pll_bit = match pll {
+            PllSource::PllA => 0x00,
+            PllSource::PllB => 0x20,
+        };
+        let clk1_control = 0x0C | pll_bit | self.clk1_drive.bits();
+        let clk2_control = 0x0C | pll_bit | self.clk2_drive.bits();
+        self.write_reg(REG_CLK1_CONTROL, clk1_control).await?;
+        self.write_reg(REG_CLK2_CONTROL, clk2_control).await?;
+
+        if actual_vco != old_pll_freq {
+            match pll {
+                PllSource::PllA => self.plla_freq = actual_vco,
+                PllSource::PllB => self.pllb_freq = actual_vco,
+            }
+        }
+        self.write_reg(REG_PLL_RESET, pll_reset_bit).await?;
+
+        self.clk1_enabled = true;
+        self.clk2_enabled = true;
         self.update_output_enable().await?;
 
         Ok(())
@@ -181,12 +259,14 @@ where
         let clk_reg = match output {
             ClkOutput::Clk0 => REG_CLK0_CONTROL,
             ClkOutput::Clk1 => REG_CLK1_CONTROL,
+            ClkOutput::Clk2 => REG_CLK2_CONTROL,
         };
         self.write_reg(clk_reg, 0x80).await?;
 
         match output {
             ClkOutput::Clk0 => self.clk0_enabled = false,
             ClkOutput::Clk1 => self.clk1_enabled = false,
+            ClkOutput::Clk2 => self.clk2_enabled = false,
         }
         self.update_output_enable().await?;
 
@@ -201,17 +281,66 @@ where
         match output {
             ClkOutput::Clk0 => self.clk0_drive = strength,
             ClkOutput::Clk1 => self.clk1_drive = strength,
+            ClkOutput::Clk2 => self.clk2_drive = strength,
         }
 
         let clk_reg = match output {
             ClkOutput::Clk0 => REG_CLK0_CONTROL,
             ClkOutput::Clk1 => REG_CLK1_CONTROL,
+            ClkOutput::Clk2 => REG_CLK2_CONTROL,
         };
         let current = self.read_reg(clk_reg).await?;
         let updated = (current & 0xFC) | strength.bits();
         self.write_reg(clk_reg, updated).await?;
 
         Ok(())
+    }
+
+    fn calculate_even_divider(&self, freq_hz: u32) -> u32 {
+        let div_min = PLL_VCO_MIN / freq_hz;
+        let div_max = PLL_VCO_MAX / freq_hz;
+
+        let start = if div_min < MULTISYNTH_DIVIDER_MIN {
+            MULTISYNTH_DIVIDER_MIN
+        } else {
+            div_min
+        };
+        let end = if div_max > MULTISYNTH_DIVIDER_MAX {
+            MULTISYNTH_DIVIDER_MAX
+        } else {
+            div_max
+        };
+
+        let mut best_div = start;
+        if best_div % 2 != 0 {
+            best_div += 1;
+        }
+        if best_div % 4 != 0 {
+            let next = best_div + (4 - best_div % 4);
+            if next <= end {
+                best_div = next;
+            }
+        }
+
+        let mut best_remainder = u32::MAX;
+        let mut result = best_div;
+        let mut div = best_div;
+        while div <= end {
+            let vco = freq_hz * div;
+            if vco >= PLL_VCO_MIN && vco <= PLL_VCO_MAX {
+                let remainder = vco % XTAL_FREQ;
+                if remainder < best_remainder {
+                    best_remainder = remainder;
+                    result = div;
+                    if remainder == 0 {
+                        break;
+                    }
+                }
+            }
+            div += 4;
+        }
+
+        result
     }
 
     fn calculate_optimal_vco(&self, freq_hz: u32) -> u32 {
@@ -369,6 +498,9 @@ where
         }
         if self.clk1_enabled {
             val &= !0x02;
+        }
+        if self.clk2_enabled {
+            val &= !0x04;
         }
         self.write_reg(REG_OUTPUT_ENABLE, val).await
     }

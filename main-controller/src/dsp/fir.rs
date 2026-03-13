@@ -70,7 +70,7 @@ impl SoftwareFir {
         let f_high = (shift_hz + bw_hz / 2.0) / sample_rate;
         let pi = core::f32::consts::PI;
 
-        let mut sum = 0.0f32;
+        let f_center = (f_low + f_high) / 2.0;
         for i in 0..n {
             let m = i as f32 - half + 0.5;
             let sinc_high = if m == 0.0 {
@@ -86,12 +86,17 @@ impl SoftwareFir {
             let x = i as f32 / (n as f32 - 1.0);
             let w = Self::blackman_harris(x, cordic);
             out[i] = (sinc_high - sinc_low) * w;
-            sum += out[i];
         }
 
-        if sum.abs() > 1e-6 {
+        let mut gain_at_center = 0.0f32;
+        for i in 0..n {
+            let m = i as f32 - half + 0.5;
+            gain_at_center += out[i] * with_cordic(cordic, |c| c.cosf(2.0 * pi * f_center * m));
+        }
+
+        if gain_at_center.abs() > 1e-6 {
             for c in out[..n].iter_mut() {
-                *c /= sum;
+                *c /= gain_at_center;
             }
         }
     }

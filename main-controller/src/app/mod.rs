@@ -7,6 +7,7 @@ pub mod events;
 pub mod tasks;
 pub mod tone_generator;
 pub mod types;
+pub mod spectral_nr;
 pub mod vox;
 pub mod waterfall;
 

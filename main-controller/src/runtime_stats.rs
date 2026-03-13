@@ -58,7 +58,7 @@ pub enum TaskId {
     NbActivity,
     IfGainControl,
     RssiRead,
-    DetectorTasks,
+
     AudioPanelSaiRx,
     AudioPanelSaiTx,
     AudioPanelControl,

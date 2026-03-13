@@ -1,10 +1,10 @@
 use embassy_executor::Spawner;
-use embassy_futures::select::{select3, Either3};
+use embassy_futures::select::{select, Either};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use static_cell::StaticCell;
 
 use crate::{
-    app::events::{MODE, NB_LEVEL, NB_ACTIVE},
+    app::events::{MODE, NB_ENABLED, NB_LEVEL, NB_ACTIVE},
     main_board::{events::CURRENT_RSSI1, modules::crystal_filter::CrystalFilter},
     runtime_stats::TaskId,
 };
@@ -23,27 +23,32 @@ pub fn spawn_tasks(spawner: Spawner, crystal_filter: CrystalFilter) {
 #[embassy_executor::task]
 async fn crystal_filter_task(mutex: &'static Mutex<ThreadModeRawMutex, CrystalFilter>) {
     let mut mode_rcv = MODE.receiver().unwrap();
+    let mut nb_enabled_rcv = NB_ENABLED.receiver().unwrap();
     let mut nb_level_rcv = NB_LEVEL.receiver().unwrap();
     let mut rssi_rcv = CURRENT_RSSI1.receiver().unwrap();
     loop {
-        match select3(
-            mode_rcv.changed(),
-            nb_level_rcv.changed(),
-            rssi_rcv.changed(),
+        match select(
+            select(mode_rcv.changed(), nb_enabled_rcv.changed()),
+            select(nb_level_rcv.changed(), rssi_rcv.changed()),
         )
         .await
         {
-            Either3::First(mode) => {
+            Either::First(Either::First(mode)) => {
                 if let Err(e) = mutex.lock().await.set_mode(mode).await {
                     error(e).await;
                 }
             }
-            Either3::Second(nb_level) => {
+            Either::First(Either::Second(enabled)) => {
+                if let Err(e) = mutex.lock().await.set_nb_enabled(enabled).await {
+                    error(e).await;
+                }
+            }
+            Either::Second(Either::First(nb_level)) => {
                 if let Err(e) = mutex.lock().await.set_nb_level(nb_level).await {
                     error(e).await;
                 }
             }
-            Either3::Third(rssi) => {
+            Either::Second(Either::Second(rssi)) => {
                 if let Err(e) = mutex.lock().await.set_rssi(rssi).await {
                     error(e).await;
                 }
