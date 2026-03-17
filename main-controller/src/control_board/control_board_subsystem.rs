@@ -5,7 +5,7 @@ use embassy_stm32::i2c::{self, mode as i2c_mode, I2c, SclPin, SdaPin};
 use embassy_stm32::mode;
 use embassy_stm32::peripherals::{self as stm_peripherals, GPDMA1_CH6, GPDMA1_CH7, IWDG, PA0, PB13, PB14, RTC as RTC_PERI, TIM2, UCPD1};
 use embassy_stm32::rtc::{Rtc, RtcConfig, RtcTimeProvider};
-use embassy_stm32::spi::{self, CkPin, MosiPin, TxDma, WsPin};
+use embassy_stm32::spi::{self, CkPin, MckPin, MosiPin, TxDma, WsPin};
 use embassy_stm32::usb;
 use embassy_stm32::{interrupt, Peri};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -44,6 +44,7 @@ impl ControlBoardSybstem {
         spi_txsd: Peri<'static, impl MosiPin<T2>>,
         spi_ws: Peri<'static, impl WsPin<T2>>,
         spi_ck: Peri<'static, impl CkPin<T2>>,
+        spi_mck: Peri<'static, impl MckPin<T2>>,
         spi_txdma: Peri<'static, impl TxDma<T2>>,
 
         ucpd_peri: Peri<'static, UCPD1>,
@@ -101,7 +102,7 @@ impl ControlBoardSybstem {
             i2c_map.ina228_3v3,
         );
         let audio = Audio::new(
-            spi_peri, spi_txsd, spi_ws, spi_ck, spi_txdma,
+            spi_peri, spi_txsd, spi_ws, spi_ck, spi_mck, spi_txdma,
         );
 
         let fan = Fan::new(fan_tim, fan_pin);

@@ -17,9 +17,9 @@ pub enum Register {
 const MODE_CTRL2_POWER_DOWN_CP_EN: u8 = 0x03;
 const MODE_CTRL2_CP_EN: u8 = 0x02;
 
-const MODE_CTRL1_MASTER: u8 = 1 << 7;
+const MODE_CTRL1_SLAVE: u8 = 0x00;
 const MODE_CTRL1_QUAD_SPEED: u8 = 0x03;
-const MODE_CTRL1_RATIO_128: u8 = 0x00 << 5;
+const MODE_CTRL1_RATIO_128: u8 = 0x02 << 5;
 
 const DAC_I2S_24BIT: u8 = 0x09;
 const ADC_I2S_24BIT: u8 = 0x00;
@@ -76,8 +76,8 @@ where
         self.write_register(Register::ModeControl2, MODE_CTRL2_POWER_DOWN_CP_EN)
             .await?;
 
-        const MASTER_QUAD_128: u8 = MODE_CTRL1_MASTER | MODE_CTRL1_RATIO_128 | MODE_CTRL1_QUAD_SPEED;
-        self.write_register(Register::ModeControl1, MASTER_QUAD_128)
+        const SLAVE_QUAD_128: u8 = MODE_CTRL1_SLAVE | MODE_CTRL1_RATIO_128 | MODE_CTRL1_QUAD_SPEED;
+        self.write_register(Register::ModeControl1, SLAVE_QUAD_128)
             .await?;
 
         self.dac_ctrl_cache = DAC_I2S_24BIT;

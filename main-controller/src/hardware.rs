@@ -9,7 +9,7 @@ use embassy_stm32::{
 };
 
 use embassy_stm32::rcc::{
-    AHBPrescaler, APBPrescaler, Hse, HseMode, Hsi48Config, LsConfig, Pll, PllDiv, PllMul,
+    mux, AHBPrescaler, APBPrescaler, Hse, HseMode, Hsi48Config, LsConfig, Pll, PllDiv, PllMul,
     PllPreDiv, PllSource, Sysclk, VoltageScale,
 };
 use embassy_stm32::time::Hertz;
@@ -54,6 +54,16 @@ impl Hardware {
             divq: None,
             divr: None,
         });
+        config.rcc.pll2 = Some(Pll {
+            source: PllSource::HSE,
+            prediv: PllPreDiv::DIV5,
+            mul: PllMul::MUL192,
+            divp: Some(PllDiv::DIV25),
+            divq: None,
+            divr: None,
+        });
+        config.rcc.mux.spi2sel = mux::Spi2sel::PLL2_P;
+        config.rcc.mux.sai1sel = mux::Saisel::PLL2_P;
         config.rcc.sys = Sysclk::PLL1_P;
         config.rcc.voltage_scale = VoltageScale::Scale0;
         config.rcc.ahb_pre = AHBPrescaler::DIV1;
@@ -91,6 +101,7 @@ impl Hardware {
             p.PE6,
             p.PE3,
             p.PE4,
+            p.PE2,
             p.GPDMA1_CH2,
             p.GPDMA1_CH3,
         )
@@ -137,6 +148,7 @@ impl Hardware {
             p.PB15,
             p.PB12,
             p.PA9,
+            p.PC6,
             p.GPDMA2_CH2,
             p.UCPD1,
             p.PB13,

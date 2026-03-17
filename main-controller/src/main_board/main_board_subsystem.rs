@@ -7,7 +7,7 @@ use embassy_stm32::{
     interrupt,
     mode::{self},
     peripherals as stm_peripherals,
-    sai::{self, Dma, FsPin, SckPin, SdPin},
+    sai::{self, Dma, FsPin, MclkPin, SckPin, SdPin},
     Peri,
 };
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
@@ -46,6 +46,7 @@ impl MainBoardSubsystem {
         sai_sd_a: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::A>>,
         sai_sd_b: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::B>>,
         sai_fs: Peri<'static, impl FsPin<stm_peripherals::SAI1, sai::A>>,
+        sai_mclk: Peri<'static, impl MclkPin<stm_peripherals::SAI1, sai::A>>,
         sai_dma_a: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::A>>,
         sai_dma_b: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::B>>,
     ) {
@@ -82,6 +83,7 @@ impl MainBoardSubsystem {
                 sai_sd_a,
                 sai_sd_b,
                 sai_fs,
+                sai_mclk,
                 sai_dma_a,
                 sai_dma_b,
             ),

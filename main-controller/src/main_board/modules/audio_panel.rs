@@ -6,7 +6,7 @@ use common::drivers::cs4272::Cs4272;
 use common::drivers::pca9534::{Pin, PCA9534};
 
 use embassy_stm32::peripherals as stm_peripherals;
-use embassy_stm32::sai::{self, Dma, FsPin, Sai, SckPin, SdPin, TxRx};
+use embassy_stm32::sai::{self, Dma, FsPin, MclkPin, Sai, SckPin, SdPin, TxRx};
 use embassy_stm32::Peri;
 use static_cell::StaticCell;
 
@@ -33,6 +33,7 @@ impl AudioPanel {
         sd_a: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::A>>,
         sd_b: Peri<'static, impl SdPin<stm_peripherals::SAI1, sai::B>>,
         fs: Peri<'static, impl FsPin<stm_peripherals::SAI1, sai::A>>,
+        mclk: Peri<'static, impl MclkPin<stm_peripherals::SAI1, sai::A>>,
         dma_a: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::A>>,
         dma_b: Peri<'static, impl Dma<stm_peripherals::SAI1, sai::B>>,
     ) -> Self {
@@ -40,7 +41,7 @@ impl AudioPanel {
         let pca9534 = PCA9534::new(pca9534_addr.into(), i2c);
 
         let mut tx_config = sai::Config::new();
-        tx_config.mode = sai::Mode::Slave;
+        tx_config.mode = sai::Mode::Master;
         tx_config.tx_rx = TxRx::Transmitter;
         tx_config.sync_output = true;
         tx_config.data_size = sai::DataSize::Data24;
@@ -77,8 +78,8 @@ impl AudioPanel {
         let tx_buffer = TX_BUFFER.init([0u32; ADC_BUFFER_SIZE]);
         let rx_buffer = RX_BUFFER.init([0u32; ADC_BUFFER_SIZE]);
 
-        let sai_tx = Sai::new_asynchronous(
-            sub_block_a, sck, sd_a, fs, dma_a, tx_buffer, tx_config,
+        let sai_tx = Sai::new_asynchronous_with_mclk(
+            sub_block_a, sck, sd_a, fs, mclk, dma_a, tx_buffer, tx_config,
         );
         let sai_rx = Sai::new_synchronous(sub_block_b, sd_b, dma_b, rx_buffer, rx_config);
 

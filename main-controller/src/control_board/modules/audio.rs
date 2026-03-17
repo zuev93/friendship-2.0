@@ -1,5 +1,5 @@
 use embassy_stm32::i2s::{ClockPolarity, Config, Format, Mode as I2sMode, Standard, I2S};
-use embassy_stm32::spi::{self, CkPin, MosiPin, TxDma, WsPin};
+use embassy_stm32::spi::{self, CkPin, MckPin, MosiPin, TxDma, WsPin};
 use embassy_stm32::time::Hertz;
 use embassy_stm32::Peri;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -22,6 +22,7 @@ impl Audio {
         txsd: Peri<'static, impl MosiPin<T>>,
         ws: Peri<'static, impl WsPin<T>>,
         ck: Peri<'static, impl CkPin<T>>,
+        mck: Peri<'static, impl MckPin<T>>,
         txdma: Peri<'static, impl TxDma<T>>,
     ) -> Self {
         let mut config = Config::default();
@@ -30,12 +31,12 @@ impl Audio {
         config.standard = Standard::Philips;
         config.format = Format::Data16Channel16;
         config.clock_polarity = ClockPolarity::IdleLow;
-        config.master_clock = false;
+        config.master_clock = true;
 
         let tx_buffer = TX_BUFFER.init([0u16; AUDIO_BUFFER_SIZE]);
 
-        let i2s = I2S::new_txonly_nomck(
-            spi_peri, txsd, ws, ck, txdma, tx_buffer, config,
+        let i2s = I2S::new_txonly(
+            spi_peri, txsd, ws, ck, mck, txdma, tx_buffer, config,
         );
         let i2s = AUDIO_I2S.init(Mutex::new(i2s));
 
